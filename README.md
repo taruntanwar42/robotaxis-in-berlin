@@ -84,7 +84,7 @@ python scripts\smoke_backend.py --base-url http://127.0.0.1:7860
 ## Hugging Face SUMO Backend
 
 The `hf-space/` folder is a Docker Space scaffold for a small SUMO backend. It
-installs SUMO in the container, exposes a FastAPI API, serves the current
+uses the official Eclipse SUMO container, exposes a FastAPI API, serves the current
 six-seven scenario bundle, includes a simple WebSocket replay endpoint, and
 streams the packaged Reinickendorf SUMO cutout over TraCI.
 

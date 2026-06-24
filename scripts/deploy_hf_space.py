@@ -54,10 +54,16 @@ def main() -> None:
         folder_path=str(SPACE_DIR),
         commit_message="Deploy robotaxi SUMO backend",
     )
+    runtime = api.restart_space(
+        repo_id=args.repo_id,
+        token=token,
+        factory_reboot=True,
+    )
 
     space_slug = args.repo_id.replace("/", "-")
     print(f"Deployed: https://huggingface.co/spaces/{args.repo_id}")
     print(f"App URL:   https://{space_slug}.hf.space")
+    print(f"Runtime:   {runtime.stage}")
 
 
 if __name__ == "__main__":

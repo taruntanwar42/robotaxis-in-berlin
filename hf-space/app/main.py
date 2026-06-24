@@ -169,6 +169,51 @@ def sumo_reinickendorf_summary() -> dict[str, Any]:
     }
 
 
+@app.get("/sumo/reinickendorf/validate")
+def validate_sumo_reinickendorf() -> dict[str, Any]:
+    sumo_binary = find_sumo_binary()
+    if not sumo_binary:
+        return {"ok": False, "error": "sumo binary not found"}
+
+    (SUMO_SCENARIO_DIR / "output").mkdir(exist_ok=True)
+    sumo_home = find_sumo_home()
+    env = os.environ.copy()
+    if sumo_home:
+        env["SUMO_HOME"] = str(sumo_home)
+
+    command = [
+        sumo_binary,
+        "-c",
+        str(SUMO_CONFIG_PATH),
+        "--begin",
+        str(SUMO_START_SEC),
+        "--end",
+        str(SUMO_START_SEC + 10),
+        "--step-length",
+        "1",
+        "--no-step-log",
+        "true",
+        "--quit-on-end",
+        "true",
+    ]
+    result = subprocess.run(
+        command,
+        cwd=str(SUMO_SCENARIO_DIR),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return {
+        "ok": result.returncode == 0,
+        "returnCode": result.returncode,
+        "command": command,
+        "stdout": result.stdout[-4000:],
+        "stderr": result.stderr[-4000:],
+    }
+
+
 @app.websocket("/ws/replay")
 async def replay(websocket: WebSocket) -> None:
     await websocket.accept()

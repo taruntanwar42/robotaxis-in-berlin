@@ -90,6 +90,14 @@ $env:HF_TOKEN = Read-Host "HF token"
 python scripts\deploy_hf_space.py --repo-id YOUR_USERNAME/robotaxi-sumo-backend
 ```
 
+Or add a GitHub repository secret named `HF_TOKEN` and run the
+`Deploy Hugging Face Space` workflow manually. That uploads the same `hf-space/`
+folder to:
+
+```text
+https://huggingface.co/spaces/icybean/robotaxi-sumo-backend
+```
+
 Run the backend locally from this project:
 
 ```powershell

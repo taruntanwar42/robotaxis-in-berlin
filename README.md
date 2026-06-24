@@ -31,6 +31,12 @@ npm install
 npm run dev
 ```
 
+For the local SUMO backend:
+
+```powershell
+npm run backend:dev
+```
+
 The local MapTiler style URL is read from `.env.local`:
 
 ```text
@@ -71,8 +77,8 @@ Bezirk boundary.
 ## Checks
 
 ```powershell
-npm run lint
-npm run build
+npm run check
+python scripts\smoke_backend.py --base-url http://127.0.0.1:7860
 ```
 
 ## Hugging Face SUMO Backend
@@ -97,6 +103,8 @@ folder to:
 ```text
 https://huggingface.co/spaces/icybean/robotaxi-sumo-backend
 ```
+
+See `docs/OPERATIONS.md` for the full local/HF/GitHub Pages runbook.
 
 Run the backend locally from this project:
 

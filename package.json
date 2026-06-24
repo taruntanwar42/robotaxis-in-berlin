@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend:dev": "python -m uvicorn app.main:app --app-dir hf-space --host 127.0.0.1 --port 7860",
     "build": "tsc -b && vite build",
+    "check": "npm run lint && npm run build",
+    "deploy:hf": "python scripts/deploy_hf_space.py --repo-id icybean/robotaxi-sumo-backend",
     "lint": "oxlint",
     "preview": "vite preview"
   },

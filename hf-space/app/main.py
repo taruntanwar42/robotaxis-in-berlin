@@ -22,7 +22,7 @@ app = FastAPI(title="Robotaxi SUMO Backend", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOW_ORIGINS", "*").split(","),
+    allow_origins=[origin for origin in os.getenv("ALLOW_ORIGINS", "*").split(",") if origin],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,7 +93,7 @@ def sumo_version() -> dict[str, Any]:
             timeout=10,
         )
         return {
-            "available": True,
+            "available": result.returncode == 0,
             "binary": sumo_binary,
             "returnCode": result.returncode,
             "stdout": result.stdout.strip(),
@@ -108,17 +108,28 @@ def sumo_version() -> dict[str, Any]:
 @app.get("/health")
 def health() -> dict[str, Any]:
     scenario = load_scenario()
+    sumo = sumo_version()
+    files = packaged_sumo_files()
     return {
-        "ok": True,
+        "ok": bool(sumo["available"] and all(files.values())),
         "service": "robotaxi-sumo-backend",
         "scenario": scenario["scenario"]["id"],
-        "sumoAvailable": sumo_version()["available"],
+        "sumoAvailable": sumo["available"],
+        "packagedFiles": files,
     }
 
 
 @app.get("/sumo/version")
 def get_sumo_version() -> dict[str, Any]:
     return sumo_version()
+
+
+def packaged_sumo_files() -> dict[str, bool]:
+    return {
+        "net": (SUMO_SCENARIO_DIR / "reinickendorf.net.xml").exists(),
+        "routes": (SUMO_SCENARIO_DIR / "reinickendorf-internal.rou.gz").exists(),
+        "config": SUMO_CONFIG_PATH.exists(),
+    }
 
 
 @app.get("/scenario/summary")
@@ -154,11 +165,7 @@ def sumo_reinickendorf_summary() -> dict[str, Any]:
             "endSec": SUMO_END_SEC,
             "label": scenario["scenario"]["windowLabel"],
         },
-        "files": {
-            "net": (SUMO_SCENARIO_DIR / "reinickendorf.net.xml").exists(),
-            "routes": (SUMO_SCENARIO_DIR / "reinickendorf-internal.rou.gz").exists(),
-            "config": SUMO_CONFIG_PATH.exists(),
-        },
+        "files": packaged_sumo_files(),
     }
 
 
@@ -257,6 +264,7 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
     ]
 
     connection_label = f"reinickendorf-{id(websocket)}"
+    frame_delay_sec = float(os.getenv("SUMO_FRAME_DELAY_SEC", "0.035"))
 
     try:
         (SUMO_SCENARIO_DIR / "output").mkdir(exist_ok=True)
@@ -310,7 +318,7 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
                     "arrived": list(connection.simulation.getArrivedIDList()),
                 }
             )
-            await asyncio.sleep(0.035)
+            await asyncio.sleep(frame_delay_sec)
 
         await websocket.send_json({"type": "done"})
     except WebSocketDisconnect:

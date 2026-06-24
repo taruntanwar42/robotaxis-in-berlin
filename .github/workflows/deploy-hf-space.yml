@@ -22,3 +22,10 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/deploy_hf_space.py --repo-id icybean/robotaxi-sumo-backend
+
+      - name: Smoke-check Space
+        run: >-
+          python scripts/smoke_backend.py
+          --base-url https://icybean-robotaxi-sumo-backend.hf.space
+          --retries 12
+          --retry-delay-sec 20

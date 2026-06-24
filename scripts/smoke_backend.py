@@ -8,11 +8,13 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse, urlunparse
 
 
 def get_json(base_url: str, path: str) -> dict:
@@ -22,16 +24,53 @@ def get_json(base_url: str, path: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def websocket_url(base_url: str, path: str) -> str:
+    parsed = urlparse(base_url.rstrip("/"))
+    scheme = "wss" if parsed.scheme == "https" else "ws"
+    return urlunparse((scheme, parsed.netloc, path, "", "", ""))
+
+
+async def check_sumo_websocket(base_url: str, max_messages: int) -> None:
+    try:
+        import websockets
+    except ImportError as error:
+        raise RuntimeError(
+            "websockets is required for --check-websocket; install it with "
+            "`python -m pip install websockets`"
+        ) from error
+
+    uri = websocket_url(base_url, "/ws/sumo/reinickendorf")
+    saw_frame = False
+    async with websockets.connect(uri, open_timeout=30) as websocket:
+        for _ in range(max_messages):
+            raw_message = await asyncio.wait_for(websocket.recv(), timeout=30)
+            message = json.loads(raw_message)
+            message_type = message.get("type")
+            if message_type == "error":
+                raise RuntimeError(message.get("message", "backend sent error frame"))
+            if message_type == "frame":
+                saw_frame = True
+                if (message.get("vehicleCount") or 0) > 0:
+                    return
+
+    if saw_frame:
+        raise RuntimeError(f"no vehicle frame received after {max_messages} messages")
+    raise RuntimeError(f"no SUMO frame received after {max_messages} messages")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--retries", type=int, default=1)
     parser.add_argument("--retry-delay-sec", type=float, default=10)
+    parser.add_argument("--check-websocket", action="store_true")
+    parser.add_argument("--websocket-max-messages", type=int, default=60)
     args = parser.parse_args()
 
     checks = {
         "health": "/health",
         "sumo_summary": "/sumo/reinickendorf/summary",
+        "sumo_validate": "/sumo/reinickendorf/validate",
         "scenario_summary": "/scenario/summary",
     }
 
@@ -54,6 +93,18 @@ def main() -> None:
                 failures.append(f"{label}: backend reported ok=false")
             if label == "sumo_summary" and not payload.get("available"):
                 failures.append(f"{label}: SUMO summary reports unavailable")
+            if label == "sumo_validate" and not payload.get("ok"):
+                failures.append(f"{label}: SUMO validation failed")
+
+        if args.check_websocket:
+            try:
+                asyncio.run(
+                    check_sumo_websocket(args.base_url, args.websocket_max_messages)
+                )
+            except Exception as error:
+                failures.append(f"sumo_websocket: {error}")
+            else:
+                print("sumo_websocket: ok")
 
         if not failures:
             break

@@ -53,9 +53,11 @@ type SumoFrame = {
 type SumoNetwork = {
   available: boolean
   lanes: FeatureCollection<LineString>
+  internalLanes: FeatureCollection<LineString>
   trafficLights: FeatureCollection
   counts: {
     lanes: number
+    internalLanes: number
     trafficLights: number
   }
 }
@@ -103,6 +105,7 @@ type ScenarioDataSource = "local-bundle" | "local-backend" | "remote-backend"
 type SumoLayerKey = "lanes" | "vehicles" | "trafficLights" | "boundary"
 
 const speedOptions = [1, 10, 30, 60, 120, 240]
+const sumoDelayOptions = [0, 16, 35, 100, 250, 1000]
 const replayLayerIds = [
   "roads-glow",
   "roads",
@@ -119,7 +122,7 @@ const defaultSumoLayerVisibility: Record<SumoLayerKey, boolean> = {
   boundary: true,
 }
 const sumoLayerIds: Record<SumoLayerKey, string[]> = {
-  lanes: ["sumo-lanes"],
+  lanes: ["sumo-internal-lanes", "sumo-lanes"],
   vehicles: ["sumo-vehicles"],
   trafficLights: ["sumo-traffic-lights"],
   boundary: ["base-service-area-line"],
@@ -235,18 +238,24 @@ function emptyFeatureCollection(): FeatureCollection {
 function createVehicleMarkerImage() {
   const pixelRatio = 4
   const canvas = document.createElement("canvas")
-  canvas.width = 14 * pixelRatio
-  canvas.height = 5 * pixelRatio
+  canvas.width = 6 * pixelRatio
+  canvas.height = 16 * pixelRatio
   const context = canvas.getContext("2d")
   if (!context) {
     return null
   }
 
   context.scale(pixelRatio, pixelRatio)
-  context.fillStyle = "#11191d"
-  context.fillRect(1, 1, 12, 3)
-  context.fillStyle = "rgba(255, 255, 255, 0.34)"
-  context.fillRect(10.5, 1.5, 1.5, 2)
+  context.fillStyle = "rgba(21, 17, 9, 0.34)"
+  context.fillRect(1, 2.5, 4, 11)
+  context.fillStyle = "#c9962e"
+  context.fillRect(1.4, 1.5, 3.2, 13)
+  context.fillStyle = "#f0c660"
+  context.fillRect(1.9, 2, 2.2, 2.6)
+  context.fillStyle = "#1b2021"
+  context.fillRect(2, 5.6, 2, 4.5)
+  context.fillStyle = "#8a641d"
+  context.fillRect(2, 11.2, 2, 2.4)
 
   return {
     data: context.getImageData(0, 0, canvas.width, canvas.height),
@@ -347,6 +356,11 @@ function backendWebSocketUrl(path: string) {
   return `${protocolUrl}${path}`
 }
 
+function withQueryParam(url: string, key: string, value: string | number) {
+  const separator = url.includes("?") ? "&" : "?"
+  return `${url}${separator}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+}
+
 function backendHttpUrl(path: string) {
   if (!scenarioApiUrl) {
     return null
@@ -362,7 +376,9 @@ export default function App() {
   const [sumoStatus, setSumoStatus] = useState("Idle")
   const [sumoFrame, setSumoFrame] = useState<SumoFrame | null>(null)
   const [sumoNetwork, setSumoNetwork] = useState<SumoNetwork | null>(null)
+  const [isSumoRunning, setIsSumoRunning] = useState(false)
   const [sumoSessionKey, setSumoSessionKey] = useState(0)
+  const [sumoFrameDelayMs, setSumoFrameDelayMs] = useState(35)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isTiltEnabled, setIsTiltEnabled] = useState(false)
   const [activeSection, setActiveSection] = useState<MapSection>("base")
@@ -748,6 +764,10 @@ export default function App() {
         type: "geojson",
         data: emptyFeatureCollection(),
       })
+      map.addSource("sumo-internal-lanes", {
+        type: "geojson",
+        data: emptyFeatureCollection(),
+      })
       map.addSource("sumo-traffic-lights", {
         type: "geojson",
         data: emptyFeatureCollection(),
@@ -762,6 +782,26 @@ export default function App() {
           pixelRatio: vehicleMarker.pixelRatio,
         })
       }
+      map.addLayer({
+        id: "sumo-internal-lanes",
+        type: "line",
+        source: "sumo-internal-lanes",
+        paint: {
+          "line-color": "#11191d",
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.24,
+            14,
+            0.58,
+            16,
+            1.1,
+          ],
+          "line-opacity": 0.24,
+        },
+      })
       map.addLayer({
         id: "sumo-lanes",
         type: "line",
@@ -868,6 +908,7 @@ export default function App() {
     }
 
     source(map, "sumo-lanes")?.setData(sumoNetwork.lanes)
+    source(map, "sumo-internal-lanes")?.setData(sumoNetwork.internalLanes)
     source(map, "sumo-traffic-lights")?.setData(sumoNetwork.trafficLights)
   }, [sumoNetwork])
 
@@ -885,6 +926,11 @@ export default function App() {
       return
     }
 
+    if (!isSumoRunning) {
+      setSumoStatus("Ready")
+      return
+    }
+
     const wsUrl = backendWebSocketUrl("/ws/sumo/reinickendorf")
     const summaryUrl = backendHttpUrl("/sumo/reinickendorf/summary")
     if (!wsUrl) {
@@ -892,7 +938,7 @@ export default function App() {
       return
     }
 
-    const nextWsUrl = wsUrl
+    const nextWsUrl = withQueryParam(wsUrl, "delayMs", sumoFrameDelayMs)
     let isClosed = false
     let socket: WebSocket | null = null
     setSumoStatus("Checking backend")
@@ -968,6 +1014,7 @@ export default function App() {
       socket.addEventListener("close", () => {
         if (!isClosed) {
           setSumoStatus("Disconnected")
+          setIsSumoRunning(false)
         }
       })
 
@@ -982,7 +1029,7 @@ export default function App() {
       isClosed = true
       socket?.close()
     }
-  }, [activeSection, sumoSessionKey])
+  }, [activeSection, isSumoRunning, sumoFrameDelayMs, sumoSessionKey])
 
   useEffect(() => {
     const map = mapRef.current
@@ -1115,6 +1162,62 @@ export default function App() {
             <Metric label="Vehicles" value={sumoFrame?.vehicleCount ?? 0} />
             <Metric label="Lights" value={sumoNetwork?.counts.trafficLights ?? "--"} />
           </div>
+          <div className="sumo-run-controls" aria-label="SUMO run controls">
+            <div className="delay-control">
+              <div className="delay-control-header">
+                <span>Frame delay</span>
+                <strong>{sumoFrameDelayMs} ms</strong>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1000}
+                step={5}
+                value={sumoFrameDelayMs}
+                disabled={isSumoRunning}
+                onChange={(event) => setSumoFrameDelayMs(Number(event.target.value))}
+                aria-label="SUMO frame delay milliseconds"
+              />
+              <div className="delay-options">
+                {sumoDelayOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={
+                      option === sumoFrameDelayMs ? "delay-option is-active" : "delay-option"
+                    }
+                    disabled={isSumoRunning}
+                    onClick={() => setSumoFrameDelayMs(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="control-row">
+              <button
+                type="button"
+                className="icon-button"
+                disabled={isSumoRunning}
+                onClick={() => {
+                  setSumoFrame(null)
+                  setIsSumoRunning(true)
+                }}
+              >
+                <Play size={16} />
+                <span>Start</span>
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                disabled={!isSumoRunning}
+                onClick={() => setIsSumoRunning(false)}
+              >
+                <Pause size={16} />
+                <span>Stop</span>
+              </button>
+            </div>
+          </div>
           <div className="sumo-layer-list" aria-label="SUMO map layers">
             <LayerToggle
               label="Lanes"
@@ -1162,11 +1265,15 @@ export default function App() {
             className="icon-button"
             onClick={() => {
               setSumoFrame(null)
-              setSumoSessionKey((current) => current + 1)
+              if (isSumoRunning) {
+                setSumoSessionKey((current) => current + 1)
+              } else {
+                setIsSumoRunning(true)
+              }
             }}
           >
             <RotateCcw size={16} />
-            <span>Restart stream</span>
+            <span>{isSumoRunning ? "Restart stream" : "Start stream"}</span>
           </button>
         </section>
       ) : null}

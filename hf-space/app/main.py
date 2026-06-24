@@ -22,6 +22,7 @@ SUMO_CONFIG_PATH = SUMO_SCENARIO_DIR / "reinickendorf-internal.sumocfg"
 SUMO_NET_PATH = SUMO_SCENARIO_DIR / "reinickendorf.net.xml"
 SUMO_START_SEC = 21_600
 SUMO_END_SEC = 25_200
+DEFAULT_FRAME_DELAY_SEC = 0.035
 
 app = FastAPI(title="Robotaxi SUMO Backend", version="0.1.0")
 
@@ -154,28 +155,31 @@ def load_sumo_network() -> dict[str, Any]:
     utm_zone = int(zone_match.group(1)) if zone_match else 33
 
     lane_features = []
+    internal_lane_features = []
     for edge in root.findall("edge"):
         edge_id = edge.attrib.get("id", "")
-        if edge.attrib.get("function") == "internal" or edge_id.startswith(":"):
-            continue
+        is_internal = edge.attrib.get("function") == "internal" or edge_id.startswith(":")
 
         for lane in edge.findall("lane"):
             shape = parse_sumo_shape(lane.attrib.get("shape", ""), net_offset, utm_zone)
             if len(shape) < 2:
                 continue
 
-            lane_features.append(
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "id": lane.attrib.get("id"),
-                        "edgeId": edge_id,
-                        "speed": round(float(lane.attrib.get("speed", 0)), 3),
-                        "length": round(float(lane.attrib.get("length", 0)), 3),
-                    },
-                    "geometry": {"type": "LineString", "coordinates": shape},
-                }
-            )
+            feature = {
+                "type": "Feature",
+                "properties": {
+                    "id": lane.attrib.get("id"),
+                    "edgeId": edge_id,
+                    "internal": is_internal,
+                    "speed": round(float(lane.attrib.get("speed", 0)), 3),
+                    "length": round(float(lane.attrib.get("length", 0)), 3),
+                },
+                "geometry": {"type": "LineString", "coordinates": shape},
+            }
+            if is_internal:
+                internal_lane_features.append(feature)
+            else:
+                lane_features.append(feature)
 
     traffic_light_features = []
     for junction in root.findall("junction"):
@@ -201,12 +205,17 @@ def load_sumo_network() -> dict[str, Any]:
 
     return {
         "lanes": {"type": "FeatureCollection", "features": lane_features},
+        "internalLanes": {
+            "type": "FeatureCollection",
+            "features": internal_lane_features,
+        },
         "trafficLights": {
             "type": "FeatureCollection",
             "features": traffic_light_features,
         },
         "counts": {
             "lanes": len(lane_features),
+            "internalLanes": len(internal_lane_features),
             "trafficLights": len(traffic_light_features),
         },
     }
@@ -502,7 +511,7 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
     ]
 
     connection_label = f"reinickendorf-{id(websocket)}"
-    frame_delay_sec = float(os.getenv("SUMO_FRAME_DELAY_SEC", "0.035"))
+    frame_delay_sec = parse_frame_delay(websocket)
 
     try:
         (SUMO_SCENARIO_DIR / "output").mkdir(exist_ok=True)
@@ -515,6 +524,7 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
                 "type": "hello",
                 "backend": "sumo-traci",
                 "window": {"startSec": SUMO_START_SEC, "endSec": SUMO_END_SEC},
+                "frameDelaySec": frame_delay_sec,
             }
         )
 
@@ -570,3 +580,20 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
             traci.close(False)
         except Exception:
             pass
+
+
+def parse_frame_delay(websocket: WebSocket) -> float:
+    configured_delay = os.getenv("SUMO_FRAME_DELAY_SEC")
+    raw_delay_ms = websocket.query_params.get("delayMs")
+
+    try:
+        if raw_delay_ms is not None:
+            delay = float(raw_delay_ms) / 1000
+        elif configured_delay is not None:
+            delay = float(configured_delay)
+        else:
+            delay = DEFAULT_FRAME_DELAY_SEC
+    except ValueError:
+        delay = DEFAULT_FRAME_DELAY_SEC
+
+    return max(0.0, min(delay, 2.0))

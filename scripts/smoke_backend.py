@@ -100,6 +100,8 @@ def main() -> None:
                 counts = payload.get("counts") or {}
                 if counts.get("lanes", 0) <= 0:
                     failures.append(f"{label}: no SUMO lanes returned")
+                if counts.get("internalLanes", 0) <= 0:
+                    failures.append(f"{label}: no SUMO internal lanes returned")
                 if counts.get("trafficLights", 0) <= 0:
                     failures.append(f"{label}: no traffic lights returned")
             if label == "sumo_validate" and not payload.get("ok"):

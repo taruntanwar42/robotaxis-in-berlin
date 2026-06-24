@@ -68,6 +68,8 @@ new frontend code but the HF Space still has an older backend build.
 The smoke script checks `/health`, the static Reinickendorf summary, the SUMO
 network geometry endpoint, the 10-second SUMO validation run, and, with
 `--check-websocket`, the live SUMO stream until it receives a vehicle frame.
+The network endpoint returns normal lanes, internal junction connector lanes,
+and traffic-light junction markers.
 
 ## GitHub Pages Deploy
 

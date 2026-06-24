@@ -266,6 +266,66 @@
   gap: 8px;
 }
 
+.sumo-run-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.delay-control {
+  display: grid;
+  gap: 8px;
+}
+
+.delay-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #405b66;
+  font-size: 12px;
+}
+
+.delay-control-header strong {
+  color: #19303a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.delay-control input {
+  width: 100%;
+  accent-color: #0d9bc4;
+}
+
+.delay-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.delay-option {
+  height: 28px;
+  border: 1px solid rgba(55, 81, 92, 0.13);
+  border-radius: 7px;
+  color: #5a717b;
+  background: rgba(255, 255, 255, 0.52);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.delay-option:hover,
+.delay-option.is-active {
+  color: #19303a;
+  border-color: rgba(18, 132, 170, 0.3);
+  background: rgba(18, 132, 170, 0.09);
+}
+
+.delay-option:disabled,
+.icon-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 .sumo-layer-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

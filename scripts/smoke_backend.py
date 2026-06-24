@@ -70,6 +70,7 @@ def main() -> None:
     checks = {
         "health": "/health",
         "sumo_summary": "/sumo/reinickendorf/summary",
+        "sumo_network": "/sumo/reinickendorf/network",
         "sumo_validate": "/sumo/reinickendorf/validate",
         "scenario_summary": "/scenario/summary",
     }
@@ -93,6 +94,14 @@ def main() -> None:
                 failures.append(f"{label}: backend reported ok=false")
             if label == "sumo_summary" and not payload.get("available"):
                 failures.append(f"{label}: SUMO summary reports unavailable")
+            if label == "sumo_network":
+                if not payload.get("available"):
+                    failures.append(f"{label}: SUMO network reports unavailable")
+                counts = payload.get("counts") or {}
+                if counts.get("lanes", 0) <= 0:
+                    failures.append(f"{label}: no SUMO lanes returned")
+                if counts.get("trafficLights", 0) <= 0:
+                    failures.append(f"{label}: no traffic lights returned")
             if label == "sumo_validate" and not payload.get("ok"):
                 failures.append(f"{label}: SUMO validation failed")
 

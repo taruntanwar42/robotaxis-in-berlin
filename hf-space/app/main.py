@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -15,6 +16,7 @@ APP_DIR = Path(__file__).resolve().parent
 SCENARIO_PATH = APP_DIR / "data" / "six-seven-scenario.json"
 SUMO_SCENARIO_DIR = APP_DIR / "sumo" / "reinickendorf"
 SUMO_CONFIG_PATH = SUMO_SCENARIO_DIR / "reinickendorf-internal.sumocfg"
+SUMO_NET_PATH = SUMO_SCENARIO_DIR / "reinickendorf.net.xml"
 SUMO_START_SEC = 21_600
 SUMO_END_SEC = 25_200
 
@@ -68,15 +70,19 @@ def find_sumo_binary() -> str | None:
 
 
 def ensure_traci_import() -> Any:
+    ensure_sumo_tools()
+
+    import traci  # type: ignore[import-not-found]
+
+    return traci
+
+
+def ensure_sumo_tools() -> None:
     sumo_home = find_sumo_home()
     if sumo_home:
         tools_path = sumo_home / "tools"
         if tools_path.exists() and str(tools_path) not in sys.path:
             sys.path.append(str(tools_path))
-
-    import traci  # type: ignore[import-not-found]
-
-    return traci
 
 
 def sumo_version() -> dict[str, Any]:
@@ -126,9 +132,71 @@ def get_sumo_version() -> dict[str, Any]:
 
 def packaged_sumo_files() -> dict[str, bool]:
     return {
-        "net": (SUMO_SCENARIO_DIR / "reinickendorf.net.xml").exists(),
+        "net": SUMO_NET_PATH.exists(),
         "routes": (SUMO_SCENARIO_DIR / "reinickendorf-internal.rou.gz").exists(),
         "config": SUMO_CONFIG_PATH.exists(),
+    }
+
+
+@lru_cache(maxsize=1)
+def load_sumo_network() -> dict[str, Any]:
+    ensure_sumo_tools()
+    import sumolib  # type: ignore[import-not-found]
+
+    net = sumolib.net.readNet(str(SUMO_NET_PATH), withPrograms=True)
+    lane_features = []
+    for edge in net.getEdges():
+        if edge.isSpecial():
+            continue
+
+        for lane in edge.getLanes():
+            shape = [
+                list(net.convertXY2LonLat(point[0], point[1]))
+                for point in lane.getShape()
+            ]
+            if len(shape) < 2:
+                continue
+
+            lane_features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "id": lane.getID(),
+                        "edgeId": edge.getID(),
+                        "speed": round(float(lane.getSpeed()), 3),
+                        "length": round(float(lane.getLength()), 3),
+                    },
+                    "geometry": {"type": "LineString", "coordinates": shape},
+                }
+            )
+
+    traffic_light_features = []
+    for node in net.getNodes():
+        if node.getType() != "traffic_light":
+            continue
+
+        x, y = node.getCoord()
+        traffic_light_features.append(
+            {
+                "type": "Feature",
+                "properties": {"id": node.getID()},
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": list(net.convertXY2LonLat(x, y)),
+                },
+            }
+        )
+
+    return {
+        "lanes": {"type": "FeatureCollection", "features": lane_features},
+        "trafficLights": {
+            "type": "FeatureCollection",
+            "features": traffic_light_features,
+        },
+        "counts": {
+            "lanes": len(lane_features),
+            "trafficLights": len(traffic_light_features),
+        },
     }
 
 
@@ -167,6 +235,19 @@ def sumo_reinickendorf_summary() -> dict[str, Any]:
         },
         "files": packaged_sumo_files(),
     }
+
+
+@app.get("/sumo/reinickendorf/network")
+def sumo_reinickendorf_network() -> dict[str, Any]:
+    if not SUMO_NET_PATH.exists():
+        return {"available": False, "error": "Reinickendorf SUMO net file is missing."}
+
+    try:
+        network = load_sumo_network()
+    except Exception as error:
+        return {"available": False, "error": str(error)}
+
+    return {"available": True, **network}
 
 
 @app.get("/sumo/reinickendorf/validate")
@@ -347,6 +428,7 @@ async def sumo_reinickendorf(websocket: WebSocket) -> None:
                         "id": vehicle_id,
                         "lon": lon,
                         "lat": lat,
+                        "angle": round(float(connection.vehicle.getAngle(vehicle_id)), 3),
                         "speed": round(float(connection.vehicle.getSpeed(vehicle_id)), 3),
                         "lane": connection.vehicle.getLaneID(vehicle_id),
                         "route": connection.vehicle.getRouteID(vehicle_id),

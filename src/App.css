@@ -266,6 +266,44 @@
   gap: 8px;
 }
 
+.sumo-layer-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.layer-toggle {
+  display: inline-flex;
+  height: 31px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(55, 81, 92, 0.13);
+  border-radius: 7px;
+  color: #405b66;
+  background: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.layer-toggle span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(64, 91, 102, 0.36);
+}
+
+.layer-toggle:hover,
+.layer-toggle.is-active {
+  color: #19303a;
+  border-color: rgba(18, 132, 170, 0.3);
+  background: rgba(18, 132, 170, 0.09);
+}
+
+.layer-toggle.is-active span {
+  background: #11191d;
+}
+
 .panel-heading h2 {
   margin-bottom: 8px;
   font-size: 18px;

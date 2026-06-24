@@ -30,6 +30,7 @@ Expected local checks:
 ```powershell
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/health
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf/summary
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf/network
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf/validate
 python scripts\smoke_backend.py --base-url http://127.0.0.1:7860
 python scripts\smoke_backend.py --base-url http://127.0.0.1:7860 --check-websocket
@@ -64,9 +65,9 @@ python scripts\smoke_backend.py --base-url https://icybean-robotaxi-sumo-backend
 If the live frontend shows `HF Space needs redeploy`, the Pages site is running
 new frontend code but the HF Space still has an older backend build.
 
-The smoke script checks `/health`, the static Reinickendorf summary, the
-10-second SUMO validation run, and, with `--check-websocket`, the live SUMO
-stream until it receives a vehicle frame.
+The smoke script checks `/health`, the static Reinickendorf summary, the SUMO
+network geometry endpoint, the 10-second SUMO validation run, and, with
+`--check-websocket`, the live SUMO stream until it receives a vehicle frame.
 
 ## GitHub Pages Deploy
 

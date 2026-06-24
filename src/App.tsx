@@ -36,6 +36,7 @@ type SumoVehicle = {
   id: string
   lon: number
   lat: number
+  angle: number
   speed: number
   lane: string
   route: string
@@ -47,6 +48,16 @@ type SumoFrame = {
   vehicles: SumoVehicle[]
   departed: string[]
   arrived: string[]
+}
+
+type SumoNetwork = {
+  available: boolean
+  lanes: FeatureCollection<LineString>
+  trafficLights: FeatureCollection
+  counts: {
+    lanes: number
+    trafficLights: number
+  }
 }
 
 type Scenario = {
@@ -89,6 +100,7 @@ type PreparedTrip = Trip & {
 
 type MapSection = "replay" | "base"
 type ScenarioDataSource = "local-bundle" | "local-backend" | "remote-backend"
+type SumoLayerKey = "lanes" | "vehicles" | "trafficLights" | "boundary"
 
 const speedOptions = [1, 10, 30, 60, 120, 240]
 const replayLayerIds = [
@@ -100,6 +112,18 @@ const replayLayerIds = [
   "vehicles",
 ]
 const referenceLayerIds = ["outside-mask", "service-area-line"]
+const defaultSumoLayerVisibility: Record<SumoLayerKey, boolean> = {
+  lanes: true,
+  vehicles: true,
+  trafficLights: true,
+  boundary: true,
+}
+const sumoLayerIds: Record<SumoLayerKey, string[]> = {
+  lanes: ["sumo-lanes"],
+  vehicles: ["sumo-vehicles"],
+  trafficLights: ["sumo-traffic-lights"],
+  boundary: ["base-service-area-line"],
+}
 
 function formatClock(sec: number) {
   const hour = Math.floor(sec / 3600)
@@ -187,6 +211,7 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
       type: "Feature",
       properties: {
         id: vehicle.id,
+        angle: vehicle.angle,
         speed: vehicle.speed,
         lane: vehicle.lane,
         route: vehicle.route,
@@ -201,6 +226,32 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
 
 function source(map: maplibregl.Map, id: string) {
   return map.getSource(id) as GeoJSONSource | undefined
+}
+
+function emptyFeatureCollection(): FeatureCollection {
+  return { type: "FeatureCollection", features: [] }
+}
+
+function createVehicleMarkerImage() {
+  const pixelRatio = 4
+  const canvas = document.createElement("canvas")
+  canvas.width = 14 * pixelRatio
+  canvas.height = 5 * pixelRatio
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return null
+  }
+
+  context.scale(pixelRatio, pixelRatio)
+  context.fillStyle = "#11191d"
+  context.fillRect(1, 1, 12, 3)
+  context.fillStyle = "rgba(255, 255, 255, 0.34)"
+  context.fillRect(10.5, 1.5, 1.5, 2)
+
+  return {
+    data: context.getImageData(0, 0, canvas.width, canvas.height),
+    pixelRatio,
+  }
 }
 
 function outsideServiceAreaMask(serviceArea: Feature<Polygon>): Feature<Polygon> {
@@ -242,6 +293,23 @@ function applyMapCamera(map: maplibregl.Map, isTiltEnabled: boolean, duration = 
     pitch: isTiltEnabled ? 42 : 0,
     bearing: isTiltEnabled ? cinematicTiltBearing : alignedFlatBearing,
     duration,
+  })
+}
+
+function setSumoLayerVisibility(
+  map: maplibregl.Map,
+  visibility: Record<SumoLayerKey, boolean>,
+) {
+  Object.entries(sumoLayerIds).forEach(([key, layerIds]) => {
+    layerIds.forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(
+          layerId,
+          "visibility",
+          visibility[key as SumoLayerKey] ? "visible" : "none",
+        )
+      }
+    })
   })
 }
 
@@ -293,10 +361,14 @@ export default function App() {
   const [scenarioSource, setScenarioSource] = useState<ScenarioDataSource>("local-bundle")
   const [sumoStatus, setSumoStatus] = useState("Idle")
   const [sumoFrame, setSumoFrame] = useState<SumoFrame | null>(null)
+  const [sumoNetwork, setSumoNetwork] = useState<SumoNetwork | null>(null)
   const [sumoSessionKey, setSumoSessionKey] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isTiltEnabled, setIsTiltEnabled] = useState(false)
   const [activeSection, setActiveSection] = useState<MapSection>("base")
+  const [sumoLayerVisibility, setSumoLayerVisibilityState] = useState<
+    Record<SumoLayerKey, boolean>
+  >(defaultSumoLayerVisibility)
   const [speed, setSpeed] = useState(60)
   const [timeSec, setTimeSec] = useState(21_600)
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
@@ -369,6 +441,43 @@ export default function App() {
     () => pointFeatureCollection(sumoFrame?.vehicles ?? []),
     [sumoFrame],
   )
+
+  useEffect(() => {
+    if (activeSection !== "base" || sumoNetwork || !scenarioApiUrl) {
+      return
+    }
+
+    const networkUrl = backendHttpUrl("/sumo/reinickendorf/network")
+    if (!networkUrl) {
+      return
+    }
+    const url = networkUrl
+
+    let isCancelled = false
+    async function loadSumoNetwork() {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`SUMO network request failed: ${response.status}`)
+        }
+
+        const network = (await response.json()) as SumoNetwork
+        if (!isCancelled && network.available) {
+          setSumoNetwork(network)
+        }
+      } catch {
+        if (!isCancelled) {
+          setSumoStatus("Network layer unavailable")
+        }
+      }
+    }
+
+    void loadSumoNetwork()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeSection, sumoNetwork])
 
   const simulation = useMemo(() => {
     if (!scenario) {
@@ -635,22 +744,42 @@ export default function App() {
         type: "geojson",
         data: scenario.serviceArea,
       })
-      map.addSource("base-roads", {
+      map.addSource("sumo-lanes", {
         type: "geojson",
-        data: scenario.roads,
+        data: emptyFeatureCollection(),
+      })
+      map.addSource("sumo-traffic-lights", {
+        type: "geojson",
+        data: emptyFeatureCollection(),
       })
       map.addSource("sumo-vehicles", {
         type: "geojson",
-        data: featureCollection([]),
+        data: emptyFeatureCollection(),
       })
+      const vehicleMarker = createVehicleMarkerImage()
+      if (vehicleMarker && !map.hasImage("sumo-vehicle-marker")) {
+        map.addImage("sumo-vehicle-marker", vehicleMarker.data, {
+          pixelRatio: vehicleMarker.pixelRatio,
+        })
+      }
       map.addLayer({
-        id: "base-roads",
+        id: "sumo-lanes",
         type: "line",
-        source: "base-roads",
+        source: "sumo-lanes",
         paint: {
-          "line-color": "#86cde2",
-          "line-width": 0.9,
-          "line-opacity": 0.38,
+          "line-color": "#11191d",
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.32,
+            14,
+            0.8,
+            16,
+            1.45,
+          ],
+          "line-opacity": 0.42,
         },
       })
       map.addLayer({
@@ -665,25 +794,51 @@ export default function App() {
         },
       })
       map.addLayer({
-        id: "sumo-vehicles",
+        id: "sumo-traffic-lights",
         type: "circle",
-        source: "sumo-vehicles",
+        source: "sumo-traffic-lights",
         paint: {
-          "circle-color": "#10252d",
+          "circle-color": "#11191d",
           "circle-radius": [
             "interpolate",
             ["linear"],
             ["zoom"],
             11,
-            2.2,
+            1.8,
             14,
-            4.6,
+            3,
+            16,
+            4.2,
           ],
-          "circle-opacity": 0.9,
-          "circle-stroke-color": "#37d9ff",
-          "circle-stroke-width": 1.2,
+          "circle-opacity": 0.82,
+          "circle-stroke-color": "rgba(255, 255, 255, 0.9)",
+          "circle-stroke-width": 0.8,
         },
       })
+      map.addLayer({
+        id: "sumo-vehicles",
+        type: "symbol",
+        source: "sumo-vehicles",
+        layout: {
+          "icon-image": "sumo-vehicle-marker",
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.34,
+            14,
+            0.58,
+            16,
+            0.9,
+          ],
+          "icon-rotate": ["coalesce", ["get", "angle"], 0],
+          "icon-rotation-alignment": "map",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      })
+      setSumoLayerVisibility(map, defaultSumoLayerVisibility)
     })
     baseMapRef.current = map
 
@@ -705,6 +860,25 @@ export default function App() {
 
     source(map, "sumo-vehicles")?.setData(sumoVehicleGeojson)
   }, [sumoVehicleGeojson])
+
+  useEffect(() => {
+    const map = baseMapRef.current
+    if (!map || !map.isStyleLoaded() || !sumoNetwork) {
+      return
+    }
+
+    source(map, "sumo-lanes")?.setData(sumoNetwork.lanes)
+    source(map, "sumo-traffic-lights")?.setData(sumoNetwork.trafficLights)
+  }, [sumoNetwork])
+
+  useEffect(() => {
+    const map = baseMapRef.current
+    if (!map || !map.isStyleLoaded()) {
+      return
+    }
+
+    setSumoLayerVisibility(map, sumoLayerVisibility)
+  }, [sumoLayerVisibility])
 
   useEffect(() => {
     if (activeSection !== "base") {
@@ -939,7 +1113,49 @@ export default function App() {
             <Metric label="Status" value={sumoStatus} />
             <Metric label="Time" value={sumoFrame ? formatClock(sumoFrame.simSec) : "--"} />
             <Metric label="Vehicles" value={sumoFrame?.vehicleCount ?? 0} />
-            <Metric label="Departed" value={sumoFrame?.departed.length ?? 0} />
+            <Metric label="Lights" value={sumoNetwork?.counts.trafficLights ?? "--"} />
+          </div>
+          <div className="sumo-layer-list" aria-label="SUMO map layers">
+            <LayerToggle
+              label="Lanes"
+              active={sumoLayerVisibility.lanes}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  lanes: !current.lanes,
+                }))
+              }
+            />
+            <LayerToggle
+              label="Vehicles"
+              active={sumoLayerVisibility.vehicles}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  vehicles: !current.vehicles,
+                }))
+              }
+            />
+            <LayerToggle
+              label="Lights"
+              active={sumoLayerVisibility.trafficLights}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  trafficLights: !current.trafficLights,
+                }))
+              }
+            />
+            <LayerToggle
+              label="Boundary"
+              active={sumoLayerVisibility.boundary}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  boundary: !current.boundary,
+                }))
+              }
+            />
           </div>
           <button
             type="button"
@@ -1107,5 +1323,27 @@ function Metric({ label, value }: { label: string; value: number | string }) {
       <span>{label}</span>
       <strong>{typeof value === "number" ? formatInteger(value) : value}</strong>
     </div>
+  )
+}
+
+function LayerToggle({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={active ? "layer-toggle is-active" : "layer-toggle"}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <span />
+      {label}
+    </button>
   )
 }

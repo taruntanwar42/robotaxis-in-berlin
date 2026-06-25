@@ -537,6 +537,28 @@ function ensureSumoTrafficLightLayers(map: maplibregl.Map) {
   return true
 }
 
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2))
+  context.beginPath()
+  context.moveTo(x + safeRadius, y)
+  context.lineTo(x + width - safeRadius, y)
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius)
+  context.lineTo(x + width, y + height - safeRadius)
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height)
+  context.lineTo(x + safeRadius, y + height)
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius)
+  context.lineTo(x, y + safeRadius)
+  context.quadraticCurveTo(x, y, x + safeRadius, y)
+  context.closePath()
+}
+
 function createVehicleMarkerImage() {
   const pixelRatio = 4
   const canvas = document.createElement("canvas")
@@ -553,14 +575,12 @@ function createVehicleMarkerImage() {
   context.shadowColor = "rgba(255, 182, 36, 0.7)"
   context.shadowBlur = 4
   context.fillStyle = "rgba(255, 191, 52, 0.38)"
-  context.beginPath()
-  context.roundRect(-4.2, -8.6, 8.4, 17.2, 3.7)
+  drawRoundedRect(context, -4.2, -8.6, 8.4, 17.2, 3.7)
   context.fill()
   context.shadowBlur = 0
 
   context.fillStyle = "rgba(68, 43, 4, 0.38)"
-  context.beginPath()
-  context.roundRect(-3.2, -7.2, 6.4, 14.6, 2.8)
+  drawRoundedRect(context, -3.2, -7.2, 6.4, 14.6, 2.8)
   context.fill()
 
   context.fillStyle = "#e5a51d"
@@ -574,18 +594,15 @@ function createVehicleMarkerImage() {
   context.fill()
 
   context.fillStyle = "#ffd76a"
-  context.beginPath()
-  context.roundRect(-1.8, -7.1, 3.6, 2.5, 1.1)
+  drawRoundedRect(context, -1.8, -7.1, 3.6, 2.5, 1.1)
   context.fill()
 
   context.fillStyle = "#10161a"
-  context.beginPath()
-  context.roundRect(-2.1, -3.7, 4.2, 6.9, 1.9)
+  drawRoundedRect(context, -2.1, -3.7, 4.2, 6.9, 1.9)
   context.fill()
 
   context.fillStyle = "#b87b10"
-  context.beginPath()
-  context.roundRect(-1.8, 5.1, 3.6, 2.2, 1)
+  drawRoundedRect(context, -1.8, 5.1, 3.6, 2.2, 1)
   context.fill()
 
   return {

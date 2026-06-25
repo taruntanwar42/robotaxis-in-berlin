@@ -104,15 +104,6 @@ const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   boundary: ["base-service-area-line"],
 }
 
-function formatClock(sec: number) {
-  const hour = Math.floor(sec / 3600)
-  const minute = Math.floor((sec % 3600) / 60)
-  const second = Math.floor(sec % 60)
-  return `${hour.toString().padStart(2, "0")}:${minute
-    .toString()
-    .padStart(2, "0")}:${second.toString().padStart(2, "0")}`
-}
-
 function maptilerDarkStyleUrl(styleUrl: string | undefined) {
   if (!styleUrl) {
     return undefined

@@ -3,9 +3,8 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EV_ROOT = Path(r"C:\Users\KitCat\Desktop\EV Mobility Dashboard")
 
-SOURCE_DIR = EV_ROOT / "data" / "intermediate" / "robotaxi-sim" / "reinickendorf"
+SOURCE_DIR = PROJECT_ROOT / "data" / "source" / "reinickendorf"
 TRIPS_PATH = SOURCE_DIR / "internal-trips.json"
 EDGES_PATH = SOURCE_DIR / "internal-edge-geometries.json"
 SUMMARY_PATH = SOURCE_DIR / "summary.json"
@@ -111,8 +110,8 @@ def main():
             "totalRequests": len(exported_trips),
             "source": {
                 "dataset": "BeST Berlin SUMO scenario, internal in/in Reinickendorf trips",
-                "sourceTrips": str(TRIPS_PATH.relative_to(EV_ROOT)),
-                "sourceEdges": str(EDGES_PATH.relative_to(EV_ROOT)),
+                "sourceTrips": str(TRIPS_PATH.relative_to(PROJECT_ROOT)),
+                "sourceEdges": str(EDGES_PATH.relative_to(PROJECT_ROOT)),
                 "method": "Filtered to trips with departSec in [21600, 25200). Routes reuse SUMO edge geometries.",
             },
             "notes": [

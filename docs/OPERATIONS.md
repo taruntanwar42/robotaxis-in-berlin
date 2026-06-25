@@ -90,6 +90,16 @@ Invoke-WebRequest -UseBasicParsing https://ta-nwar.github.io/robotaxi-control-ro
 
 ## Data Included
 
+Read `docs/DATA.md` for the data model and provenance.
+
+Source analysis files are local to this repo:
+
+```text
+data/source/reinickendorf/internal-trips.json
+data/source/reinickendorf/internal-edge-geometries.json
+data/source/reinickendorf/summary.json
+```
+
 The backend package includes the small Reinickendorf SUMO cutout:
 
 ```text

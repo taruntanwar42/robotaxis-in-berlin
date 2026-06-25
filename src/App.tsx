@@ -44,6 +44,7 @@ type SumoVehicle = {
   speed: number
   lane: string
   route: string
+  kind?: "background" | "robotaxi"
 }
 
 type SumoTrafficLightDisplay =
@@ -60,10 +61,44 @@ type SumoTrafficLightState = {
   phase: number
 }
 
+type RobotaxiRequest = {
+  id: string
+  taxiId: string
+  state: "waiting" | "assigned" | "picked_up" | "served" | "failed"
+  departSec: number
+  assignedSec?: number | null
+  pickedUpSec?: number | null
+  servedSec?: number | null
+  failedReason?: string | null
+  pickupEdge: string
+  dropoffEdge: string
+}
+
+type RobotaxiSummary = {
+  enabled: boolean
+  depot?: {
+    edge: string
+    label: string
+  }
+  fleetSize: number
+  requestsTotal: number
+  waiting: number
+  assigned: number
+  pickedUp: number
+  served: number
+  failed: number
+  avgWaitSec?: number | null
+  skippedCandidates?: number
+  requests: RobotaxiRequest[]
+}
+
 type SumoFrame = {
   simSec: number
   vehicleCount: number
   vehicles: SumoVehicle[]
+  robotaxis?: SumoVehicle[]
+  robotaxiCount?: number
+  robotaxi?: RobotaxiSummary
   departed: string[]
   arrived: string[]
   trafficLights: Record<string, SumoTrafficLightState>
@@ -83,7 +118,10 @@ type SumoNetwork = {
     internalLanes: number
     trafficLights: number
     signalLinks: number
+    totalLanes?: number
+    totalInternalLanes?: number
   }
+  limited?: boolean
 }
 
 type Scenario = {
@@ -126,8 +164,9 @@ type PreparedTrip = Trip & {
 
 type MapSection = "replay" | "base"
 type ScenarioDataSource = "local-bundle" | "local-backend" | "remote-backend"
-type SumoLayerKey = "lanes" | "vehicles" | "trafficLights" | "boundary"
+type SumoLayerKey = "lanes" | "vehicles" | "robotaxis" | "trafficLights" | "boundary"
 type AppTheme = "dark" | "light"
+type SumoScope = "reinickendorf" | "berlin"
 type MapCamera = {
   center: Coordinate
   zoom: number
@@ -137,6 +176,14 @@ type MapCamera = {
 
 const speedOptions = [1, 10, 30, 60, 120, 240]
 const sumoSpeedOptions = [1, 2, 3, 10, 60, 600]
+const sumoScopeOptions: Array<{ key: SumoScope; label: string }> = [
+  { key: "reinickendorf", label: "Reinickendorf" },
+  { key: "berlin", label: "Full Berlin" },
+]
+const sumoScopeCameras: Record<SumoScope, { center: Coordinate; zoom: number }> = {
+  reinickendorf: { center: [13.3603, 52.5634], zoom: 12.4 },
+  berlin: { center: [13.405, 52.52], zoom: 10.15 },
+}
 const replayLayerIds = [
   "roads-glow",
   "roads",
@@ -149,12 +196,14 @@ const referenceLayerIds = ["outside-mask", "service-area-line"]
 const defaultSumoLayerVisibility: Record<SumoLayerKey, boolean> = {
   lanes: true,
   vehicles: true,
+  robotaxis: true,
   trafficLights: true,
   boundary: true,
 }
 const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   lanes: ["sumo-internal-lanes", "sumo-lanes"],
   vehicles: ["sumo-vehicles"],
+  robotaxis: ["sumo-robotaxis"],
   trafficLights: ["sumo-traffic-lights"],
   boundary: ["base-service-area-line"],
 }
@@ -282,6 +331,7 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
         speed: vehicle.speed,
         lane: vehicle.lane,
         route: vehicle.route,
+        kind: vehicle.kind,
       },
       geometry: {
         type: "Point",
@@ -611,6 +661,51 @@ function createVehicleMarkerImage() {
   }
 }
 
+function createBackgroundVehicleMarkerImage() {
+  const pixelRatio = 4
+  const canvas = document.createElement("canvas")
+  canvas.width = 14 * pixelRatio
+  canvas.height = 24 * pixelRatio
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return null
+  }
+
+  context.scale(pixelRatio, pixelRatio)
+  context.translate(7, 12)
+
+  context.fillStyle = "rgba(7, 13, 17, 0.38)"
+  drawRoundedRect(context, -3.4, -7.6, 6.8, 15.4, 3)
+  context.fill()
+
+  context.fillStyle = "#f2f6f7"
+  context.beginPath()
+  context.moveTo(0, -9)
+  context.bezierCurveTo(2.7, -7.1, 3.7, -4.4, 3.5, 4.3)
+  context.bezierCurveTo(3.1, 7.1, 2, 8.4, 0, 8.8)
+  context.bezierCurveTo(-2, 8.4, -3.1, 7.1, -3.5, 4.3)
+  context.bezierCurveTo(-3.7, -4.4, -2.7, -7.1, 0, -9)
+  context.closePath()
+  context.fill()
+
+  context.fillStyle = "#1f2b31"
+  drawRoundedRect(context, -2, -3.7, 4, 6.8, 1.8)
+  context.fill()
+
+  context.fillStyle = "#d8e1e4"
+  drawRoundedRect(context, -1.7, -7, 3.4, 2.4, 1)
+  context.fill()
+
+  context.fillStyle = "#c8d2d6"
+  drawRoundedRect(context, -1.7, 5.1, 3.4, 2.1, 1)
+  context.fill()
+
+  return {
+    data: context.getImageData(0, 0, canvas.width, canvas.height),
+    pixelRatio,
+  }
+}
+
 function outsideServiceAreaMask(serviceArea: Feature<Polygon>): Feature<Polygon> {
   return {
     type: "Feature",
@@ -724,6 +819,7 @@ export default function App() {
   const [sumoStatus, setSumoStatus] = useState("Idle")
   const [sumoFrame, setSumoFrame] = useState<SumoFrame | null>(null)
   const [sumoNetwork, setSumoNetwork] = useState<SumoNetwork | null>(null)
+  const [sumoScope, setSumoScope] = useState<SumoScope>("reinickendorf")
   const [isSumoRunning, setIsSumoRunning] = useState(false)
   const [sumoSessionKey, setSumoSessionKey] = useState(0)
   const [sumoPlaybackSpeed, setSumoPlaybackSpeed] = useState(60)
@@ -778,6 +874,25 @@ export default function App() {
   useEffect(() => {
     appThemeRef.current = appTheme
   }, [appTheme])
+
+  useEffect(() => {
+    setIsSumoRunning(false)
+    setSumoNetwork(null)
+    setSumoFrame(null)
+    latestSumoFrameRef.current = null
+    setSumoStatus("Ready")
+
+    const map = baseMapRef.current
+    if (map) {
+      const camera = sumoScopeCameras[sumoScope]
+      map.jumpTo({
+        center: camera.center,
+        zoom: camera.zoom,
+        bearing: alignedFlatBearing,
+        pitch: 0,
+      })
+    }
+  }, [sumoScope])
 
   const currentMapStyleUrl = appTheme === "dark" ? darkMapStyleUrl : mapStyleUrl
 
@@ -903,6 +1018,11 @@ export default function App() {
     [sumoFrame],
   )
 
+  const sumoRobotaxiGeojson = useMemo(
+    () => pointFeatureCollection(sumoFrame?.robotaxis ?? []),
+    [sumoFrame],
+  )
+
   const sumoTrafficLightGeojson = useMemo(
     () => trafficLightFeatureCollection(sumoNetwork, null),
     [sumoNetwork],
@@ -923,7 +1043,7 @@ export default function App() {
       return
     }
 
-    const networkUrl = backendHttpUrl("/sumo/reinickendorf/network")
+    const networkUrl = backendHttpUrl(`/sumo/${sumoScope}/network`)
     if (!networkUrl) {
       return
     }
@@ -953,7 +1073,7 @@ export default function App() {
     return () => {
       isCancelled = true
     }
-  }, [activeSection, sumoNetwork])
+  }, [activeSection, sumoNetwork, sumoScope])
 
   const simulation = useMemo(() => {
     if (!scenario) {
@@ -1209,11 +1329,12 @@ export default function App() {
     }
 
     const restoredCamera = pendingThemeCameraRef.current
+    const initialScopeCamera = sumoScopeCameras[sumoScope]
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,
       style: currentMapStyleUrl,
-      center: restoredCamera?.center ?? [13.3603, 52.5634],
-      zoom: restoredCamera?.zoom ?? 12.2,
+      center: restoredCamera?.center ?? initialScopeCamera.center,
+      zoom: restoredCamera?.zoom ?? initialScopeCamera.zoom,
       pitch: restoredCamera?.pitch ?? 0,
       bearing: restoredCamera?.bearing ?? 0,
       attributionControl: false,
@@ -1235,6 +1356,16 @@ export default function App() {
         type: "geojson",
         data: emptyFeatureCollection(),
       })
+      map.addSource("sumo-robotaxis", {
+        type: "geojson",
+        data: emptyFeatureCollection(),
+      })
+      const backgroundVehicleMarker = createBackgroundVehicleMarkerImage()
+      if (backgroundVehicleMarker && !map.hasImage("sumo-background-vehicle-marker")) {
+        map.addImage("sumo-background-vehicle-marker", backgroundVehicleMarker.data, {
+          pixelRatio: backgroundVehicleMarker.pixelRatio,
+        })
+      }
       const vehicleMarker = createVehicleMarkerImage()
       if (vehicleMarker && !map.hasImage("sumo-vehicle-marker")) {
         map.addImage("sumo-vehicle-marker", vehicleMarker.data, {
@@ -1257,17 +1388,40 @@ export default function App() {
         type: "symbol",
         source: "sumo-vehicles",
         layout: {
+          "icon-image": "sumo-background-vehicle-marker",
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.42,
+            14,
+            0.68,
+            16,
+            1.05,
+          ],
+          "icon-rotate": ["coalesce", ["get", "angle"], 0],
+          "icon-rotation-alignment": "map",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      })
+      map.addLayer({
+        id: "sumo-robotaxis",
+        type: "symbol",
+        source: "sumo-robotaxis",
+        layout: {
           "icon-image": "sumo-vehicle-marker",
           "icon-size": [
             "interpolate",
             ["linear"],
             ["zoom"],
             11,
-            0.34,
+            0.42,
             14,
-            0.58,
+            0.68,
             16,
-            0.9,
+            1.05,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -1302,7 +1456,7 @@ export default function App() {
       baseMapRef.current = null
       setBaseMapReadyTick((tick) => tick + 1)
     }
-  }, [activeSection, currentMapStyleUrl, scenario, syncSumoNetworkLayers])
+  }, [activeSection, currentMapStyleUrl, scenario, sumoScope, syncSumoNetworkLayers])
 
   useEffect(() => {
     const map = baseMapRef.current
@@ -1311,7 +1465,8 @@ export default function App() {
     }
 
     source(map, "sumo-vehicles")?.setData(sumoVehicleGeojson)
-  }, [baseMapReadyTick, sumoVehicleGeojson])
+    source(map, "sumo-robotaxis")?.setData(sumoRobotaxiGeojson)
+  }, [baseMapReadyTick, sumoRobotaxiGeojson, sumoVehicleGeojson])
 
   useEffect(() => {
     syncSumoNetworkLayers()
@@ -1347,17 +1502,21 @@ export default function App() {
       return
     }
 
-    const wsUrl = backendWebSocketUrl("/ws/sumo/reinickendorf")
-    const summaryUrl = backendHttpUrl("/sumo/reinickendorf/summary")
+    const wsUrl = backendWebSocketUrl(`/ws/sumo/${sumoScope}`)
+    const summaryUrl = backendHttpUrl(`/sumo/${sumoScope}/summary`)
     if (!wsUrl) {
       setSumoStatus("Local bundle only")
       return
     }
 
     const nextWsUrl = withQueryParam(
-      withQueryParam(wsUrl, "speed", sumoPlaybackSpeed),
-      "seekSec",
-      sumoSeekSec,
+      withQueryParam(
+        withQueryParam(wsUrl, "speed", sumoPlaybackSpeed),
+        "seekSec",
+        sumoSeekSec,
+      ),
+      "robotaxiRequests",
+      sumoScope === "berlin" ? 0 : 5,
     )
     let isClosed = false
     let socket: WebSocket | null = null
@@ -1417,6 +1576,9 @@ export default function App() {
             simSec: message.simSec,
             vehicleCount: message.vehicleCount,
             vehicles: message.vehicles,
+            robotaxis: message.robotaxis ?? [],
+            robotaxiCount: message.robotaxiCount ?? 0,
+            robotaxi: message.robotaxi,
             departed: message.departed,
             arrived: message.arrived,
             trafficLights: message.trafficLights ?? {},
@@ -1428,6 +1590,9 @@ export default function App() {
           const map = baseMapRef.current
           if (map?.isStyleLoaded()) {
             source(map, "sumo-vehicles")?.setData(pointFeatureCollection(nextFrame.vehicles))
+            source(map, "sumo-robotaxis")?.setData(
+              pointFeatureCollection(nextFrame.robotaxis ?? []),
+            )
           }
           if (map) {
             updateSumoTrafficLightSource(map, nextFrame)
@@ -1478,6 +1643,7 @@ export default function App() {
     sumoPlaybackSpeed,
     sumoSeekSec,
     sumoSessionKey,
+    sumoScope,
     updateSumoTrafficLightSource,
   ])
 
@@ -1624,9 +1790,10 @@ export default function App() {
           <div className="panel-title-row">
             <div>
               <p className="label">SUMO Live</p>
-              <h1>Reinickendorf microscopic replay</h1>
+              <h1>Reinickendorf robotaxi dispatch</h1>
               <p>
-                Vehicle positions are streamed from the SUMO backend through TraCI.
+                Background traffic and golden robotaxis are streamed from SUMO through
+                TraCI.
               </p>
             </div>
             <button
@@ -1646,6 +1813,20 @@ export default function App() {
               )}
             </button>
           </div>
+          <div className="delay-options" aria-label="SUMO scope">
+            {sumoScopeOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className={
+                  option.key === sumoScope ? "delay-option is-active" : "delay-option"
+                }
+                onClick={() => setSumoScope(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div className="sumo-status-grid">
             <Metric label="Status" value={sumoStatus} />
             <Metric label="Time" value={sumoFrame ? formatClock(sumoFrame.simSec) : "--"} />
@@ -1658,7 +1839,26 @@ export default function App() {
               }
             />
             <Metric label="Actual" value={formatSpeedFactor(sumoFrame?.effectiveSpeed)} />
-            <Metric label="Vehicles" value={sumoFrame?.vehicleCount ?? 0} />
+            <Metric label="Traffic" value={sumoFrame?.vehicleCount ?? 0} />
+            <Metric label="Robotaxis" value={sumoFrame?.robotaxiCount ?? 0} />
+            <Metric
+              label="Served"
+              value={
+                sumoFrame?.robotaxi
+                  ? `${sumoFrame.robotaxi.served}/${sumoFrame.robotaxi.requestsTotal}`
+                  : sumoScope === "berlin"
+                    ? "0/0"
+                    : "0/5"
+              }
+            />
+            <Metric
+              label="Avg wait"
+              value={
+                sumoFrame?.robotaxi?.avgWaitSec != null
+                  ? formatDuration(sumoFrame.robotaxi.avgWaitSec)
+                  : "--"
+              }
+            />
             <Metric
               label="Lights"
               value={
@@ -1792,12 +1992,22 @@ export default function App() {
               }
             />
             <LayerToggle
-              label="Vehicles"
+              label="Traffic"
               active={sumoLayerVisibility.vehicles}
               onClick={() =>
                 setSumoLayerVisibilityState((current) => ({
                   ...current,
                   vehicles: !current.vehicles,
+                }))
+              }
+            />
+            <LayerToggle
+              label="Cybercabs"
+              active={sumoLayerVisibility.robotaxis}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  robotaxis: !current.robotaxis,
                 }))
               }
             />

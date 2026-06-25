@@ -12,16 +12,20 @@ window as a map-first robotaxi control-room surface.
 - Status: demand replay only; robotaxi dispatch, wait time, and deadheading are
   planned next
 
+Future agents should read `AGENTS.md`, `docs/ROBOTAXI_HANDOFF.md`, and
+`docs/DATA.md` before changing the SUMO backend, robotaxi dispatch, or scenario
+data.
+
 The app bundle lives at:
 
 ```text
 public/data/six-seven-scenario.json
 ```
 
-It is generated from the EV Mobility Dashboard workspace:
+It is generated from source files copied into this repo:
 
 ```text
-C:\Users\KitCat\Desktop\EV Mobility Dashboard\data\intermediate\robotaxi-sim\reinickendorf
+data/source/reinickendorf
 ```
 
 ## Run
@@ -71,8 +75,9 @@ python scripts\export_six_seven_scenario.py
 
 The exporter filters internal trips to `[21600, 25200)`, keeps the SUMO edge
 route geometries needed by those trips, and writes a compact app-facing JSON
-bundle. The service area is the BeST technical cutout, not the official Berlin
-Bezirk boundary.
+bundle. The richer source data lives in `data/source/reinickendorf/`. The
+service area is the BeST technical cutout, not the official Berlin Bezirk
+boundary.
 
 ## Checks
 

@@ -17,6 +17,7 @@ qa-*.png
 hf-space/app/sumo/**/output/*
 !hf-space/app/sumo/**/output/.gitkeep
 hf-space/app/sumo/berlin/
+data/intermediate/sumo/
 
 # Editor directories and files
 .vscode/*

@@ -39,9 +39,10 @@ async def check_sumo_websocket(base_url: str, max_messages: int) -> None:
             "`python -m pip install websockets`"
         ) from error
 
-    uri = websocket_url(base_url, "/ws/sumo/reinickendorf")
+    uri = websocket_url(base_url, "/ws/sumo/reinickendorf-district")
     saw_frame = False
     async with websockets.connect(uri, open_timeout=30) as websocket:
+        await websocket.send(json.dumps({"command": "start"}))
         for _ in range(max_messages):
             raw_message = await asyncio.wait_for(websocket.recv(), timeout=30)
             message = json.loads(raw_message)
@@ -69,10 +70,9 @@ def main() -> None:
 
     checks = {
         "health": "/health",
-        "sumo_summary": "/sumo/reinickendorf/summary",
-        "sumo_network": "/sumo/reinickendorf/network",
-        "sumo_validate": "/sumo/reinickendorf/validate",
-        "scenario_summary": "/scenario/summary",
+        "sumo_summary": "/sumo/reinickendorf-district/summary",
+        "sumo_network": "/sumo/reinickendorf-district/network",
+        "sumo_validate": "/sumo/reinickendorf-district/validate",
     }
 
     failures: list[str] = []

@@ -1,120 +1,87 @@
 # Robotaxi Data Guide
 
-This repo now contains the robotaxi data needed to rebuild the current Reinickendorf prototype without reaching back into the EV Mobility Dashboard workspace.
+The active app uses one SUMO scenario: the official Berlin Bezirk
+Reinickendorf district cutout.
 
-## Data Inventory
+## Active Runtime Data
 
-### Source Analysis Data
-
-Stored in:
+Packaged for the backend in:
 
 ```text
-data/source/reinickendorf/
+hf-space/app/sumo/reinickendorf-district/
 ```
 
 Files:
 
-- `internal-trips.json`
-  - 25,023 internal Reinickendorf trips.
-  - Includes `id`, `departSec`, `departHour`, `distanceKm`, `originXy`, `destinationXy`, `originLonLat`, `destinationLonLat`, and the SUMO edge list in `edges`.
-- `internal-edge-geometries.json`
-  - 1,601 SUMO edges used by internal trips.
-  - Includes `shapeXy`, `shapeLonLat`, start/end coordinates, and edge length.
-- `summary.json`
-  - Source summary for the internal-trip subset.
-  - Includes peak hour, peak 15-minute window, distance distribution, and service-area polygon in SUMO XY coordinates.
+- `reinickendorf-district.net.xml`
+  - SUMO network for the official district cutout.
+- `reinickendorf-district-contained.rou.xml.gz`
+  - Strict-contained vehicle routes. A route is included only if the full
+    original edge sequence is inside the cutout network.
+- `reinickendorf-district.sumocfg`
+  - SUMO config used by the backend.
+- `reinickendorf-district.geojson`
+  - Official district boundary rendered by the frontend.
 
-These files were copied from:
+Removed from the active app:
 
-```text
-C:\Users\KitCat\Desktop\EV Mobility Dashboard\data\intermediate\robotaxi-sim\reinickendorf\
-```
+- `public/data/six-seven-scenario.json`
+- `hf-space/app/data/six-seven-scenario.json`
+- `hf-space/app/sumo/reinickendorf/`
+- `hf-space/app/sumo/berlin/`
+- `data/source/reinickendorf/`
 
-Future agents should use the local copies in this repo.
+Those older experiment assets are recoverable from git history if needed.
 
-### App-Facing Generated Bundle
+## Regenerating The District Cutout
 
-Stored in:
-
-```text
-public/data/six-seven-scenario.json
-hf-space/app/data/six-seven-scenario.json
-```
-
-This is the compact bundle used by the frontend and backend:
-
-- 701 trips in the 06:00-07:00 window.
-- Route polylines for browser display.
-- Service-area polygon for the BeST Reinickendorf technical cutout.
-- A TXL/Tegel candidate depot coordinate marked as outside the current cutout.
-
-Regenerate the public bundle with:
+Use:
 
 ```powershell
-python scripts\export_six_seven_scenario.py
+python scripts\build_reinickendorf_district_sumo.py
 ```
 
-After regenerating `public/data/six-seven-scenario.json`, copy it to the HF backend data folder if backend parity is needed:
+The generator:
 
-```powershell
-Copy-Item public\data\six-seven-scenario.json hf-space\app\data\six-seven-scenario.json -Force
-```
+1. Downloads the official Berlin ALKIS Bezirke WFS layer.
+2. Extracts the `Reinickendorf` feature.
+3. Converts the EPSG:25833 district polygon into SUMO XY using the BeST
+   `berlin.net.xml` `netOffset`.
+4. Runs `netconvert --keep-edges.in-boundary`.
+5. Filters `berlin.rou.gz` to strict-contained vehicle routes.
 
-### SUMO Runtime Inputs
-
-Stored in:
+Tracked provenance files:
 
 ```text
-hf-space/app/sumo/reinickendorf/
+data/source/berlin-boundaries/
 ```
 
-Files:
+Heavy generated intermediate files:
 
-- `reinickendorf.net.xml`
-  - SUMO network for the BeST Reinickendorf technical cutout.
-- `reinickendorf-internal.rou.gz`
-  - SUMO routes for internal trips.
-  - Important for dispatch work because it contains authoritative edge sequences per trip ID.
-- `reinickendorf-internal.sumocfg`
-  - SUMO config used by the backend and GUI.
+```text
+data/intermediate/sumo/reinickendorf-district/
+```
 
-Generated output under `hf-space/app/sumo/**/output/` is ignored except `.gitkeep`.
+The generated intermediate SUMO files are ignored by git. The packaged backend
+copies live under `hf-space/app/sumo/reinickendorf-district/`.
 
-## Current Scope Boundary
+## Modeling Notes
 
-The current packaged SUMO network is not official Berlin-Reinickendorf and not full Berlin. It is a rectangular-ish BeST/SUMO technical cutout around part of Reinickendorf/Wedding/Pankow.
+- The frontend should not draw placeholder service areas. The district boundary
+  must come from `/sumo/reinickendorf-district/network`.
+- The current app is a traffic viewer, not a robotaxi dispatch model.
+- Future robotaxi work should define requests, depot, fleet logic, and metrics
+  before adding UI.
+- Do not use clipped/touching routes for a service model unless the product
+  intentionally wants vehicles to appear at the cutout boundary.
 
-Tegel/TXL is outside this packaged cutout. A true Tegel depot requires one of:
+## Local SUMO Tools
 
-- a larger SUMO network that includes both the current service area and TXL/Tegel, or
-- a full Berlin network and a scenario-specific route/request filter.
-
-Do not fake a Tegel depot by drawing frontend-only routes. If a vehicle starts at Tegel, SUMO must have roads from Tegel into the service area.
-
-## Edge/Coordinate Notes
-
-- The app map uses lon/lat rendered by MapLibre/Web Mercator.
-- SUMO network geometry is stored in SUMO XY and projected lon/lat.
-- Some trip endpoints can snap to internal junction edges such as `:...` if using `simulation.convertRoad(...)` directly.
-- For dispatch, prefer authoritative first/last normal edges from `reinickendorf-internal.rou.gz` or `data/source/reinickendorf/internal-trips.json`.
-- Reject internal edges starting with `:` for pickup/dropoff routing unless deliberately handling junction connectors.
-
-## What Is Missing For Premium/Goblin Versions
-
-Not currently present in this repo:
-
-- SUMO network covering Tegel/TXL plus the Reinickendorf cutout.
-- Charlottenburg SUMO scenario/cutout.
-- Mitte SUMO scenario/cutout.
-- Full Berlin SUMO scenario.
-- Charging-site/depot model.
-- Fleet dispatch state machine.
-- Charging, battery, deadheading, or routing-algorithm comparison data.
-
-SUMO tooling is available locally on this machine under:
+SUMO is installed locally at:
 
 ```text
 C:\Program Files (x86)\Eclipse\Sumo\
 ```
 
-Useful tools include `netconvert.exe`, `duarouter.exe`, `sumo.exe`, `sumo-gui.exe`, `osmGet.py`, and `osmBuild.py`.
+Useful tools include `netconvert.exe`, `duarouter.exe`, `sumo.exe`,
+`sumo-gui.exe`, `osmGet.py`, and `osmBuild.py`.

@@ -1,5 +1,4 @@
 import asyncio
-import gzip
 import json
 import math
 import os
@@ -7,72 +6,40 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from functools import lru_cache
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 
 APP_DIR = Path(__file__).resolve().parent
-SCENARIO_PATH = APP_DIR / "data" / "six-seven-scenario.json"
-SUMO_SCENARIO_DIR = APP_DIR / "sumo" / "reinickendorf"
-SUMO_CONFIG_PATH = SUMO_SCENARIO_DIR / "reinickendorf-internal.sumocfg"
-SUMO_NET_PATH = SUMO_SCENARIO_DIR / "reinickendorf.net.xml"
-LOCAL_BERLIN_SUMO_SOURCE_DIR = (
-    Path.home()
-    / "Desktop"
-    / "EV Mobility Dashboard"
-    / "data"
-    / "raw"
-    / "best-scenario"
-    / "scenario"
-    / "sumo"
-)
-PACKAGED_BERLIN_SUMO_DIR = APP_DIR / "sumo" / "berlin"
-BERLIN_SUMO_SCENARIO_DIR = Path(
-    os.getenv(
-        "SUMO_BERLIN_DIR",
-        str(PACKAGED_BERLIN_SUMO_DIR if PACKAGED_BERLIN_SUMO_DIR.exists() else LOCAL_BERLIN_SUMO_SOURCE_DIR),
-    )
-)
+SUMO_DISTRICT_SCENARIO_DIR = APP_DIR / "sumo" / "reinickendorf-district"
 SUMO_START_SEC = 21_600
 SUMO_END_SEC = 25_200
-DEFAULT_FRAME_DELAY_SEC = 0.035
-DEFAULT_SUMO_SPEED = 60.0
-MAX_WEBSOCKET_FPS = 60.0
-ROBOTAXI_ID_PREFIX = "robotaxi:"
-ROBOTAXI_DEPOT_EDGE = "-5089143"
-DEFAULT_ROBOTAXI_REQUEST_LIMIT = 5
+SUMO_WINDOW_LABEL = "06:00-07:00"
+DEFAULT_SUMO_DELAY_MS = 0
+MAX_SUMO_DELAY_MS = 1000
+FAST_SIM_BURST_STEPS = 500
 
 SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
-    "reinickendorf": {
-        "key": "reinickendorf",
-        "label": "Reinickendorf cutout",
-        "dir": SUMO_SCENARIO_DIR,
-        "config": SUMO_CONFIG_PATH,
-        "net": SUMO_NET_PATH,
-        "route": SUMO_SCENARIO_DIR / "reinickendorf-internal.rou.gz",
+    "reinickendorf-district": {
+        "key": "reinickendorf-district",
+        "label": "Official Reinickendorf district",
+        "dir": SUMO_DISTRICT_SCENARIO_DIR,
+        "config": SUMO_DISTRICT_SCENARIO_DIR / "reinickendorf-district.sumocfg",
+        "net": SUMO_DISTRICT_SCENARIO_DIR / "reinickendorf-district.net.xml",
+        "route": SUMO_DISTRICT_SCENARIO_DIR / "reinickendorf-district-contained.rou.xml.gz",
+        "boundary": SUMO_DISTRICT_SCENARIO_DIR / "reinickendorf-district.geojson",
+        "depotEdge": None,
         "startSec": SUMO_START_SEC,
         "endSec": SUMO_END_SEC,
         "networkMaxLanes": None,
         "includeInternalLanes": True,
         "includeSignalLinks": True,
-    },
-    "berlin": {
-        "key": "berlin",
-        "label": "Full Berlin",
-        "dir": BERLIN_SUMO_SCENARIO_DIR,
-        "config": BERLIN_SUMO_SCENARIO_DIR / "berlin.sumocfg",
-        "net": BERLIN_SUMO_SCENARIO_DIR / "berlin.net.xml",
-        "route": BERLIN_SUMO_SCENARIO_DIR / "berlin.rou.gz",
-        "startSec": SUMO_START_SEC,
-        "endSec": SUMO_END_SEC,
-        "networkMaxLanes": 25_000,
-        "includeInternalLanes": False,
-        "includeSignalLinks": False,
     },
 }
 
@@ -87,38 +54,15 @@ app.add_middleware(
 )
 
 
-def load_scenario() -> dict[str, Any]:
-    with SCENARIO_PATH.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-@lru_cache(maxsize=1)
-def load_sumo_trip_edges(route_path_value: str | None = None) -> dict[str, list[str]]:
-    route_path = Path(route_path_value) if route_path_value else SUMO_SCENARIO_DIR / "reinickendorf-internal.rou.gz"
-    if not route_path.exists():
-        return {}
-
-    trip_edges: dict[str, list[str]] = {}
-    with gzip.open(route_path, "rt", encoding="utf-8") as handle:
-        root = ET.parse(handle).getroot()
-        for vehicle in root.findall("vehicle"):
-            trip_id = vehicle.attrib.get("id")
-            route = vehicle.find("route")
-            if trip_id and route is not None:
-                edges = [
-                    edge
-                    for edge in route.attrib.get("edges", "").split()
-                    if edge and not edge.startswith(":")
-                ]
-                if edges:
-                    trip_edges[trip_id] = edges
-
-    return trip_edges
-
-
 def get_sumo_scenario(key: str | None) -> dict[str, Any]:
-    scenario_key = (key or "reinickendorf").lower()
-    return SUMO_SCENARIOS.get(scenario_key, SUMO_SCENARIOS["reinickendorf"])
+    scenario_key = (key or "reinickendorf-district").lower()
+    if scenario_key not in SUMO_SCENARIOS:
+        known_scopes = ", ".join(sorted(SUMO_SCENARIOS))
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown SUMO scope '{scenario_key}'. Known scopes: {known_scopes}",
+        )
+    return SUMO_SCENARIOS[scenario_key]
 
 
 def find_sumo_home() -> Path | None:
@@ -198,13 +142,12 @@ def sumo_version() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    scenario = load_scenario()
     sumo = sumo_version()
     files = packaged_sumo_files()
     return {
         "ok": bool(sumo["available"] and all(files.values())),
         "service": "robotaxi-sumo-backend",
-        "scenario": scenario["scenario"]["id"],
+        "scope": "reinickendorf-district",
         "sumoAvailable": sumo["available"],
         "packagedFiles": files,
     }
@@ -216,12 +159,23 @@ def get_sumo_version() -> dict[str, Any]:
 
 
 def packaged_sumo_files(sumo_scenario: dict[str, Any] | None = None) -> dict[str, bool]:
-    selected = sumo_scenario or SUMO_SCENARIOS["reinickendorf"]
+    selected = sumo_scenario or get_sumo_scenario(None)
     return {
         "net": selected["net"].exists(),
         "routes": selected["route"].exists(),
         "config": selected["config"].exists(),
     }
+
+
+@lru_cache(maxsize=8)
+def load_geojson(path_value: str | None) -> dict[str, Any] | None:
+    if not path_value:
+        return None
+    path = Path(path_value)
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 @lru_cache(maxsize=4)
@@ -231,7 +185,7 @@ def load_sumo_network(
     include_internal_lanes: bool = True,
     include_signal_links: bool = True,
 ) -> dict[str, Any]:
-    net_path = Path(net_path_value) if net_path_value else SUMO_NET_PATH
+    net_path = Path(net_path_value) if net_path_value else get_sumo_scenario(None)["net"]
     tree = ET.parse(net_path)
     root = tree.getroot()
     location = root.find("location")
@@ -455,219 +409,6 @@ def parse_pair(value: str) -> tuple[float, float]:
     return float(first), float(second)
 
 
-def parse_robotaxi_request_limit(websocket: WebSocket) -> int:
-    raw_limit = websocket.query_params.get("robotaxiRequests")
-    if not raw_limit:
-        return DEFAULT_ROBOTAXI_REQUEST_LIMIT
-
-    try:
-        return max(0, min(20, int(raw_limit)))
-    except ValueError:
-        return DEFAULT_ROBOTAXI_REQUEST_LIMIT
-
-
-def merge_route_edges(first_leg: tuple[str, ...], second_leg: tuple[str, ...]) -> list[str]:
-    merged = list(first_leg)
-    for edge in second_leg:
-        if merged and merged[-1] == edge:
-            continue
-        merged.append(edge)
-    return merged
-
-
-def route_edges_between(connection: Any, from_edge: str, to_edge: str) -> tuple[str, ...]:
-    if from_edge == to_edge:
-        return (from_edge,)
-
-    route = connection.simulation.findRoute(from_edge, to_edge)
-    return tuple(edge for edge in route.edges if edge and not edge.startswith(":"))
-
-
-def prepare_robotaxi_dispatch(
-    connection: Any,
-    sim_sec: int,
-    request_limit: int,
-    sumo_scenario: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    selected = sumo_scenario or SUMO_SCENARIOS["reinickendorf"]
-    if request_limit <= 0:
-        return {
-            "enabled": False,
-            "depot": {"edge": ROBOTAXI_DEPOT_EDGE, "label": "In-cutout SUMO depot edge"},
-            "requests": [],
-            "skippedCandidates": [],
-            "requestLimit": request_limit,
-        }
-
-    scenario = load_scenario()
-    trip_edges = load_sumo_trip_edges(str(selected["route"]))
-    requests = []
-    skipped_candidates = []
-
-    for trip in scenario["trips"]:
-        if len(requests) >= request_limit:
-            break
-        if int(float(trip["departSec"])) < sim_sec:
-            continue
-
-        original_edges = trip_edges.get(str(trip["id"]))
-        if not original_edges:
-            skipped_candidates.append({"id": str(trip["id"]), "reason": "missing-sumo-route"})
-            continue
-
-        pickup_edge = original_edges[0]
-        dropoff_edge = original_edges[-1]
-        first_leg = route_edges_between(connection, ROBOTAXI_DEPOT_EDGE, pickup_edge)
-        second_leg = route_edges_between(connection, pickup_edge, dropoff_edge)
-        if not first_leg or not second_leg:
-            skipped_candidates.append(
-                {
-                    "id": str(trip["id"]),
-                    "reason": "unroutable",
-                    "pickupEdge": pickup_edge,
-                    "dropoffEdge": dropoff_edge,
-                }
-            )
-            continue
-
-        requests.append(
-            {
-                "id": str(trip["id"]),
-                "taxiId": f"{ROBOTAXI_ID_PREFIX}{len(requests) + 1:02d}",
-                "departSec": int(float(trip["departSec"])),
-                "pickupEdge": pickup_edge,
-                "dropoffEdge": dropoff_edge,
-                "origin": trip["origin"],
-                "destination": trip["destination"],
-                "state": "waiting",
-                "routeEdges": merge_route_edges(first_leg, second_leg),
-                "pickupRouteIndex": max(0, len(first_leg) - 1),
-                "assignedSec": None,
-                "pickedUpSec": None,
-                "servedSec": None,
-                "failedReason": None,
-            }
-        )
-
-    return {
-        "enabled": request_limit > 0,
-        "depot": {"edge": ROBOTAXI_DEPOT_EDGE, "label": "In-cutout SUMO depot edge"},
-        "requests": requests,
-        "skippedCandidates": skipped_candidates,
-        "requestLimit": request_limit,
-    }
-
-
-def insert_robotaxi(connection: Any, request: dict[str, Any]) -> None:
-    taxi_id = request["taxiId"]
-    route_id = f"{taxi_id}:route"
-    if taxi_id in connection.vehicle.getIDList():
-        return
-
-    connection.route.add(route_id, request["routeEdges"])
-    connection.vehicle.add(
-        taxi_id,
-        route_id,
-        typeID="DefaultVehicle",
-        depart="now",
-        departLane="best",
-        departSpeed="0",
-    )
-    connection.vehicle.setColor(taxi_id, (245, 177, 39, 255))
-
-
-def update_robotaxi_dispatch(connection: Any, dispatch: dict[str, Any], sim_sec: int) -> None:
-    if not dispatch.get("enabled"):
-        return
-
-    vehicle_ids = set(connection.vehicle.getIDList())
-    arrived_ids = set(connection.simulation.getArrivedIDList())
-
-    for request in dispatch["requests"]:
-        state = request["state"]
-        taxi_id = request["taxiId"]
-
-        if state == "waiting" and sim_sec >= request["departSec"]:
-            try:
-                insert_robotaxi(connection, request)
-                request["state"] = "assigned"
-                request["assignedSec"] = sim_sec
-            except Exception as error:
-                request["state"] = "failed"
-                request["failedReason"] = str(error)
-            continue
-
-        if state == "assigned" and taxi_id in vehicle_ids:
-            route_index = int(connection.vehicle.getRouteIndex(taxi_id))
-            if route_index >= int(request["pickupRouteIndex"]):
-                request["state"] = "picked_up"
-                request["pickedUpSec"] = sim_sec
-            continue
-
-        if state == "picked_up" and (taxi_id in arrived_ids or taxi_id not in vehicle_ids):
-            request["state"] = "served"
-            request["servedSec"] = sim_sec
-
-
-def robotaxi_summary(dispatch: dict[str, Any] | None) -> dict[str, Any]:
-    if not dispatch:
-        return {
-            "enabled": False,
-            "fleetSize": 0,
-            "requestsTotal": 0,
-            "waiting": 0,
-            "assigned": 0,
-            "pickedUp": 0,
-            "served": 0,
-            "failed": 0,
-            "skippedCandidates": 0,
-            "avgWaitSec": None,
-            "depot": None,
-            "requests": [],
-        }
-
-    requests = dispatch["requests"]
-    counts = {
-        state: sum(1 for request in requests if request["state"] == state)
-        for state in ["waiting", "assigned", "picked_up", "served", "failed"]
-    }
-    wait_times = [
-        request["pickedUpSec"] - request["departSec"]
-        for request in requests
-        if request.get("pickedUpSec") is not None
-    ]
-
-    return {
-        "enabled": dispatch["enabled"],
-        "fleetSize": len(requests),
-        "requestsTotal": len(requests),
-        "waiting": counts["waiting"],
-        "assigned": counts["assigned"],
-        "pickedUp": counts["picked_up"],
-        "served": counts["served"],
-        "failed": counts["failed"],
-        "skippedCandidates": len(dispatch.get("skippedCandidates", [])),
-        "avgWaitSec": round(sum(wait_times) / len(wait_times), 1) if wait_times else None,
-        "depot": dispatch["depot"],
-        "requests": [
-            {
-                "id": request["id"],
-                "taxiId": request["taxiId"],
-                "state": request["state"],
-                "departSec": request["departSec"],
-                "pickupEdge": request["pickupEdge"],
-                "dropoffEdge": request["dropoffEdge"],
-                "assignedSec": request["assignedSec"],
-                "pickedUpSec": request["pickedUpSec"],
-                "servedSec": request["servedSec"],
-                "failedReason": request["failedReason"],
-            }
-            for request in requests
-        ],
-        "skippedCandidatesDetail": dispatch.get("skippedCandidates", []),
-    }
-
-
 def parse_sumo_shape(
     shape: str,
     net_offset: tuple[float, float],
@@ -822,35 +563,8 @@ def utm_to_lonlat(easting: float, northing: float, zone: int) -> tuple[float, fl
     return math.degrees(longitude), math.degrees(latitude)
 
 
-@app.get("/scenario/summary")
-def scenario_summary() -> dict[str, Any]:
-    scenario = load_scenario()
-    return {
-        "schemaVersion": scenario["schemaVersion"],
-        "scenario": scenario["scenario"],
-        "summary": scenario["summary"],
-        "serviceArea": scenario["serviceArea"],
-        "depot": scenario["depot"],
-        "counts": {
-            "roads": len(scenario["roads"]["features"]),
-            "trips": len(scenario["trips"]),
-        },
-    }
-
-
-@app.get("/scenario")
-def get_scenario() -> dict[str, Any]:
-    return load_scenario()
-
-
-@app.get("/sumo/reinickendorf/summary")
-def sumo_reinickendorf_summary() -> dict[str, Any]:
-    return sumo_summary("reinickendorf")
-
-
 @app.get("/sumo/{scope}/summary")
 def sumo_summary(scope: str) -> dict[str, Any]:
-    scenario = load_scenario()
     selected = get_sumo_scenario(scope)
     return {
         "available": selected["config"].exists() and find_sumo_binary() is not None,
@@ -861,15 +575,10 @@ def sumo_summary(scope: str) -> dict[str, Any]:
         "window": {
             "startSec": selected["startSec"],
             "endSec": selected["endSec"],
-            "label": scenario["scenario"]["windowLabel"],
+            "label": SUMO_WINDOW_LABEL,
         },
         "files": packaged_sumo_files(selected),
     }
-
-
-@app.get("/sumo/reinickendorf/network")
-def sumo_reinickendorf_network() -> dict[str, Any]:
-    return sumo_network("reinickendorf")
 
 
 @app.get("/sumo/{scope}/network")
@@ -888,12 +597,9 @@ def sumo_network(scope: str) -> dict[str, Any]:
     except Exception as error:
         return {"available": False, "error": str(error)}
 
-    return {"available": True, "scope": selected["key"], **network}
+    boundary = load_geojson(str(selected["boundary"])) if selected.get("boundary") else None
 
-
-@app.get("/sumo/reinickendorf/validate")
-def validate_sumo_reinickendorf() -> dict[str, Any]:
-    return validate_sumo_scope("reinickendorf")
+    return {"available": True, "scope": selected["key"], "boundary": boundary, **network}
 
 
 @app.get("/sumo/{scope}/validate")
@@ -943,70 +649,17 @@ def validate_sumo_scope(scope: str) -> dict[str, Any]:
     }
 
 
-@app.websocket("/ws/replay")
-async def replay(websocket: WebSocket) -> None:
-    await websocket.accept()
-    scenario = load_scenario()
-    trips = sorted(scenario["trips"], key=lambda trip: trip["departOffsetSec"])
-    start_sec = scenario["scenario"]["startSec"]
-
-    try:
-        await websocket.send_json(
-            {
-                "type": "hello",
-                "scenario": scenario["scenario"],
-                "counts": {"trips": len(trips)},
-            }
-        )
-
-        speed = 120.0
-        frame_step_sec = 30
-        current_offset = 0
-        trip_index = 0
-
-        while current_offset <= scenario["scenario"]["durationSec"]:
-            new_requests = []
-            while (
-                trip_index < len(trips)
-                and trips[trip_index]["departOffsetSec"] <= current_offset
-            ):
-                trip = trips[trip_index]
-                new_requests.append(
-                    {
-                        "id": trip["id"],
-                        "origin": trip["origin"],
-                        "destination": trip["destination"],
-                        "distanceKm": trip["distanceKm"],
-                    }
-                )
-                trip_index += 1
-
-            await websocket.send_json(
-                {
-                    "type": "frame",
-                    "simSec": start_sec + current_offset,
-                    "offsetSec": current_offset,
-                    "newRequests": new_requests,
-                }
-            )
-            current_offset += frame_step_sec
-            await asyncio.sleep(frame_step_sec / speed)
-
-        await websocket.send_json({"type": "done"})
-    except WebSocketDisconnect:
-        return
-
-
-@app.websocket("/ws/sumo/reinickendorf")
-async def sumo_reinickendorf(websocket: WebSocket) -> None:
-    await sumo_scope(websocket, "reinickendorf")
-
-
 @app.websocket("/ws/sumo/{scope}")
 async def sumo_scope(websocket: WebSocket, scope: str) -> None:
     await websocket.accept()
 
-    selected = get_sumo_scenario(scope)
+    try:
+        selected = get_sumo_scenario(scope)
+    except HTTPException as error:
+        await websocket.send_json({"type": "error", "message": error.detail})
+        await websocket.close()
+        return
+
     sumo_binary = find_sumo_binary()
     if not sumo_binary or not selected["config"].exists():
         await websocket.send_json(
@@ -1044,10 +697,11 @@ async def sumo_scope(websocket: WebSocket, scope: str) -> None:
     ]
 
     connection_label = f"{selected['key']}-{id(websocket)}"
-    speed_factor = parse_playback_speed(websocket)
-    seek_sec = parse_seek_sec(websocket, selected)
-    robotaxi_request_limit = parse_robotaxi_request_limit(websocket)
-    producer_task: asyncio.Task[None] | None = None
+    command_task: asyncio.Task[None] | None = None
+    command_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    delay_ms = parse_delay_ms(websocket)
+    is_running = False
+    run_started_at: float | None = None
 
     try:
         (selected["dir"] / "output").mkdir(exist_ok=True)
@@ -1061,127 +715,142 @@ async def sumo_scope(websocket: WebSocket, scope: str) -> None:
                 "backend": "sumo-traci",
                 "scope": selected["key"],
                 "window": {"startSec": selected["startSec"], "endSec": selected["endSec"]},
-                "speedFactor": speed_factor,
-                "maxWebsocketFps": MAX_WEBSOCKET_FPS,
-                "seekSec": seek_sec,
-                "robotaxiRequests": robotaxi_request_limit,
+                "delayMs": delay_ms,
+                "commands": ["start", "stop", "step", "reset", "delay"],
             }
         )
 
-        await asyncio.to_thread(
-            traci.start,
-            command,
-            label=connection_label,
-        )
-        connection = traci.getConnection(connection_label)
+        async def receive_commands() -> None:
+            while True:
+                payload = await websocket.receive_json()
+                await command_queue.put(payload)
 
-        latest_frame: dict[str, Any] | None = None
-        latest_sent_sec: int | None = None
-        producer_done = False
-        producer_error: Exception | None = None
-        frame_event = asyncio.Event()
+        async def start_connection():
+            await asyncio.to_thread(traci.start, command, label=connection_label)
+            return traci.getConnection(connection_label)
 
-        async def produce_frames() -> None:
-            nonlocal latest_frame, producer_done, producer_error
+        async def close_connection() -> None:
             try:
-                sim_sec = int(connection.simulation.getTime())
-                while sim_sec < seek_sec:
-                    await asyncio.to_thread(connection.simulationStep)
-                    sim_sec = int(connection.simulation.getTime())
-
-                dispatch = await asyncio.to_thread(
-                    prepare_robotaxi_dispatch,
-                    connection,
-                    sim_sec,
-                    robotaxi_request_limit,
-                    selected,
-                )
-                await asyncio.to_thread(update_robotaxi_dispatch, connection, dispatch, sim_sec)
-                loop = asyncio.get_running_loop()
-                playback_started_at = loop.time()
-                latest_frame = await asyncio.to_thread(
-                    build_sumo_frame,
-                    connection,
-                    sim_sec,
-                    0,
-                    speed_factor,
-                    speed_factor,
-                    dispatch,
-                )
-                frame_event.set()
-
-                while sim_sec < selected["endSec"]:
-                    wall_elapsed_sec = max(0.0, loop.time() - playback_started_at)
-                    target_sim_sec = min(
-                        selected["endSec"],
-                        seek_sec + int(wall_elapsed_sec * speed_factor),
-                    )
-                    if target_sim_sec <= sim_sec:
-                        await asyncio.sleep(1 / MAX_WEBSOCKET_FPS)
-                        continue
-
-                    while sim_sec < target_sim_sec:
-                        await asyncio.to_thread(connection.simulationStep)
-                        sim_sec = int(connection.simulation.getTime())
-                        await asyncio.to_thread(
-                            update_robotaxi_dispatch,
-                            connection,
-                            dispatch,
-                            sim_sec,
-                        )
-
-                    wall_elapsed_sec = max(0.0, loop.time() - playback_started_at)
-                    sim_elapsed_sec = max(0, sim_sec - seek_sec)
-                    effective_speed = (
-                        sim_elapsed_sec / wall_elapsed_sec if wall_elapsed_sec > 0 else speed_factor
-                    )
-                    latest_frame = await asyncio.to_thread(
-                        build_sumo_frame,
-                        connection,
-                        sim_sec,
-                        wall_elapsed_sec,
-                        speed_factor,
-                        effective_speed,
-                        dispatch,
-                    )
-                    frame_event.set()
-            except Exception as error:  # pragma: no cover - runtime dependent
-                producer_error = error
-            finally:
-                producer_done = True
-                frame_event.set()
-
-        producer_task = asyncio.create_task(produce_frames())
-        send_interval_sec = 1 / MAX_WEBSOCKET_FPS
-
-        while True:
-            try:
-                await asyncio.wait_for(frame_event.wait(), timeout=send_interval_sec)
-            except asyncio.TimeoutError:
+                traci.switch(connection_label)
+                traci.close(False)
+            except Exception:
                 pass
 
-            frame = latest_frame
-            if frame is not None and frame.get("simSec") != latest_sent_sec:
-                await websocket.send_json(frame)
-                latest_sent_sec = int(frame["simSec"])
+        connection = await start_connection()
+        command_task = asyncio.create_task(receive_commands())
 
-            frame_event.clear()
+        async def send_sim_status(status: str, elapsed_sec: float | None = None) -> int:
+            sim_sec = int(connection.simulation.getTime())
+            step = max(0, sim_sec - int(selected["startSec"]))
+            payload: dict[str, Any] = {
+                "type": "simStatus",
+                "status": status,
+                "statusText": format_sim_status(status, elapsed_sec),
+                "simSec": sim_sec,
+                "step": step,
+                "totalSteps": int(selected["endSec"] - selected["startSec"]),
+                "delayMs": delay_ms,
+                "running": is_running,
+            }
+            if elapsed_sec is not None:
+                payload["elapsedSec"] = round(elapsed_sec, 3)
+            await websocket.send_json(payload)
+            return sim_sec
 
-            if producer_done:
-                break
+        async def step_once() -> int:
+            await asyncio.to_thread(connection.simulationStep)
+            return int(connection.simulation.getTime())
 
-        if producer_error:
-            raise producer_error
-        await websocket.send_json({"type": "done"})
+        async def advance_fast_burst() -> int:
+            def run_burst() -> int:
+                steps = 0
+                sim_sec = int(connection.simulation.getTime())
+                while steps < FAST_SIM_BURST_STEPS and sim_sec < selected["endSec"]:
+                    connection.simulationStep()
+                    steps += 1
+                    sim_sec = int(connection.simulation.getTime())
+                return sim_sec
+
+            return await asyncio.to_thread(run_burst)
+
+        async def handle_command(payload: dict[str, Any]) -> None:
+            nonlocal connection, delay_ms, is_running, run_started_at
+            command_name = str(payload.get("command") or payload.get("type") or "").lower()
+            if command_name == "start":
+                is_running = True
+                run_started_at = time.perf_counter()
+                await send_sim_status("running")
+            elif command_name == "stop":
+                is_running = False
+                await send_sim_status("stopped")
+            elif command_name == "step":
+                if int(connection.simulation.getTime()) < selected["endSec"]:
+                    await step_once()
+                await send_sim_status("stepped")
+            elif command_name == "reset":
+                is_running = False
+                await close_connection()
+                connection = await start_connection()
+                run_started_at = None
+                await send_sim_status("idle")
+            elif command_name == "delay":
+                delay_ms = clamp_delay_ms(payload.get("delayMs"))
+                await websocket.send_json({"type": "delay", "delayMs": delay_ms})
+                await send_sim_status("running" if is_running else "idle")
+            else:
+                await websocket.send_json(
+                    {"type": "error", "message": f"Unknown SUMO command: {command_name}"}
+                )
+
+        await send_sim_status("idle")
+
+        while True:
+            handled_command = False
+            while True:
+                try:
+                    payload = command_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                await handle_command(payload)
+                handled_command = True
+
+            if handled_command:
+                continue
+
+            if not is_running:
+                await handle_command(await command_queue.get())
+                continue
+
+            sim_sec = int(connection.simulation.getTime())
+            if sim_sec >= selected["endSec"]:
+                is_running = False
+                elapsed_sec = time.perf_counter() - run_started_at if run_started_at else None
+                await send_sim_status("finished", elapsed_sec)
+                await websocket.send_json({"type": "done", "simSec": sim_sec})
+                continue
+
+            if delay_ms > 0:
+                await step_once()
+                try:
+                    payload = await asyncio.wait_for(
+                        command_queue.get(),
+                        timeout=delay_ms / 1000,
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                await handle_command(payload)
+            else:
+                await advance_fast_burst()
+                await asyncio.sleep(0)
     except WebSocketDisconnect:
         return
     except Exception as error:
         await websocket.send_json({"type": "error", "message": str(error)})
     finally:
-        if producer_task and not producer_task.done():
-            producer_task.cancel()
+        if command_task and not command_task.done():
+            command_task.cancel()
             try:
-                await producer_task
+                await command_task
             except asyncio.CancelledError:
                 pass
         try:
@@ -1194,14 +863,11 @@ async def sumo_scope(websocket: WebSocket, scope: str) -> None:
 def build_sumo_frame(
     connection: Any,
     sim_sec: int,
-    wall_elapsed_sec: float,
-    requested_speed: float,
-    effective_speed: float,
-    dispatch: dict[str, Any] | None = None,
+    is_running: bool,
+    delay_ms: int,
 ) -> dict[str, Any]:
     vehicle_ids = list(connection.vehicle.getIDList())
     vehicles = []
-    robotaxis = []
     traffic_lights = live_traffic_light_states(connection)
 
     for vehicle_id in vehicle_ids:
@@ -1215,28 +881,33 @@ def build_sumo_frame(
             "speed": round(float(connection.vehicle.getSpeed(vehicle_id)), 3),
             "lane": connection.vehicle.getLaneID(vehicle_id),
             "route": connection.vehicle.getRouteID(vehicle_id),
-            "kind": "robotaxi" if vehicle_id.startswith(ROBOTAXI_ID_PREFIX) else "background",
+            "kind": "background",
         }
-        if vehicle_id.startswith(ROBOTAXI_ID_PREFIX):
-            robotaxis.append(vehicle)
-        else:
-            vehicles.append(vehicle)
+        vehicles.append(vehicle)
 
     return {
         "type": "frame",
         "simSec": sim_sec,
         "vehicles": vehicles,
-        "robotaxis": robotaxis,
         "vehicleCount": len(vehicles),
-        "robotaxiCount": len(robotaxis),
         "departed": list(connection.simulation.getDepartedIDList()),
         "arrived": list(connection.simulation.getArrivedIDList()),
         "trafficLights": traffic_lights,
-        "wallElapsedSec": round(wall_elapsed_sec, 3),
-        "requestedSpeed": round(requested_speed, 3),
-        "effectiveSpeed": round(effective_speed, 3),
-        "robotaxi": robotaxi_summary(dispatch),
+        "running": is_running,
+        "delayMs": delay_ms,
     }
+
+
+def format_sim_status(status: str, elapsed_sec: float | None = None) -> str:
+    if status == "finished" and elapsed_sec is not None:
+        return f"Finished in {elapsed_sec:.2f}s"
+    if status == "running":
+        return "Running"
+    if status == "stopped":
+        return "Stopped"
+    if status == "stepped":
+        return "Stepped"
+    return "Idle"
 
 
 def live_traffic_light_states(connection: Any) -> dict[str, dict[str, Any]]:
@@ -1261,53 +932,20 @@ def display_traffic_light_state(raw_state: str) -> str:
     return "off"
 
 
-def parse_frame_delay(websocket: WebSocket) -> float:
-    configured_delay = os.getenv("SUMO_FRAME_DELAY_SEC")
+def clamp_delay_ms(value: Any) -> int:
+    try:
+        delay_ms = int(float(value))
+    except (TypeError, ValueError):
+        delay_ms = DEFAULT_SUMO_DELAY_MS
+
+    return max(0, min(delay_ms, MAX_SUMO_DELAY_MS))
+
+
+def parse_delay_ms(websocket: WebSocket) -> int:
+    configured_delay_ms = os.getenv("SUMO_DELAY_MS")
     raw_delay_ms = websocket.query_params.get("delayMs")
-
-    try:
-        if raw_delay_ms is not None:
-            delay = float(raw_delay_ms) / 1000
-        elif configured_delay is not None:
-            delay = float(configured_delay)
-        else:
-            delay = DEFAULT_FRAME_DELAY_SEC
-    except ValueError:
-        delay = DEFAULT_FRAME_DELAY_SEC
-
-    return max(0.0, min(delay, 2.0))
-
-
-def parse_playback_speed(websocket: WebSocket) -> float:
-    configured_speed = os.getenv("SUMO_PLAYBACK_SPEED")
-    raw_speed = websocket.query_params.get("speed")
-    raw_delay_ms = websocket.query_params.get("delayMs")
-
-    try:
-        if raw_speed is not None:
-            speed = float(raw_speed)
-        elif configured_speed is not None:
-            speed = float(configured_speed)
-        elif raw_delay_ms is not None:
-            delay_ms = max(0.001, float(raw_delay_ms))
-            speed = 1000 / delay_ms
-        else:
-            speed = DEFAULT_SUMO_SPEED
-    except ValueError:
-        speed = DEFAULT_SUMO_SPEED
-
-    return max(1.0, min(speed, 3600.0))
-
-
-def parse_seek_sec(websocket: WebSocket, sumo_scenario: dict[str, Any] | None = None) -> int:
-    selected = sumo_scenario or SUMO_SCENARIOS["reinickendorf"]
-    raw_seek_sec = websocket.query_params.get("seekSec")
-    if raw_seek_sec is None:
-        return int(selected["startSec"])
-
-    try:
-        seek_sec = int(float(raw_seek_sec))
-    except ValueError:
-        return int(selected["startSec"])
-
-    return max(int(selected["startSec"]), min(seek_sec, int(selected["endSec"])))
+    if raw_delay_ms is not None:
+        return clamp_delay_ms(raw_delay_ms)
+    if configured_delay_ms is not None:
+        return clamp_delay_ms(configured_delay_ms)
+    return DEFAULT_SUMO_DELAY_MS

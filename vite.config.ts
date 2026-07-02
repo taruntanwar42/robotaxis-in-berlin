@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/robotaxi-control-room/' : '/',
+  base: process.env.GITHUB_ACTIONS ? '/robotaxis-in-berlin/' : '/',
   plugins: [react()],
 })

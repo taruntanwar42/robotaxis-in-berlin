@@ -2,7 +2,7 @@
 
 This project has two deployable pieces:
 
-- GitHub Pages frontend: `https://ta-nwar.github.io/robotaxi-control-room/`
+- GitHub Pages frontend: `https://taruntanwar42.github.io/robotaxis-in-berlin/`
 - Hugging Face Docker Space backend:
   `https://icybean-robotaxi-sumo-backend.hf.space`
 
@@ -66,14 +66,14 @@ Pushes to `main` run `.github/workflows/pages.yml`.
 The Vite production build uses:
 
 ```text
-base=/robotaxi-control-room/
+base=/robotaxis-in-berlin/
 VITE_SCENARIO_API_URL=https://icybean-robotaxi-sumo-backend.hf.space
 ```
 
 Verify:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing https://ta-nwar.github.io/robotaxi-control-room/
+Invoke-WebRequest -UseBasicParsing https://taruntanwar42.github.io/robotaxis-in-berlin/
 ```
 
 ## Data Included

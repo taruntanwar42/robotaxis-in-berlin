@@ -1,0 +1,140 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "reinickendorf",
+      "properties": {
+        "name": "Reinickendorf",
+        "rawName": "Reinickendorf",
+        "lineColor": "#37d9ff",
+        "source": "BeST Berlin SUMO cutouts.txt",
+        "sourcePath": "C:\\Users\\KitCat\\Desktop\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo\\cutouts\\cutouts.txt",
+        "sourceCoordinateSystem": "SUMO net coordinates shifted by berlin.net.xml netOffset"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            13.3314666,
+            52.5455115
+          ],
+          [
+            13.3301359,
+            52.580558
+          ],
+          [
+            13.3891451,
+            52.5813756
+          ],
+          [
+            13.3904288,
+            52.546328
+          ],
+          [
+            13.3314666,
+            52.5455115
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "charlottenburg",
+      "properties": {
+        "name": "Charlottenburg",
+        "rawName": "charlottenburg",
+        "lineColor": "#ffbf3f",
+        "source": "BeST Berlin SUMO cutouts.txt",
+        "sourcePath": "C:\\Users\\KitCat\\Desktop\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo\\cutouts\\cutouts.txt",
+        "sourceCoordinateSystem": "SUMO net coordinates shifted by berlin.net.xml netOffset"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            13.2861733,
+            52.5294126
+          ],
+          [
+            13.3356942,
+            52.5366995
+          ],
+          [
+            13.3649702,
+            52.5128121
+          ],
+          [
+            13.3584161,
+            52.4927788
+          ],
+          [
+            13.3068895,
+            52.4870922
+          ],
+          [
+            13.291223,
+            52.5019505
+          ],
+          [
+            13.2861733,
+            52.5294126
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "mitte",
+      "properties": {
+        "name": "Mitte",
+        "rawName": "mitte",
+        "lineColor": "#ff5fd2",
+        "source": "BeST Berlin SUMO cutouts.txt",
+        "sourcePath": "C:\\Users\\KitCat\\Desktop\\EV Mobility Dashboard\\data\\raw\\best-scenario\\scenario\\sumo\\cutouts\\cutouts.txt",
+        "sourceCoordinateSystem": "SUMO net coordinates shifted by berlin.net.xml netOffset"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            13.357736,
+            52.5288279
+          ],
+          [
+            13.3688728,
+            52.4943508
+          ],
+          [
+            13.443602,
+            52.4963598
+          ],
+          [
+            13.4553376,
+            52.5050878
+          ],
+          [
+            13.4618565,
+            52.5222097
+          ],
+          [
+            13.4469035,
+            52.5372697
+          ],
+          [
+            13.4067857,
+            52.545756
+          ],
+          [
+            13.3577277,
+            52.5290505
+          ],
+          [
+            13.357736,
+            52.5288279
+          ]
+        ]
+      }
+    }
+  ]
+}

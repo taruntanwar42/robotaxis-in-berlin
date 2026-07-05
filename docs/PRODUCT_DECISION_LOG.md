@@ -342,3 +342,351 @@ Extracted decision:
   StoryVisual diagrams stay in place for now.
 - This session's scope is landing the working set: commit, push, and redeploy
   both targets, with no imagery work.
+
+## 2026-07-05 - Current Frontend Is Acknowledged Throwaway; Full Redesign Ahead
+
+Raw user language:
+
+> i think the photos can only be added to the tut cards after the app has actually been made, right. like we obv can take screenshots of it before that.
+
+> about the actual app, i think it's kinda rough rn, like we just started mostly, but it's like, kind of unusable, cluttered slop rn (and thats ok bc it has been an experiment/exploration until now) -- it doesnt even open on the right viewport and the ui is definitely compeletely random stuff that codex added (i did the exploration with codex before yesternight)
+
+Extracted decision:
+
+- Current frontend has no precedent value; full UI redesign is in scope.
+- Tutorial-card imagery is sequenced LAST: screenshots of the finished app.
+- Backend/sim/replay contract is not in question.
+
+## 2026-07-05 - The Viewer And The Purpose
+
+Raw user language:
+
+> the viewer is the recruiter from the future talents team of tesla giga berlin. i'm applying to a duales studium program.
+
+> the main thing to note here is that it's a beautiful, short tesla specific show of skills.
+
+(Context: CV links the app; CV line promises "Simulation einer Cybercab-Flotte
+im Berliner Stadtverkehr mit Auswertung zentraler Kennzahlen". Program: TH
+Wildau Mobilitaet Umwelt Logistik B.Sc., practice site Giga Berlin, start Sep
+2026; per mentor conversation the program is becoming data-science/AI oriented
+even though the posted description is outdated.)
+
+Extracted decision:
+
+- Design north star: one uninterrupted, self-explanatory, impressive ~2-minute
+  experience for a first-time viewer with 30-60s of attention who will not
+  read docs or touch controls.
+- The end-of-run Kennzahlen surface must visibly fulfill the CV's plural
+  "zentrale Kennzahlen" claim.
+
+## 2026-07-05 - Running Assumption: Nobody Looks At The Repo
+
+Raw user language:
+
+> no, the recruiter/technical person won't look at the github, they dont care, we are only building the app, and the code/commits/log whatever, is only our shit, we dont need to be thinking about this, we are runnin on this assumption
+
+Extracted decision:
+
+- All presentation effort goes into the app itself. Repo hygiene, commits,
+  docs, and this log exist only for our own working process; never a design
+  consideration for the audience.
+
+## 2026-07-05 - Metrics Tiers: 1 And 2 Now, 3 Later
+
+Raw user language:
+
+> yeah i agree with the intro cards and tier 1 and 2 is what we do rn. tier 3 for later expansion.
+
+> in the final version, i think the cybercab battery and how many people per ride, that kind of stuff is gonna be very important - hopefully at the end we can also show like, how much environmental effect we had (emissions, less cars, etc -- and i think the safety profile is also a very strong point, i think we can show estimates for all our metrics for what a real cybercab fleet could do (like if we just multiplied our cab and traffic numbers by a bigger number - our trips are already like a sample from a simulation of real berlin traffic which is approximately true (the OBS))
+
+Extracted decision:
+
+- Tier 1 (now, from replay data): rides served, wait times, km driven,
+  empty-km share, passengers moved.
+- Tier 2 (now, derived frontend estimates): emissions saved, private cars
+  replaced, scaled-to-Berlin extrapolation (defensible: demand is a 1% sample
+  of the calibrated MATSim Open Berlin Scenario). One clean assumption line,
+  never caveat-heavy copy.
+- Tier 3 (v2, needs sim changes): battery/charging, per-ride occupancy or
+  pooling. The Cybercab First Responders Guide details the user pasted (idle
+  roaming, charge-before-ride threshold, pull-over on fault, ODD) serve as the
+  reference spec for v2 fleet behavior.
+- Safety metric: weakest sourcing; one carefully-sourced line or drop from v1.
+
+## 2026-07-05 - Locked: Build In English
+
+Raw user language:
+
+> language- english. we build in english. translation will take 30 mins at the end, or we leave it in english, either way, english, fully, during building.
+
+Extracted decision:
+
+- All UI copy in English during the entire build. German translation is an
+  optional short pass at the very end, possibly skipped.
+
+## 2026-07-05 - Viewport Framing Is A Layout Decision
+
+Raw user language:
+
+> viewport is just that the map is not centered and zoomed properly, like its kinda on the lower side of the screen (doesnthave to be in the center, i guess where we put the ui will decide the rollout zone positioning later) -- but rn even the cluttery ui that exists there covers a portion of it by defaualt
+
+Extracted decision:
+
+- Initial camera must frame the corridor cleanly with the final UI layout's
+  safe areas in mind; panel placement and camera framing are decided together.
+- No UI chrome may cover the active corridor by default.
+
+## 2026-07-05 - Visual Language: Tesla Light / Uber / Shadcn / Apple-Minimal
+
+Raw user language:
+
+> i wanna keep the UI light mode, not 'tesla dark' as u said, tesla light. the viewer will view it in a bright office in the morning/afternoon.
+
+> i think the end ui should look sth like the Uber app yk, simple line based sort of ui yk. like shadcn kinda.
+
+> the ui can be like, reimagined as a bright, minimalist, no clutter/as few text, but very clear, as possible, everything is there for a reason. all small elements, everything. thoughtful minimalist design, like apple yk.
+
+> maybe some like, golden blinking/radiating circles on the map or like some nice ui yk
+
+Extracted decision:
+
+- Light mode, definitively. Bright-office viewing context.
+- Reference points: Tesla in-car UI, Uber app map UI, shadcn aesthetic,
+  Apple-grade minimalism. Line-based, small, deliberate elements.
+- Every element must justify its existence.
+- Golden pulse/radiating circles are welcome as tasteful map event markers.
+
+## 2026-07-05 - Cab Rendering: Real Scale, Real Sprite, Smooth Motion
+
+Raw user language:
+
+> the cybercabs look toylike now, the previous sprite was based (at least if codex created it harmoniously) on a 3d model of the cybercab i found online, this one: https://sketchfab.com/3d-models/cybercab-tesla-car-97bc28545418491888ea3ffc96995292
+
+> the map waypoints/paths are kinda broken, also the cars themselves are. like, the robotaxis are not only bad looking but also very big. and the normal cars are kinda small
+
+> the waypoints and circles sorta update in an interval rn, i think every 1 sec or sth, not continuous enough by a long shot, like not live at all, more like random glitching
+
+> i think maybe the cars should be fixed size, like about the width of a lane or so, yk, like only visible when zoomed in, maybe, seems like the best starting point. then we could iterate on how to make them visible when zoomed out, that would be my idea - bc building sized robotaxis, when zoomed out, is a shortcut for now but does look odd - even tho maybe we end up with sth similar in some part of app, maybe on main map, like in uber app or sth yk
+
+Extracted decision:
+
+- Vehicle motion must be smooth/continuous: interpolate between the 1-sim-sec
+  replay frames instead of snapping (current snap reads as "random glitching").
+- Cybercab marker: quality sprite derived from the Sketchfab Cybercab model.
+- Vehicles rendered at roughly true scale (~lane width), naturally visible
+  when zoomed in; zoomed-out marker strategy is a later iteration.
+
+## 2026-07-05 - V1 Shows Only Robotaxis
+
+Raw user language:
+
+> also i think good idea to only show robotaxis for now and focus on getting the map/app built right visually before we add in the dozens or more of traffic vehicles, yeah i think that would simplify and help us focus on the core task
+
+> also the lanes and the traffic lights could be more polished/better, its not really like sumo gui 3d, i mean i think it can be better than that but its like a little broken version of that rn
+
+Extracted decision:
+
+- Redesigned v1 renders only the 5 robotaxis plus request/stop markers;
+  background traffic hidden until the core visual is right.
+- Lane/traffic-light rendering: polish or simplify away; current state is a
+  broken middle ground. Aim is clarity, not sumo-gui imitation.
+
+## 2026-07-05 - 3D Dispatch/Monitor Panel (Idea, Not V1-Blocking)
+
+Raw user language:
+
+> i guess maybe we could even do sth a little cool and 3d in the final version, maybe in the dispatch/robotaxi monitor part of the ui yk, viewing what the cabs are doing or sth, idk -- would be very tesla- like, like their in car ui yk that lets u see whats happening, just a cool idea -- i love visual design stuff.
+
+Extracted decision:
+
+- Candidate for the final version: a 3D cab-view "monitor" panel, Tesla
+  in-car-UI-like. Logged as aspiration, not v1 scope.
+
+## 2026-07-05 - Anti-Disclaimer Stance Reaffirmed (Stronger)
+
+Raw user language:
+
+> one thing that kept codex back from this was that they kept adding slop text in order to try to be 'honest' -- they were worried that the reader may not understand that this is a simulation and like, these are not confirmed real cybercab values or like, a real research-level sim and the estimates are not made by einstein and yk , and i just want to make like a small beautiful app, and the human reader will definitely know that they're looking at a student app thats built by someone with understanding of the tesla design langauge and products and rollout/robotaxi importance/future direction -- they wont be looking to critique on the scientific methodology or be somehow fooled into thinking that the product does sth that it does actually not
+
+Extracted decision:
+
+- Zero defensive disclaimer copy anywhere in the app. Estimates get at most
+  one elegant assumption line. Trust the reader.
+
+## 2026-07-05 - This Log Is Also A Personal Record
+
+Raw user language:
+
+> i hope you're like, using my exact wording and saving as much of it in some sort of document -- and also what you think it means, in extensive length
+
+> my wording (and yours) is also for motivation haha. like when i make it, i would like to do sm kinda therapy or reflect about this yk, this is one of the most importatnt stesp in my life
+
+Extracted decision:
+
+- Keep preserving raw wording faithfully, unsanitized; the log doubles as a
+  personal record of this period, not only a product artifact.
+
+## 2026-07-05 - Meta-Mandate: Decisions Are Guesses, Creative Freedom Granted
+
+Raw user language:
+
+> i wanna emphasize x100, the most important thing in this message that i forgot to emphasize in last message, is that all these decisions are just sort of best guesses or like, idk if its the ideal choice -- so like the whole app, dynamics, what it does, how it feels, what the simulation even is, etc, all questions are still completely open and i encourage your creative input on them and would like to make a beautiful app based on this, like u have full creative freedom to actually make this a good app yk, pls dont try to make/fit in an app that may have said that i want, but you can think of/ feel that the actual app we would wanna make, a more beautiful/modern and minimal/decluttered and meaningful/working one, would be imaginable and prefferable, so u can always just make that instead of sticking to a stupid decision, by proactively questioning, suggesting nice stuff, and like making sensible decisions from your side and maybe even stopping midway instead of bulldozing slop yk
+
+Extracted decision:
+
+- This log records direction, not contracts. Agents should treat entries as
+  best guesses, question them proactively, and propose better alternatives
+  rather than literal-minded compliance. Stopping midway beats bulldozing slop.
+
+## 2026-07-05 - Skew Hack Origin And The Real Zone Intent
+
+Raw user language:
+
+> the skew was actually bc the app originally used the a cutout from the sumo best data source as the rollout zone - and that was a square on the map -- but it appeared a bit tilted on the maplibre map ... so anyway, we skewed the canvas to fix that slight square-oddity. but we dont use that sumo best cutout anymore.
+
+> fundamentally, codex didnt understand that i wanted the rollout area to be made from a cutout of charlottenburg, moabit and tiergarten ... codex just made a rectangle cutout iirc -- whereas the area was chosen by me specifically bc the roads sort of have a nice separation (visually and i think geographically, and in terms of sumo edges) from the rest of the surroundings
+
+> the cybercab depot to be placed at or around the old berlin tegel airport, bc like, then we could show them driving on the highway 'for duty' yk, like a commute haha, and also, like, tegel has some parking lots kinda stuff and already some car/truck fleets or sth like this, seemed like a natural area
+
+Extracted decision:
+
+- Intended service-area visual = true district-boundary cutout (the curves),
+  not a bbox. Verified in code: network cut and drawn zone are both a padded
+  bbox; the official Ortsteile polygons exist in-repo but are unused.
+- Depot at/near old Tegel airport is intentional storytelling (highway
+  "commute to duty") and practical (parking lots, existing fleets). Current
+  depot edge 8036812#2 is already in the TXL area — placement stands.
+- CSS rotate(1.3deg) canvas skew = obsolete patch for the abandoned BeST
+  square cutout; delete.
+
+## 2026-07-05 - Lanes And Traffic Lights: Valuable, Zoom-Gated, Fix Rendering
+
+Raw user language:
+
+> lanes and traffic lights are a great thing in sumo/sumo gui i think, they help see the driving behavior very well. but in the old app the lanes are kinda not really as wide as the streets ... they look like tram lines with cars on them ... the traffic lights are also very impressive feature, implemented kind of correctly rn i think ... but they're kinda weirdly rendered, like sometimes theyre maybe rotated lines or sth
+
+> maybe this should be only visible on zooming in ... so like, to save on performance - like when you zoom in, you see the whole traffic, the lights, the lanes, the micro sim for that viewport ... and more likely on the decluttering/good focus on the zoomed out view. as you like.
+
+Extracted decision:
+
+- Lanes/traffic lights/background traffic stay in the product as a zoom-in
+  reward (micro-sim detail), hidden in the decluttered zoomed-out view.
+- Lane rendering should read as road-width surfaces, not tram lines; traffic
+  light stop-bars need a rendering pass.
+
+## 2026-07-05 - Onboarding Cards No Longer Locked
+
+Raw user language:
+
+> ui -- i have no real idea, i just think the 3 cards at the beginning may be a good idea, but dunno for sure, maybe 2-3 tooltips is a better idea - maybe none of this, idk. i'm just winging it tbh.
+
+Extracted decision:
+
+- Intro treatment is open: cards, tooltips, or nothing. Decide by feel during
+  the redesign.
+
+## 2026-07-05 - Zones/Flows Exploration Direction
+
+Raw user language:
+
+> one thing i have thats maybe nice/worth exploring is that of 'zones' or 'flows' since theyre very relevant to tesla and the application, and i think some opportunities for traffic flow/like, how much congestion on road segments maybe, is in the simulation data ... worth exploring and thinking about deeply i think - for maybe demand zones or sth like this, and maybe showing traffic instead of many cards on the final app
+
+Extracted decision:
+
+- Demand zones / congestion / flow visuals are a named exploration direction,
+  potentially replacing narrative chrome ("showing traffic instead of cards").
+
+## 2026-07-05 - Onion Approach; This Chat Ships One Layer
+
+Raw user language:
+
+> i think we should definitely take an onion approach to building/our scope here. all of this is def not possible in this app. and probably main focus should be to make all the layers of the onion with their exploration directions (potential) and already made decisions (and possible changes in strategy) and writing that all down coherently -- and then maybe making the core 1 or 2 layers of the onion (i think 20% effort will get us to 80% of the result) in this chat
+
+> we want as few layers as possible, and realistically, i think only 1 layer will be verfügbar in this chat, bc the context will be crazy long. so, i wanna think about exact ui deliverable descriptions, backend/coding short summaries, etc and maybe lets do a q-a and finish a basic direction/shape of the app for each layer of the onion (keeping everything minimal - number of total layers, etc and trying to get to deliverable app asap)
+
+Extracted decision:
+
+- Onion structure with minimal layer count; each layer described as an exact
+  UI deliverable plus a short coding summary. This chat targets Layer 1 only.
+- Shape/direction Q&A first; implementation details discussed separately.
+
+## 2026-07-05 - Metrics Need Sourced Assumptions
+
+Raw user language:
+
+> i think we may need to make some assumptions on the metrics we wanna show and probably need to source some data and confirm assumptions (that i havent already pasted here) / methodology to get the numbers/metrics (that are also to be decided what exactly they gonna be, as of yet)
+
+Extracted decision:
+
+- Exact metric set is still open; every shown estimate needs a sourced
+  constant and a written methodology before it ships.
+
+Reference — Cybercab spec details pasted by user as "trustable assumptions"
+(2026-07-05): 48 kWh structural pack (4680), 165 Wh/mi efficiency, FWD 163 kW,
+3118 lbs, ~300 mi real-world range, 2-seater with butterfly doors, no steering
+wheel/pedals, gold wheel covers, "Cybercab" door/trunk decals, charge port on
+rear bumper below trunk, pulses front/rear lightbars when picking up
+passengers, ~21" display, wheelchair-height seats, 10 airbags, Active Hood,
+color-injected panels (no paint shop), unboxed manufacturing target cycle time
+under 10 s, exterior mics/speaker for first responders, braille on key door
+handles.
+
+## 2026-07-05 - Service-Area Inclusion Semantics (Recalled Rationale)
+
+Raw user language:
+
+> i think the shape/cutout of the service area may be harder than expected ... until now i think the sumo edges which go thru the boundary are included, since it's better than having the cars sometimes go a little out of the zone on one single road for a few meters than having luecken inside our service area - and as for the trips/people, i think we only includedd the ones that were starting and ending inside the zone
+
+Extracted decision:
+
+- Edge inclusion errs generous (boundary-crossing edges in; no gaps inside the
+  zone); trip inclusion errs strict (origin AND destination inside). Preserve
+  these semantics through any future zone-shape changes.
+
+## 2026-07-05 - OBS-Because-People; People Metrics; Model Y Comparison Idea
+
+Raw user language:
+
+> the whole reason we use the obs data instead of best (which is derived from obs) is bc it has people in it and is like, the actual simulation -- so i think it would be like cool at the end of the app to concretely show metrics about how many people took robotaxis (also idk if any 'trips (ie route travelled by 2 or more people i guess ...) at the same time/'together' in the obs sim -- i heard that its 2 seater bc around 90% trips on uber for ex. are 1 or 2 people, so like maybe it would be cool to compare cybercab to a normal model y and see the metrics yk, idk.
+
+Extracted decision:
+
+- End-of-run metrics should speak in people, not only rides — the OBS choice
+  exists because it simulates persons.
+- Research items: whether OBS contains co-travelling person-trips (2+ together);
+  Cybercab (2-seat) vs Model Y comparison framing.
+
+## 2026-07-05 - Fleet Economics Card (Wanted, Unsure, Minimal If Present)
+
+Raw user language:
+
+> maybe the end direction for the app is like, if a private person deploys a fleet, with the cybercab costing x dollars/euros/whatever, and then it costs like this, demand is like this, or whatever yk, and then theyd be able to pay it off like this, make this much money with these prices, whatever -- but i presume thats for later ig, but i wanna have it yk, idk if its a good idea tho - should be a simple stats card or like minimal if it is there at the end tho ig, not like a full blog or sth yk haha
+
+Extracted decision:
+
+- Fleet-economics ("would a private fleet pay off") is a desired later
+  direction, expressly minimal if built: a simple stats card, never a blog.
+
+## 2026-07-05 - Locked: Layer 1 Shape (Onion v2)
+
+Raw user language:
+
+> One cover card + Start / Ops KPIs only / Neutral ops grid / Parking lot, decide later
+
+(AskUserQuestion selections settling the Layer 1 "Watchable Shift" shape.)
+
+Extracted decision:
+
+- Opening = single cover card (title + one sentence + gold Start, the app's
+  only input) over the framed map; backend wakes during the card. The 3-card
+  intro concept is retired from Layer 1.
+- Layer 1 Shift Report = simulation-derived ops KPIs only (rides served,
+  people moved, median wait, fleet distance, empty-km share). CO2/cars-replaced
+  estimates move to Layer 2 behind a proper sourcing/methodology pass.
+- Report presentation = neutral KPI grid, no editorial headline.
+- Fleet economics = parking lot; in the log, in no layer, revisit after
+  Layer 1 ships.
+- Onion v2 (3 layers): L1 Watchable Shift (this chat, frontend-only), L2
+  Depth & Context (zoom micro-sim, demand constellation, scripted push-in,
+  sourced people/impact metrics), L3 Fleet Business (charging + rollout
+  prologue + district-true re-cut + economics card).

@@ -1,13 +1,12 @@
 * text=auto
-
 *.gz binary
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.webp binary
 *.ico binary
-
 *.yml text eol=lf
 *.yaml text eol=lf
 *.sh text eol=lf
 Dockerfile text eol=lf
+hf-space/app/data/replays/*.jsonl.gz filter=lfs diff=lfs merge=lfs -text

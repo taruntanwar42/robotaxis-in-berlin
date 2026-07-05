@@ -82,12 +82,11 @@ data/source/matsim-berlin/berlin-v6.4-1pct.plans.xml.gz
 data/source/berlin-ortsteile/
 ```
 
-All of `data/` is git-ignored (sources plus intermediates). Packaged runtime
-copies live under `hf-space/app/`; of these, `hf-space/app/data/matsim/` and
-`hf-space/app/data/replays/` are also git-ignored (the replay cache exceeds
-GitHub's 100 MB file limit) — they reach the Hugging Face Space because
-`scripts/deploy_hf_space.py` uploads the local `hf-space/` folder from disk.
-Rebuild them with the commands above.
+All of `data/` is git-ignored (sources plus intermediates); rebuild with the
+commands above. Packaged runtime copies live under `hf-space/app/` and are
+committed — the public replay cache in `hf-space/app/data/replays/` via Git
+LFS (it exceeds GitHub's 100 MB plain-file limit), so the HF Space deploy
+workflow checks out with `lfs: true`.
 
 ## Interpretation Notes
 

@@ -20,8 +20,6 @@ hf-space/app/sumo/berlin/
 
 # Local data pipeline (rebuild via scripts/build_*.py)
 /data/
-hf-space/app/data/replays/
-hf-space/app/data/matsim/
 
 # Tooling scaffolding, not project docs
 docs/superpowers/

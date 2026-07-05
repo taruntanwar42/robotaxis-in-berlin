@@ -15,19 +15,16 @@ import maplibregl, { type GeoJSONSource } from "maplibre-gl"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./App.css"
 import {
-  type CybercabCabRow,
   CybercabExperience,
-  type CybercabExperienceData,
-  type CybercabRequestMarker,
-  type CybercabRequestMarkerStatus,
   type ExperiencePhase,
+  type ShiftReportData,
 } from "./components/CybercabExperience"
 
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_STYLE_URL as string | undefined
 const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL as string | undefined
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
-const bestCutoutsUrl = `${import.meta.env.BASE_URL}data/cutouts/best-cutouts.geojson`
+const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
 const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
 const districtScope = "charlottenburg-moabit-tiergarten"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
@@ -35,6 +32,9 @@ const districtScope = "charlottenburg-moabit-tiergarten"
 const playbackFrameIntervalMs = 25
 const playbackLowWatermarkFrames = 250
 const playbackRetainedPastFrames = 20
+// When the tab is visible, cap catch-up to a few frames per tick so a buffer
+// underrun slows the run briefly instead of teleporting the fleet.
+const playbackVisibleCatchupFrames = 4
 const showEngineeringDiagnostics =
   import.meta.env.DEV && import.meta.env.VITE_SHOW_ENGINEERING_DIAGNOSTICS === "true"
 const playbackModes = [5, 10, 25, 50, 100, 250, 500, 1000] as const
@@ -48,6 +48,9 @@ const activeScenarioBounds: [Coordinate, Coordinate] = [
   [13.2758, 52.4952],
   [13.3818, 52.5572],
 ]
+// Fixed TXL-area depot (edge 8036812#2). The backend ships no depot geometry
+// for this scenario, so the marker location is a frontend constant.
+const depotCoordinate: Coordinate = [13.303, 52.557]
 
 type Coordinate = [number, number]
 
@@ -288,10 +291,11 @@ type SumoScenarioSummary = {
 type SumoLayerKey =
   | "lanes"
   | "vehicles"
+  | "background"
   | "trafficLights"
   | "boundary"
   | "requests"
-  | "cutouts"
+  | "paths"
 type AppTheme = "dark" | "light"
 type MapCamera = {
   center: Coordinate
@@ -341,27 +345,25 @@ type RobotaxiRunAudit = {
   passed: boolean
 }
 
+// Layer-1 default view: only the robotaxis, requests, and zone — background
+// traffic, lanes, and signals return as a zoom-in reward in a later layer.
 const defaultSumoLayerVisibility: Record<SumoLayerKey, boolean> = {
-  lanes: true,
+  lanes: false,
   vehicles: true,
-  trafficLights: true,
+  background: false,
+  trafficLights: false,
   boundary: true,
   requests: true,
-  cutouts: false,
+  paths: false,
 }
 const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   lanes: ["sumo-internal-lanes", "sumo-lanes"],
-  vehicles: ["sumo-vehicles", "sumo-cybercab-glow", "sumo-cybercabs"],
+  vehicles: ["sumo-cybercab-glow", "sumo-cybercabs"],
+  background: ["sumo-vehicles"],
   trafficLights: ["sumo-traffic-lights"],
-  boundary: [
-    "service-area-halo",
-    "sumo-depot-fill",
-    "sumo-depot-line",
-    "sumo-depot-label",
-    "base-service-area-line",
-  ],
-  requests: ["robotaxi-request-paths", "robotaxi-request-markers"],
-  cutouts: ["best-cutouts-line", "best-cutouts-label"],
+  boundary: ["service-area-halo", "sumo-depot-label", "base-service-area-line"],
+  requests: ["request-pulses", "robotaxi-request-markers"],
+  paths: ["robotaxi-request-paths"],
 }
 
 function maptilerDarkStyleUrl(styleUrl: string | undefined) {
@@ -529,180 +531,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function recordsFromUnknownArray(value: unknown) {
-  return Array.isArray(value) ? value.filter(isRecord) : []
-}
-
-function firstRecordArray(records: Record<string, unknown>[], fieldNames: string[]) {
-  for (const record of records) {
-    for (const fieldName of fieldNames) {
-      const rows = recordsFromUnknownArray(record[fieldName])
-      if (rows.length > 0) {
-        return rows
-      }
-    }
-  }
-  return []
-}
-
-function numberFromRecord(record: Record<string, unknown>, fieldNames: string[]) {
-  for (const fieldName of fieldNames) {
-    const value = record[fieldName]
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function stringFromRecord(record: Record<string, unknown>, fieldNames: string[]) {
-  for (const fieldName of fieldNames) {
-    const value = record[fieldName]
-    if (typeof value === "string" && value.trim()) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function experienceMetricRecords(frame: SumoFrame | null) {
-  const records: Record<string, unknown>[] = []
-  if (!frame) {
-    return records
-  }
-
-  records.push(frame as unknown as Record<string, unknown>)
-  if (isRecord(frame.dispatch)) {
-    records.push(frame.dispatch)
-    if (isRecord(frame.dispatch.metrics)) {
-      records.push(frame.dispatch.metrics)
-    }
-  }
-  for (const value of [frame.metrics, frame.totals, frame.audit, frame.finalAudit]) {
-    if (isRecord(value)) {
-      records.push(value)
-    }
-  }
-  return records
-}
-
-function pickExperienceMetric(frame: SumoFrame | null, fieldNames: string[]) {
-  for (const record of experienceMetricRecords(frame)) {
-    const value = numberFromRecord(record, fieldNames)
-    if (value !== undefined) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function normalizeCabRows(frame: SumoFrame | null): CybercabCabRow[] {
-  const records = experienceMetricRecords(frame)
-  const contractRows = firstRecordArray(records, ["cabRows", "cabs", "cybercabs", "robotaxis"])
-  const vehiclesById = new Map((frame?.vehicles ?? []).map((vehicle) => [vehicle.id, vehicle]))
-
-  if (contractRows.length > 0) {
-    return contractRows.map((record, index) => {
-      const id = stringFromRecord(record, ["id", "vehicleId", "cabId"]) ?? `cybercab_${index + 1}`
-      const vehicle = vehiclesById.get(id)
-      return {
-        id,
-        label: stringFromRecord(record, ["label", "displayLabel", "name"]) ?? `Cybercab ${index + 1}`,
-        state: stringFromRecord(record, ["state", "status", "displayStatus"]),
-        speedKph:
-          numberFromRecord(record, ["speedKph", "speed"]) ??
-          (typeof vehicle?.speed === "number" ? vehicle.speed * 3.6 : undefined),
-        etaSec: numberFromRecord(record, ["etaSec", "etaSeconds"]),
-        target: stringFromRecord(record, ["target", "targetEdge", "destination"]),
-        stopReason: stringFromRecord(record, ["stopReason", "reason"]),
-        requestId: stringFromRecord(record, ["requestId", "assignedRequestId"]),
-        requestContext: stringFromRecord(record, ["requestContext", "assignmentLabel"]),
-        lon: numberFromRecord(record, ["lon", "lng"]) ?? vehicle?.lon,
-        lat: numberFromRecord(record, ["lat"]) ?? vehicle?.lat,
-        heading: numberFromRecord(record, ["heading", "angle"]) ?? vehicle?.angle,
-      }
-    })
-  }
-
-  return (frame?.dispatch?.robotaxis ?? []).map((cab, index) => {
-    const vehicle = vehiclesById.get(cab.id)
-    return {
-      id: cab.id,
-      label: `Cybercab ${index + 1}`,
-      state: formatCabStatus(cab.status),
-      speedKph: typeof vehicle?.speed === "number" ? vehicle.speed * 3.6 : undefined,
-      target: cab.targetEdge ?? cab.locationEdge ?? undefined,
-      stopReason: cab.error ?? undefined,
-      requestId: cab.requestId ?? undefined,
-      requestContext: cab.requestId ? `Request ${cab.requestId}` : undefined,
-      lon: vehicle?.lon,
-      lat: vehicle?.lat,
-      heading: vehicle?.angle,
-    }
-  })
-}
-
-function requestMarkerStatus(status: string | undefined): CybercabRequestMarkerStatus | null {
-  if (!status) {
-    return null
-  }
-  // "scheduled" requests are future demand, not open ride requests.
-  if (status === "waiting" || status === "open") {
-    return "open"
-  }
-  if (status === "assigned" || status === "onboard" || status === "accepted") {
-    return "accepted"
-  }
-  if (status === "completed") {
-    return "completed"
-  }
-  return null
-}
-
-function normalizeRequestMarkers(frame: SumoFrame | null): CybercabRequestMarker[] {
-  const records = experienceMetricRecords(frame)
-  const contractRows = firstRecordArray(records, ["mapRequests", "requestMarkers", "requests"])
-
-  if (contractRows.length > 0) {
-    return contractRows.flatMap((record, index) => {
-      const status = requestMarkerStatus(
-        stringFromRecord(record, ["markerState", "status", "state", "displayState"]),
-      )
-      const origin = isRecord(record.origin) ? record.origin : record
-      const lon = numberFromRecord(origin, ["lon", "lng", "originLon"])
-      const lat = numberFromRecord(origin, ["lat", "originLat"])
-      if (!status || lon === undefined || lat === undefined) {
-        return []
-      }
-      return [
-        {
-          id: stringFromRecord(record, ["id", "requestId"]) ?? `request-${index}`,
-          status,
-          lon,
-          lat,
-          assignedCabId: stringFromRecord(record, ["assignedCabId", "assignedVehicleId"]),
-        },
-      ]
-    })
-  }
-
-  return (frame?.dispatch?.requests ?? []).flatMap((request) => {
-    const status = requestMarkerStatus(request.status)
-    if (!status) {
-      return []
-    }
-    return [
-      {
-        id: request.id,
-        status,
-        lon: request.pickup.lon,
-        lat: request.pickup.lat,
-        assignedCabId: request.assignedVehicleId ?? undefined,
-      },
-    ]
-  })
-}
-
 function isSumoFrame(value: unknown): value is SumoFrame {
   if (!isRecord(value)) {
     return false
@@ -818,6 +646,68 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
 
 function pulseOpacity(simSec: number, high = 0.94, low = 0.28) {
   return Math.sin(simSec * Math.PI * 2.4) >= 0 ? high : low
+}
+
+// Golden radiating ring shown for the first few sim-seconds of a request.
+function requestPulseFeatureCollection(
+  requests: RobotaxiRequest[] | undefined,
+  simSec: number,
+): FeatureCollection<Point> {
+  const features: Array<Feature<Point>> = []
+  for (const request of requests ?? []) {
+    if (request.status !== "waiting" && request.status !== "assigned") {
+      continue
+    }
+    const age = simSec - request.requestedAtSec
+    if (age < 0 || age > 6) {
+      continue
+    }
+    const phase = age / 6
+    features.push({
+      type: "Feature",
+      properties: {
+        radius: 6 + phase * 26,
+        opacity: 0.55 * (1 - phase),
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [request.pickup.lon, request.pickup.lat],
+      },
+    })
+  }
+  return { type: "FeatureCollection", features }
+}
+
+function lerpAngleDeg(from: number, to: number, t: number) {
+  const delta = ((to - from + 540) % 360) - 180
+  return from + delta * t
+}
+
+// Positions between two replay frames (1 sim-second apart) so cabs glide
+// instead of snapping on frame boundaries.
+function interpolatedVehicleCollection(
+  frameA: SumoFrame,
+  frameB: SumoFrame | undefined,
+  t: number,
+): FeatureCollection {
+  if (!frameB || t <= 0) {
+    return pointFeatureCollection(frameA.vehicles)
+  }
+
+  const nextById = new Map(frameB.vehicles.map((vehicle) => [vehicle.id, vehicle]))
+  const vehicles = frameA.vehicles.map((vehicle) => {
+    const next = nextById.get(vehicle.id)
+    if (!next) {
+      return vehicle
+    }
+    return {
+      ...vehicle,
+      lon: vehicle.lon + (next.lon - vehicle.lon) * t,
+      lat: vehicle.lat + (next.lat - vehicle.lat) * t,
+      angle: lerpAngleDeg(vehicle.angle, next.angle, t),
+    }
+  })
+  return pointFeatureCollection(vehicles)
 }
 
 function distanceMeters(a: { lon: number; lat: number }, b: { lon: number; lat: number }) {
@@ -1192,44 +1082,14 @@ function serviceHaloFeatureCollection(
   }
 }
 
-function depotLabelFeatureCollection(
-  depot: FeatureCollection<Geometry> | null | undefined,
-): FeatureCollection<Point> {
-  const points = collectExteriorRings(depot).flat()
-  if (points.length === 0) {
-    return emptyFeatureCollection<Point>()
-  }
-
-  const bounds = points.reduce(
-    (current, [lon, lat]) => ({
-      minLon: Math.min(current.minLon, lon),
-      maxLon: Math.max(current.maxLon, lon),
-      minLat: Math.min(current.minLat, lat),
-      maxLat: Math.max(current.maxLat, lat),
-    }),
-    {
-      minLon: Number.POSITIVE_INFINITY,
-      maxLon: Number.NEGATIVE_INFINITY,
-      minLat: Number.POSITIVE_INFINITY,
-      maxLat: Number.NEGATIVE_INFINITY,
-    },
-  )
-
+function depotMarkerFeatureCollection(): FeatureCollection<Point> {
   return {
     type: "FeatureCollection",
     features: [
       {
         type: "Feature",
-        properties: {
-          label: "CYBERCAB DEPOT",
-        },
-        geometry: {
-          type: "Point",
-          coordinates: [
-            (bounds.minLon + bounds.maxLon) / 2,
-            (bounds.minLat + bounds.maxLat) / 2,
-          ],
-        },
+        properties: { label: "CYBERCAB DEPOT" },
+        geometry: { type: "Point", coordinates: depotCoordinate },
       },
     ],
   }
@@ -1316,30 +1176,24 @@ function applySumoOverlayTheme(map: maplibregl.Map, theme: AppTheme) {
     map.setPaintProperty(
       "sumo-internal-lanes",
       "line-color",
-      theme === "light" ? "#8fd8e4" : "#8bfff0",
+      theme === "light" ? "#9fb4bd" : "#8bfff0",
     )
-    map.setPaintProperty("sumo-internal-lanes", "line-opacity", theme === "light" ? 0.24 : 0.18)
+    map.setPaintProperty("sumo-internal-lanes", "line-opacity", theme === "light" ? 0.2 : 0.18)
   }
 
   if (map.getLayer("sumo-lanes")) {
     map.setPaintProperty(
       "sumo-lanes",
       "line-color",
-      theme === "light" ? "#8fd8e4" : "#8fd8e4",
+      theme === "light" ? "#9fb4bd" : "#8fd8e4",
     )
-    map.setPaintProperty("sumo-lanes", "line-opacity", theme === "light" ? 0.26 : 0.34)
-  }
-
-  if (map.getLayer("sumo-depot-fill")) {
-    map.setPaintProperty("sumo-depot-fill", "fill-color", theme === "light" ? "#222826" : "#18231d")
-    map.setPaintProperty("sumo-depot-fill", "fill-opacity", theme === "light" ? 0.12 : 0.18)
+    map.setPaintProperty("sumo-lanes", "line-opacity", theme === "light" ? 0.24 : 0.34)
   }
 
   if (map.getLayer("service-area-halo")) {
-    map.setPaintProperty("service-area-halo", "fill-color", theme === "light" ? "#1f3036" : "#01090d")
-    map.setPaintProperty("service-area-halo", "fill-opacity", theme === "light" ? 0.17 : 0.42)
+    map.setPaintProperty("service-area-halo", "fill-color", theme === "light" ? "#16222a" : "#01090d")
+    map.setPaintProperty("service-area-halo", "fill-opacity", theme === "light" ? 0.1 : 0.42)
   }
-
 }
 
 function ensureSumoTrafficLightLayers(map: maplibregl.Map) {
@@ -1479,50 +1333,66 @@ function createBackgroundVehicleMarkerImage() {
   }
 }
 
+// Top-down Cybercab glyph: golden wedge body with a raked glass canopy,
+// silhouette informed by the Cybercab 3D model (nose narrower than tail).
 function createCybercabMarkerImage() {
   const pixelRatio = 4
   const canvas = document.createElement("canvas")
-  canvas.width = 14 * pixelRatio
-  canvas.height = 24 * pixelRatio
+  canvas.width = 16 * pixelRatio
+  canvas.height = 28 * pixelRatio
   const context = canvas.getContext("2d")
   if (!context) {
     return null
   }
 
   context.scale(pixelRatio, pixelRatio)
-  context.translate(7, 12)
+  context.translate(8, 14)
 
-  context.shadowColor = "rgba(255, 182, 36, 0.7)"
-  context.shadowBlur = 4
-  context.fillStyle = "rgba(255, 191, 52, 0.38)"
-  drawRoundedRect(context, -4.2, -8.6, 8.4, 17.2, 3.7)
-  context.fill()
-  context.shadowBlur = 0
-
-  context.fillStyle = "rgba(68, 43, 4, 0.38)"
-  drawRoundedRect(context, -3.2, -7.2, 6.4, 14.6, 2.8)
-  context.fill()
-
-  context.fillStyle = "#e5a51d"
+  // Soft drop shadow grounding the cab on the map.
+  context.fillStyle = "rgba(16, 20, 24, 0.28)"
   context.beginPath()
-  context.moveTo(0, -9)
-  context.bezierCurveTo(2.8, -7.3, 3.8, -4.4, 3.6, 4.5)
-  context.bezierCurveTo(3.2, 7.3, 2.1, 8.5, 0, 8.9)
-  context.bezierCurveTo(-2.1, 8.5, -3.2, 7.3, -3.6, 4.5)
-  context.bezierCurveTo(-3.8, -4.4, -2.8, -7.3, 0, -9)
+  context.ellipse(0, 1.2, 4.6, 10.6, 0, 0, Math.PI * 2)
+  context.fill()
+
+  // Body: nose (top) narrower, widest over the rear wheels.
+  const body = context.createLinearGradient(0, -11, 0, 11)
+  body.addColorStop(0, "#f0bc2e")
+  body.addColorStop(0.55, "#e0a71b")
+  body.addColorStop(1, "#c98f0e")
+  context.fillStyle = body
+  context.beginPath()
+  context.moveTo(0, -11)
+  context.bezierCurveTo(2.5, -10.4, 3.9, -7.6, 4.2, -2.4)
+  context.bezierCurveTo(4.4, 3.2, 4.1, 7.6, 3.1, 9.6)
+  context.bezierCurveTo(2.1, 10.9, -2.1, 10.9, -3.1, 9.6)
+  context.bezierCurveTo(-4.1, 7.6, -4.4, 3.2, -4.2, -2.4)
+  context.bezierCurveTo(-3.9, -7.6, -2.5, -10.4, 0, -11)
   context.closePath()
   context.fill()
 
-  context.fillStyle = "#ffd76a"
-  drawRoundedRect(context, -1.8, -7.1, 3.6, 2.5, 1.1)
+  // Glass canopy: one raked windshield-to-tail piece, like the real car.
+  const glass = context.createLinearGradient(0, -7, 0, 6)
+  glass.addColorStop(0, "#2a3138")
+  glass.addColorStop(1, "#12171c")
+  context.fillStyle = glass
+  context.beginPath()
+  context.moveTo(0, -7.4)
+  context.bezierCurveTo(1.9, -6.9, 2.9, -4.6, 3, -1.2)
+  context.bezierCurveTo(3, 2.6, 2.6, 4.8, 1.8, 5.8)
+  context.bezierCurveTo(1, 6.4, -1, 6.4, -1.8, 5.8)
+  context.bezierCurveTo(-2.6, 4.8, -3, 2.6, -3, -1.2)
+  context.bezierCurveTo(-2.9, -4.6, -1.9, -6.9, 0, -7.4)
+  context.closePath()
   context.fill()
 
-  context.fillStyle = "#10161a"
-  drawRoundedRect(context, -2.1, -3.7, 4.2, 6.9, 1.9)
+  // Nose lightbar hint.
+  context.fillStyle = "#fbe49a"
+  drawRoundedRect(context, -2.2, -10.3, 4.4, 1.3, 0.65)
   context.fill()
 
-  context.fillStyle = "#b87b10"
-  drawRoundedRect(context, -1.8, 5.1, 3.6, 2.2, 1)
+  // Tail band.
+  context.fillStyle = "#a87708"
+  drawRoundedRect(context, -2.4, 9.1, 4.8, 1.3, 0.65)
   context.fill()
 
   return {
@@ -1600,6 +1470,7 @@ export default function App() {
   const [sumoSimStatus, setSumoSimStatus] = useState<SumoSimStatus | null>(null)
   const [sumoSummary, setSumoSummary] = useState<SumoScenarioSummary | null>(null)
   const [sumoNetwork, setSumoNetwork] = useState<SumoNetwork | null>(null)
+  const [serviceArea, setServiceArea] = useState<FeatureCollection<Geometry> | null>(null)
   const [isSumoNetworkLoading, setIsSumoNetworkLoading] = useState(false)
   const [isSumoConnected, setIsSumoConnected] = useState(false)
   const [isSumoRunning, setIsSumoRunning] = useState(false)
@@ -1638,6 +1509,8 @@ export default function App() {
   const appThemeRef = useRef<AppTheme>("light")
   const pendingThemeCameraRef = useRef<MapCamera | null>(null)
   const sumoNetworkRef = useRef<SumoNetwork | null>(null)
+  const serviceAreaRef = useRef<FeatureCollection<Geometry> | null>(null)
+  const completedWaitsRef = useRef<Map<string, number>>(new Map())
   const sumoLayerVisibilityRef = useRef<Record<SumoLayerKey, boolean>>(
     defaultSumoLayerVisibility,
   )
@@ -1674,6 +1547,35 @@ export default function App() {
   useEffect(() => {
     sumoNetworkRef.current = sumoNetwork
   }, [sumoNetwork])
+
+  useEffect(() => {
+    serviceAreaRef.current = serviceArea
+  }, [serviceArea])
+
+  // The visual service area is the union of the official Ortsteil polygons
+  // (real district curves), shipped statically; the backend bbox envelope is
+  // only a fallback.
+  useEffect(() => {
+    let isCancelled = false
+    async function loadServiceArea() {
+      try {
+        const response = await fetch(serviceAreaUrl)
+        if (!response.ok) {
+          return
+        }
+        const collection = (await response.json()) as FeatureCollection<Geometry>
+        if (!isCancelled && collection?.type === "FeatureCollection") {
+          setServiceArea(collection)
+        }
+      } catch {
+        // Keep the backend envelope fallback.
+      }
+    }
+    void loadServiceArea()
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     sumoLayerVisibilityRef.current = sumoLayerVisibility
@@ -1754,11 +1656,10 @@ export default function App() {
 
     ensureSumoTrafficLightLayers(map)
     applySumoOverlayTheme(map, appThemeRef.current)
-    source(map, "service-area-halo")?.setData(
-      serviceHaloFeatureCollection(network.boundary ?? null),
-    )
-    source(map, "sumo-depot")?.setData(network.depot ?? emptyFeatureCollection<Geometry>())
-    source(map, "sumo-depot-label")?.setData(depotLabelFeatureCollection(network.depot ?? null))
+    const zone = serviceAreaRef.current ?? network.boundary ?? null
+    source(map, "service-area-halo")?.setData(serviceHaloFeatureCollection(zone))
+    source(map, "base-service-area")?.setData(zone ?? emptyFeatureCollection<Geometry>())
+    source(map, "sumo-depot-label")?.setData(depotMarkerFeatureCollection())
     source(map, "sumo-lanes")?.setData(network.lanes)
     source(map, "sumo-internal-lanes")?.setData(network.internalLanes)
     source(map, "sumo-traffic-lights")?.setData(sumoTrafficLightGeojsonRef.current)
@@ -1859,6 +1760,9 @@ export default function App() {
         source(map, "robotaxi-requests")?.setData(
           robotaxiRequestFeatureCollection(activeRequests, frame.simSec, frame.vehicles),
         )
+        source(map, "request-pulses")?.setData(
+          requestPulseFeatureCollection(activeRequests, frame.simSec),
+        )
         updateSumoTrafficLightSource(map, frame)
         map.triggerRepaint()
       }
@@ -1869,6 +1773,13 @@ export default function App() {
   const applyPlaybackFrame = useCallback(
     (frame: SumoFrame) => {
       syncPlaybackFrameSources(frame)
+      // Completed-ride waits accumulate here so the shift report can show a
+      // median; the done-payload audit only carries the average.
+      for (const request of frame.dispatch?.requests ?? []) {
+        if (request.status === "completed" && typeof request.waitSec === "number") {
+          completedWaitsRef.current.set(request.id, request.waitSec)
+        }
+      }
       dataUpdateCountRef.current += 1
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
@@ -2084,6 +1995,7 @@ export default function App() {
       pendingPlaybackDoneRef.current = null
       playbackTimelineRef.current = []
       playbackAppliedIndexRef.current = -1
+      completedWaitsRef.current.clear()
       setPlaybackAppliedFrames(0)
       setFinalRunAudit(null)
     }
@@ -2221,47 +2133,39 @@ export default function App() {
     ? `${finalRunAudit.fleetAtDepot}/${finalRunAudit.fleetSize}`
     : null
   const simTimeLabel = sumoFrame ? formatSimClock(sumoFrame.simSec) : scenarioWindowLabel
-  const experiencePhase: ExperiencePhase = isStoryOpen
-    ? "onboarding"
-    : finalRunAudit || playbackStatus === "Ended"
+  // Cover holds until the first frame is applied, so pressing Start shows the
+  // "Preparing" state on the cover instead of an empty running scene.
+  const experiencePhase: ExperiencePhase =
+    finalRunAudit || playbackStatus === "Ended"
       ? "results"
-      : "running"
-  const normalizedCabRows = useMemo(() => normalizeCabRows(sumoFrame), [sumoFrame])
-  const normalizedRequestMarkers = useMemo(() => normalizeRequestMarkers(sumoFrame), [sumoFrame])
-  // "Open" in the user pane means announced-and-waiting riders, not the whole
-  // day's scheduled demand (backend openRequests = scheduled + waiting).
-  const waitingRequestsForExperience = pickExperienceMetric(sumoFrame, [
-    "waiting",
-    "openRequests",
-  ]) ?? waitingRequests
-  const acceptedRequestsForExperience =
-    pickExperienceMetric(sumoFrame, ["acceptedRequests"]) ??
-    assignedRequests + onboardRequests
-  const availableCabsForExperience =
-    pickExperienceMetric(sumoFrame, ["availableCabs", "availableRobotaxis"]) ??
-    normalizedCabRows.filter((cab) => {
-      const state = (cab.state ?? "").toLowerCase()
-      return state.includes("available") || state.includes("idle") || state.includes("staged")
-    }).length
-  const experienceData: CybercabExperienceData = {
-    live: {
-      currentTime: simTimeLabel,
-      openRequests: waitingRequestsForExperience,
-      acceptedRequests: acceptedRequestsForExperience,
-      availableCabs: availableCabsForExperience,
-    },
-    cabs: normalizedCabRows,
-    totals: {
-      ridesServed:
-        finalRunAudit?.completed ??
-        pickExperienceMetric(sumoFrame, ["ridesServed", "completed", "servedRequests"]),
-      totalDemand:
-        pickExperienceMetric(sumoFrame, ["totalDemand", "targetRequests", "sourceTripCount"]) ??
-        targetRequests,
-      cabsReturned: finalRunAudit?.fleetAtDepot ?? pickExperienceMetric(sumoFrame, ["cabsReturned"]),
-    },
-    requests: normalizedRequestMarkers,
-  }
+      : isStoryOpen || !sumoFrame
+        ? "cover"
+        : "running"
+  const hudClock = sumoFrame ? formatSimClock(sumoFrame.simSec) : "18:00"
+  const shiftReport: ShiftReportData | null = useMemo(() => {
+    if (!finalRunAudit && playbackStatus !== "Ended") {
+      return null
+    }
+    const waits = Array.from(completedWaitsRef.current.values()).sort((a, b) => a - b)
+    const medianWaitSec =
+      waits.length === 0
+        ? undefined
+        : waits.length % 2 === 1
+          ? waits[(waits.length - 1) / 2]
+          : (waits[waits.length / 2 - 1] + waits[waits.length / 2]) / 2
+    const ridesServed = finalRunAudit?.completed ?? dispatchMetrics?.completed
+    return {
+      ridesServed,
+      totalDemand: exactTargetRequests,
+      // v1 contract: one MATSim person-trip = one request = one rider.
+      peopleMoved: dispatchMetrics?.passengersCompleted ?? ridesServed,
+      medianWaitSec,
+      avgWaitSec: finalRunAudit?.avgWaitSec ?? dispatchMetrics?.avgWaitSec ?? undefined,
+      fleetKm: finalRunAudit?.vehicleKm ?? dispatchMetrics?.vehicleKm,
+      emptySharePercent:
+        finalRunAudit?.deadheadingPercent ?? dispatchMetrics?.deadheadingPercent,
+    }
+  }, [finalRunAudit, playbackStatus, dispatchMetrics, exactTargetRequests])
 
   const pausePlayback = useCallback(() => {
     setIsPlaybackPlaying(false)
@@ -2300,12 +2204,14 @@ export default function App() {
       source(map, "sumo-vehicles")?.setData(emptyFeatureCollection())
       source(map, "robotaxi-request-paths")?.setData(emptyFeatureCollection<LineString>())
       source(map, "robotaxi-requests")?.setData(emptyFeatureCollection())
+      source(map, "request-pulses")?.setData(emptyFeatureCollection())
       const resetTrafficLights = trafficLightFeatureCollection(sumoNetworkRef.current, null)
       sumoTrafficLightGeojsonRef.current = resetTrafficLights
       source(map, "sumo-traffic-lights")?.setData(resetTrafficLights)
       map.triggerRepaint()
     }
 
+    completedWaitsRef.current.clear()
     setIsPlaybackPlaying(false)
     isPlaybackPlayingRef.current = false
     setPlaybackBufferSize(0)
@@ -2336,11 +2242,18 @@ export default function App() {
       playbackLastTickAtRef.current = now
       playbackFrameRemainderMsRef.current += deltaMs
       const timeline = playbackTimelineRef.current
+      const isVisible =
+        typeof document === "undefined" || document.visibilityState === "visible"
 
       if (playbackFrameRemainderMsRef.current >= playbackFrameIntervalMs) {
-        const dueFrameCount = Math.max(
-          1,
-          Math.floor(playbackFrameRemainderMsRef.current / playbackFrameIntervalMs),
+        const dueFrameCount = Math.min(
+          Math.max(
+            1,
+            Math.floor(playbackFrameRemainderMsRef.current / playbackFrameIntervalMs),
+          ),
+          // Visible tab: never jump more than a few frames at once; smoothness
+          // beats wall-clock accuracy while someone is watching.
+          isVisible ? playbackVisibleCatchupFrames : 80,
         )
         const targetIndex = Math.min(
           playbackAppliedIndexRef.current + dueFrameCount,
@@ -2362,6 +2275,14 @@ export default function App() {
           playbackFrameRemainderMsRef.current -= dueFrameCount * playbackFrameIntervalMs
           if (playbackFrameRemainderMsRef.current < 0) {
             playbackFrameRemainderMsRef.current = 0
+          }
+          if (isVisible) {
+            // Drop any backlog beyond one extra frame; the visible run should
+            // never fast-forward to repay stalled wall-clock time.
+            playbackFrameRemainderMsRef.current = Math.min(
+              playbackFrameRemainderMsRef.current,
+              playbackFrameIntervalMs,
+            )
           }
           playbackAppliedIndexRef.current = targetIndex
           applyPlaybackFrame(timeline[targetIndex])
@@ -2400,11 +2321,30 @@ export default function App() {
       }
     }
 
+    // Between applied frames (1 sim-second apart) the cab positions are
+    // interpolated every animation frame so motion reads as continuous.
+    const renderInterpolatedVehicles = () => {
+      const map = baseMapRef.current
+      const timeline = playbackTimelineRef.current
+      const index = playbackAppliedIndexRef.current
+      if (!map || index < 0 || index >= timeline.length) {
+        return
+      }
+      const t = Math.max(
+        0,
+        Math.min(1, playbackFrameRemainderMsRef.current / playbackFrameIntervalMs),
+      )
+      source(map, "sumo-vehicles")?.setData(
+        interpolatedVehicleCollection(timeline[index], timeline[index + 1], t),
+      )
+    }
+
     const tickPlayback = (now: number) => {
       if (!isPlaybackPlayingRef.current) {
         return
       }
       advancePlayback(now)
+      renderInterpolatedVehicles()
       playbackAnimationFrameRef.current = requestAnimationFrame(tickPlayback)
     }
 
@@ -2451,13 +2391,10 @@ export default function App() {
       return
     }
 
-    source(map, "base-service-area")?.setData(
-      sumoBoundaryGeojson ?? emptyFeatureCollection<Geometry>(),
-    )
-    source(map, "service-area-halo")?.setData(
-      serviceHaloFeatureCollection(sumoBoundaryGeojson),
-    )
-  }, [baseMapReadyTick, sumoBoundaryGeojson])
+    const zone = serviceArea ?? sumoBoundaryGeojson
+    source(map, "base-service-area")?.setData(zone ?? emptyFeatureCollection<Geometry>())
+    source(map, "service-area-halo")?.setData(serviceHaloFeatureCollection(zone))
+  }, [baseMapReadyTick, serviceArea, sumoBoundaryGeojson])
 
   useEffect(() => {
     if (!scenarioApiUrl) {
@@ -2520,15 +2457,17 @@ export default function App() {
     }
 
     const restoredCamera = pendingThemeCameraRef.current
+    // Camera framing: corridor + depot fill the stage, with headroom for the
+    // HUD pill at the top. No side panels exist in the public layout.
     const defaultFitBoundsOptions =
       window.innerWidth < 720
         ? {
-            padding: { top: 28, bottom: 28, left: 28, right: 28 },
-            maxZoom: 11.1,
+            padding: { top: 72, bottom: 36, left: 24, right: 24 },
+            maxZoom: 12.2,
           }
         : {
-            padding: { top: 72, bottom: 72, left: 430, right: 410 },
-            maxZoom: 12.35,
+            padding: { top: 96, bottom: 64, left: 72, right: 72 },
+            maxZoom: 12.9,
           }
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,
@@ -2547,7 +2486,8 @@ export default function App() {
       attributionControl: false,
     })
 
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right")
+    // No zoom buttons: gestures still work, chrome stays clean. Attribution
+    // stays for the MapTiler/OSM license.
     map.addControl(new maplibregl.AttributionControl({ compact: true }))
 
     map.on("load", () => {
@@ -2559,13 +2499,9 @@ export default function App() {
         type: "geojson",
         data: emptyFeatureCollection<Geometry>(),
       })
-      map.addSource("sumo-depot", {
-        type: "geojson",
-        data: emptyFeatureCollection<Geometry>(),
-      })
       map.addSource("sumo-depot-label", {
         type: "geojson",
-        data: emptyFeatureCollection<Point>(),
+        data: depotMarkerFeatureCollection(),
       })
       map.addSource("sumo-vehicles", {
         type: "geojson",
@@ -2579,9 +2515,9 @@ export default function App() {
         type: "geojson",
         data: emptyFeatureCollection<LineString>(),
       })
-      map.addSource("best-cutouts", {
+      map.addSource("request-pulses", {
         type: "geojson",
-        data: bestCutoutsUrl,
+        data: emptyFeatureCollection(),
       })
       const backgroundVehicleMarker = createBackgroundVehicleMarkerImage()
       if (backgroundVehicleMarker && !map.hasImage("sumo-background-vehicle-marker")) {
@@ -2601,38 +2537,9 @@ export default function App() {
         type: "fill",
         source: "service-area-halo",
         paint: {
-          "fill-color": appThemeRef.current === "light" ? "#1f3036" : "#01090d",
-          "fill-opacity": appThemeRef.current === "light" ? 0.17 : 0.42,
+          "fill-color": appThemeRef.current === "light" ? "#16222a" : "#01090d",
+          "fill-opacity": appThemeRef.current === "light" ? 0.1 : 0.42,
           "fill-antialias": true,
-        },
-      })
-      map.addLayer({
-        id: "sumo-depot-fill",
-        type: "fill",
-        source: "sumo-depot",
-        paint: {
-          "fill-color": appThemeRef.current === "light" ? "#222826" : "#18231d",
-          "fill-opacity": appThemeRef.current === "light" ? 0.12 : 0.18,
-        },
-      })
-      map.addLayer({
-        id: "sumo-depot-line",
-        type: "line",
-        source: "sumo-depot",
-        paint: {
-          "line-color": "#ffc400",
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            11,
-            1.4,
-            15,
-            2.8,
-            17,
-            4.2,
-          ],
-          "line-opacity": 0.94,
         },
       })
       map.addLayer({
@@ -2665,80 +2572,19 @@ export default function App() {
         type: "line",
         source: "base-service-area",
         paint: {
-          "line-color": "#37d9ff",
+          "line-color": "#c79200",
           "line-width": [
             "interpolate",
             ["linear"],
             ["zoom"],
             10,
-            1.25,
+            1.4,
             14,
-            1.75,
+            2.1,
             16,
-            2.2,
+            2.8,
           ],
-          "line-dasharray": [2, 1.4],
-          "line-opacity": 0.78,
-        },
-      })
-      map.addLayer({
-        id: "best-cutouts-line",
-        type: "line",
-        source: "best-cutouts",
-        paint: {
-          "line-color": [
-            "match",
-            ["get", "rawName"],
-            "Reinickendorf",
-            "#00d7ff",
-            "charlottenburg",
-            "#ffb800",
-            "mitte",
-            "#ff4fd8",
-            "#ffffff",
-          ],
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            9,
-            4.4,
-            12,
-            5.2,
-            15,
-            6.4,
-          ],
-          "line-opacity": 1,
-          "line-dasharray": [3, 1],
-        },
-      })
-      map.addLayer({
-        id: "best-cutouts-label",
-        type: "symbol",
-        source: "best-cutouts",
-        layout: {
-          "symbol-placement": "line",
-          "text-field": ["get", "name"],
-          "text-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            9,
-            10,
-            12,
-            12,
-            15,
-            14,
-          ],
-          "text-letter-spacing": 0,
-          "text-allow-overlap": false,
-          "text-ignore-placement": false,
-        },
-        paint: {
-          "text-color": ["coalesce", ["get", "lineColor"], "#ffffff"],
-          "text-halo-color": appThemeRef.current === "light" ? "#f8fcfd" : "#071014",
-          "text-halo-width": 1.4,
-          "text-opacity": 0.9,
+          "line-opacity": 0.85,
         },
       })
       map.addLayer({
@@ -2752,11 +2598,11 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            0.42,
+            0.36,
             14,
-            0.68,
+            0.6,
             16,
-            1.05,
+            0.95,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -2764,7 +2610,7 @@ export default function App() {
           "icon-ignore-placement": true,
         },
         paint: {
-          "icon-opacity": 0.55,
+          "icon-opacity": 0.4,
         },
         filter: ["!=", ["get", "kind"], "robotaxi"],
       })
@@ -2778,15 +2624,15 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            7,
+            5,
             14,
-            12,
+            8,
             16,
-            18,
+            13,
           ],
-          "circle-color": "#ffc107",
-          "circle-opacity": 0.28,
-          "circle-blur": 0.9,
+          "circle-color": "#e8b423",
+          "circle-opacity": 0.22,
+          "circle-blur": 0.85,
         },
         filter: ["==", ["get", "kind"], "robotaxi"],
       })
@@ -2801,11 +2647,13 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            0.62,
-            14,
-            1.0,
-            16,
-            1.4,
+            0.55,
+            13,
+            0.72,
+            15,
+            0.95,
+            17,
+            1.35,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -2823,10 +2671,10 @@ export default function App() {
             "match",
             ["get", "visual"],
             "pickup-path",
-            "#213238",
+            "#5c6670",
             "dropoff-path",
-            "#c89700",
-            "#213238",
+            "#c79200",
+            "#5c6670",
           ],
           "line-width": [
             "interpolate",
@@ -2851,6 +2699,19 @@ export default function App() {
         },
       })
       map.addLayer({
+        id: "request-pulses",
+        type: "circle",
+        source: "request-pulses",
+        paint: {
+          "circle-radius": ["coalesce", ["get", "radius"], 8],
+          "circle-color": "rgba(0, 0, 0, 0)",
+          "circle-stroke-color": "#d9a400",
+          "circle-stroke-width": 1.6,
+          "circle-stroke-opacity": ["coalesce", ["get", "opacity"], 0.4],
+          "circle-pitch-alignment": "map",
+        },
+      })
+      map.addLayer({
         id: "robotaxi-request-markers",
         type: "circle",
         source: "robotaxi-requests",
@@ -2860,47 +2721,47 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            1.5,
+            2.4,
             14,
-            2.3,
+            3.4,
             16,
-            3.2,
+            4.6,
           ],
           "circle-color": [
             "match",
             ["get", "visual"],
             "pickup-waiting",
-            "rgba(7, 16, 20, 0)",
+            "rgba(15, 20, 24, 0)",
             "pickup-assigned",
-            "#071014",
+            "#0f1418",
             "pickup-arrived",
-            "#071014",
+            "#0f1418",
             "dropoff-active",
-            "#071014",
+            "#0f1418",
             "dropoff-completed",
-            "#66777d",
+            "#8a949c",
             "pickup-expired",
             "rgba(154, 163, 167, 0)",
-            "#071014",
+            "#0f1418",
           ],
           "circle-opacity": ["coalesce", ["get", "opacity"], 0.9],
           "circle-stroke-color": [
             "match",
             ["get", "visual"],
             "dropoff-completed",
-            "#66777d",
+            "#8a949c",
             "pickup-expired",
             "#9aa3a7",
-            "#071014",
+            "#0f1418",
           ],
           "circle-stroke-width": [
             "match",
             ["get", "visual"],
             "pickup-waiting",
-            1.8,
+            2,
             "pickup-assigned",
-            1.2,
-            1.2,
+            1.4,
+            1.4,
           ],
           "circle-stroke-opacity": ["coalesce", ["get", "opacity"], 0.9],
         },
@@ -2994,6 +2855,30 @@ export default function App() {
   useEffect(() => {
     const wsUrl = backendWebSocketUrl(`/ws/sumo/${districtScope}`)
     const summaryUrl = backendHttpUrl(`/sumo/${districtScope}/summary`)
+
+    // Public build: ping the summary endpoint (wakes a sleeping HF Space while
+    // the cover card is on screen, and fetches the window label), but never
+    // open the live TraCI stream — that belongs to the DEV diagnostics panel.
+    if (!showEngineeringDiagnostics) {
+      if (!summaryUrl) {
+        return
+      }
+      let isCancelled = false
+      void fetch(summaryUrl)
+        .then((response) => (response.ok ? (response.json() as Promise<SumoScenarioSummary>) : null))
+        .then((summary) => {
+          if (summary && !isCancelled) {
+            setSumoSummary(summary)
+          }
+        })
+        .catch(() => {
+          // The playback socket reports real availability problems.
+        })
+      return () => {
+        isCancelled = true
+      }
+    }
+
     if (!wsUrl) {
       setSumoStatus("Backend not configured")
       return
@@ -3125,9 +3010,7 @@ export default function App() {
   }, [])
 
   return (
-    <main
-      className={`app-shell theme-${appTheme}${isStoryOpen ? " intro-open is-onboarding" : ""}`}
-    >
+    <main className={`app-shell theme-${appTheme}`}>
       {showEngineeringDiagnostics ? (
         <aside className="nav-rail" aria-label="Simulation navigation">
           <div className="brand-mark">
@@ -3152,15 +3035,20 @@ export default function App() {
             <p>Add `VITE_MAPTILER_STYLE_URL` to `.env.local`.</p>
           </div>
         )}
-        <div className="map-vignette" aria-hidden="true" />
       </section>
 
       <CybercabExperience
         phase={experiencePhase}
-        data={experienceData}
-        isSimulationUnavailable={playbackStatus === "Error" || sumoStatus === "Backend unavailable"}
-        onStartReplay={() => {
+        clock={hudClock}
+        ridesServed={displayedCompletedRequests}
+        isPreparing={!isStoryOpen && experiencePhase === "cover"}
+        isUnavailable={playbackStatus === "Error"}
+        report={shiftReport}
+        onStart={() => {
           setIsStoryOpen(false)
+          void startPlayback()
+        }}
+        onReplay={() => {
           void startPlayback()
         }}
       />
@@ -3719,12 +3607,22 @@ export default function App() {
               }
             />
             <LayerToggle
-              label="Cutouts"
-              active={sumoLayerVisibility.cutouts}
+              label="Background"
+              active={sumoLayerVisibility.background}
               onClick={() =>
                 setSumoLayerVisibilityState((current) => ({
                   ...current,
-                  cutouts: !current.cutouts,
+                  background: !current.background,
+                }))
+              }
+            />
+            <LayerToggle
+              label="Paths"
+              active={sumoLayerVisibility.paths}
+              onClick={() =>
+                setSumoLayerVisibilityState((current) => ({
+                  ...current,
+                  paths: !current.paths,
                 }))
               }
             />

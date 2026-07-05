@@ -30,7 +30,17 @@ def websocket_url(base_url: str, path: str) -> str:
     return urlunparse((scheme, parsed.netloc, path, "", "", ""))
 
 
-async def check_sumo_websocket(base_url: str, max_messages: int) -> None:
+async def check_sumo_websocket(
+    base_url: str,
+    scope: str,
+    max_messages: int,
+    demand_source: str,
+    require_done: bool,
+    speed: int,
+    dispatch_engine: str,
+    playback_detail: str,
+    playback_cache: str,
+) -> None:
     try:
         import websockets
     except ImportError as error:
@@ -39,24 +49,130 @@ async def check_sumo_websocket(base_url: str, max_messages: int) -> None:
             "`python -m pip install websockets`"
         ) from error
 
-    uri = websocket_url(base_url, "/ws/sumo/reinickendorf-district")
-    saw_frame = False
-    async with websockets.connect(uri, open_timeout=30) as websocket:
-        await websocket.send(json.dumps({"command": "start"}))
-        for _ in range(max_messages):
+    uri = websocket_url(
+        base_url,
+        (
+            f"/ws/sumo/{scope}/playback?speed={speed}&demand={demand_source}"
+            f"&replacement=25&engine={dispatch_engine}&detail={playback_detail}"
+            f"&cache={playback_cache}"
+        ),
+    )
+    saw_chunk = False
+    saw_dispatch_metadata = False
+    saw_vehicle = False
+    saw_done = False
+    replaced_vehicle_ids: set[str] = set()
+    playback_message_count = 0
+    raw_message_count = 0
+    max_raw_messages = max_messages * 3 + 10
+    async with websockets.connect(uri, open_timeout=30, max_size=8 * 1024 * 1024) as websocket:
+        while playback_message_count < max_messages and raw_message_count < max_raw_messages:
             raw_message = await asyncio.wait_for(websocket.recv(), timeout=30)
+            raw_message_count += 1
             message = json.loads(raw_message)
             message_type = message.get("type")
+            if message_type in {"chunk", "done", "error", "stopped"}:
+                playback_message_count += 1
             if message_type == "error":
                 raise RuntimeError(message.get("message", "backend sent error frame"))
-            if message_type == "frame":
-                saw_frame = True
-                if (message.get("vehicleCount") or 0) > 0:
+            if message_type == "done":
+                saw_done = True
+                audit = message.get("audit") or {}
+                final_dispatch = message.get("finalDispatch") or {}
+                missing_audit_keys = sorted(
+                    {
+                        "completed",
+                        "openRequests",
+                        "fleetAtDepot",
+                        "fleetSize",
+                        "deadheadingPercent",
+                        "energyKwh",
+                        "chargingSessions",
+                        "passed",
+                    }
+                    - set(audit)
+                )
+                if missing_audit_keys:
+                    raise RuntimeError(
+                        "done audit missing keys: "
+                        + ", ".join(missing_audit_keys)
+                    )
+                if not final_dispatch.get("metrics"):
+                    raise RuntimeError("done frame missing final dispatch metrics")
+                return
+            if message_type == "chunk":
+                saw_chunk = True
+                frames = message.get("frames") or []
+                for frame in frames:
+                    dispatch = frame.get("dispatch") or {}
+                    demand = dispatch.get("demand") or dispatch.get("replacement") or {}
+                    if demand:
+                        for request in dispatch.get("requests") or []:
+                            source_vehicle_id = request.get("sourceVehicleId")
+                            if (
+                                source_vehicle_id is not None
+                                and request.get("status") != "unreachable"
+                                and request.get("cybercabCapable") is not False
+                            ):
+                                replaced_vehicle_ids.add(str(source_vehicle_id))
+                    vehicles = frame.get("vehicles") or []
+                    if vehicles:
+                        saw_vehicle = True
+                        live_ids = {str(vehicle.get("id")) for vehicle in vehicles}
+                        leaked_ids = sorted(replaced_vehicle_ids & live_ids)
+                        if leaked_ids:
+                            raise RuntimeError(
+                                "replaced source vehicles still streamed: "
+                                + ", ".join(leaked_ids[:5])
+                            )
+                    if demand:
+                        metrics = dispatch.get("metrics") or {}
+                        required_metric_keys = {
+                            "fleetStateCounts",
+                            "cybercabCapacityMisses",
+                            "cybercabServeableRequests",
+                            "passengerKm",
+                            "vehicleKm",
+                            "emptyKm",
+                        }
+                        missing_metric_keys = sorted(required_metric_keys - set(metrics))
+                        if missing_metric_keys:
+                            raise RuntimeError(
+                                "dispatch metrics missing keys: "
+                                + ", ".join(missing_metric_keys)
+                            )
+                        if demand.get("usingFallbackDemand"):
+                            raise RuntimeError(
+                                "playback used fallback demand"
+                            )
+                        if demand.get("targetRequestCount", 0) <= 0:
+                            raise RuntimeError(
+                                "playback produced no requests"
+                            )
+                        if demand_source == "sumo" and demand.get("removedVehicles", 0) <= 0:
+                            raise RuntimeError(
+                                "replacement playback removed no source vehicles"
+                            )
+                        if demand_source == "matsim" and demand.get("source") != "matsim":
+                            raise RuntimeError(
+                                f"expected matsim demand, got {demand.get('source')}"
+                            )
+                        saw_dispatch_metadata = True
+                if saw_vehicle and saw_dispatch_metadata and not require_done:
                     return
 
-    if saw_frame:
-        raise RuntimeError(f"no vehicle frame received after {max_messages} messages")
-    raise RuntimeError(f"no SUMO frame received after {max_messages} messages")
+    if require_done and not saw_done:
+        raise RuntimeError(f"no done audit received after {max_messages} playback messages")
+    if saw_chunk:
+        missing = []
+        if not saw_vehicle:
+            missing.append("vehicles")
+        if not saw_dispatch_metadata:
+            missing.append("dispatch demand metadata")
+        raise RuntimeError(
+            f"missing {', '.join(missing)} after {max_messages} playback messages"
+        )
+    raise RuntimeError(f"no SUMO playback chunk received after {max_messages} playback messages")
 
 
 def main() -> None:
@@ -65,14 +181,21 @@ def main() -> None:
     parser.add_argument("--retries", type=int, default=1)
     parser.add_argument("--retry-delay-sec", type=float, default=10)
     parser.add_argument("--check-websocket", action="store_true")
-    parser.add_argument("--websocket-max-messages", type=int, default=60)
+    parser.add_argument("--websocket-max-messages", type=int, default=300)
+    parser.add_argument("--require-websocket-done", action="store_true")
+    parser.add_argument("--speed", type=int, default=50)
+    parser.add_argument("--demand", choices=["matsim", "sumo"], default="matsim")
+    parser.add_argument("--engine", choices=["taxi", "custom"], default="taxi")
+    parser.add_argument("--detail", choices=["full", "public"], default="public")
+    parser.add_argument("--cache", choices=["auto", "live", "cache"], default="auto")
+    parser.add_argument("--scope", default="charlottenburg-moabit-tiergarten")
     args = parser.parse_args()
 
     checks = {
         "health": "/health",
-        "sumo_summary": "/sumo/reinickendorf-district/summary",
-        "sumo_network": "/sumo/reinickendorf-district/network",
-        "sumo_validate": "/sumo/reinickendorf-district/validate",
+        "sumo_summary": f"/sumo/{args.scope}/summary",
+        "sumo_network": f"/sumo/{args.scope}/network",
+        "sumo_validate": f"/sumo/{args.scope}/validate",
     }
 
     failures: list[str] = []
@@ -110,10 +233,21 @@ def main() -> None:
         if args.check_websocket:
             try:
                 asyncio.run(
-                    check_sumo_websocket(args.base_url, args.websocket_max_messages)
+                    check_sumo_websocket(
+                        args.base_url,
+                        args.scope,
+                        args.websocket_max_messages,
+                        args.demand,
+                        args.require_websocket_done,
+                        args.speed,
+                        args.engine,
+                        args.detail,
+                        args.cache,
+                    )
                 )
             except Exception as error:
-                failures.append(f"sumo_websocket: {error}")
+                message = str(error) or repr(error)
+                failures.append(f"sumo_websocket: {message}")
             else:
                 print("sumo_websocket: ok")
 

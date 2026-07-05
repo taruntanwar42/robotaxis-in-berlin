@@ -30,9 +30,10 @@ Expected local checks:
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/health
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf-district/summary
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf-district/network
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/reinickendorf-district/validate
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/charlottenburg-moabit-tiergarten/summary
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/charlottenburg-moabit-tiergarten/network
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7860/sumo/charlottenburg-moabit-tiergarten/validate
+python scripts\check_robotaxi_contract.py
 python scripts\smoke_backend.py --base-url http://127.0.0.1:7860
 python scripts\smoke_backend.py --base-url http://127.0.0.1:7860 --check-websocket
 npm run check
@@ -78,13 +79,25 @@ Invoke-WebRequest -UseBasicParsing https://taruntanwar42.github.io/robotaxis-in-
 
 ## Data Included
 
-The active backend package includes only:
+The active backend package includes the corridor SUMO scenario, the v1 MATSim
+demand extract, and the packaged public replay:
 
 ```text
-hf-space/app/sumo/reinickendorf-district/reinickendorf-district.net.xml
-hf-space/app/sumo/reinickendorf-district/reinickendorf-district-contained.rou.xml
-hf-space/app/sumo/reinickendorf-district/reinickendorf-district.sumocfg
-hf-space/app/sumo/reinickendorf-district/reinickendorf-district.geojson
+hf-space/app/sumo/charlottenburg-moabit-tiergarten/          (net, routes, configs, boundary, metadata)
+hf-space/app/data/matsim/charlottenburg-moabit-tiergarten_person_trips_1pct_180000_190000_car_ride.json
+hf-space/app/data/matsim/..._car_ride.rejects.json
+hf-space/app/data/matsim/..._car_ride.metadata.json
+hf-space/app/data/replays/charlottenburg-moabit-tiergarten_taxi_matsim_public.jsonl.gz
+```
+
+The legacy `hf-space/app/sumo/reinickendorf-district/` package and its MATSim
+extracts also ship, but only serve the legacy `reinickendorf-district` scope.
+
+After changing backend dispatch behavior, regenerate the public replay before
+deploying, or the Space will keep streaming the old cached run:
+
+```powershell
+python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7860
 ```
 
 Generated SUMO output files under `hf-space/app/sumo/**/output/` are ignored.

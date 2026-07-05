@@ -17,7 +17,20 @@ qa-*.png
 hf-space/app/sumo/**/output/*
 !hf-space/app/sumo/**/output/.gitkeep
 hf-space/app/sumo/berlin/
-data/intermediate/sumo/
+
+# Local data pipeline (rebuild via scripts/build_*.py)
+/data/
+hf-space/app/data/replays/
+hf-space/app/data/matsim/
+
+# Tooling scaffolding, not project docs
+docs/superpowers/
+
+# Asset exploration output (regenerable; only cybercab-depot-marker.png ships)
+public/assets/fonts/
+public/assets/depot-marker-options/
+public/assets/source/
+public/assets/cybertruck.zip
 
 # Editor directories and files
 .vscode/*

@@ -690,3 +690,216 @@ Extracted decision:
   Depth & Context (zoom micro-sim, demand constellation, scripted push-in,
   sourced people/impact metrics), L3 Fleet Business (charging + rollout
   prologue + district-true re-cut + economics card).
+
+## 2026-07-05 - Layer 1 First QA Verdict (Screenshot Review)
+
+Raw user language:
+
+> cover: yeah i guess it's an ok start.
+
+> zone: idk what shapely is supposed to mean here, but that is really like, jagged yk. those boundaries are different from what i saw on google maps, and not very good shape at all ... i guess i will need to see how the boundaries look, if theyre right or wrong or like maybe we need different file or idk. later. also the zone is just an overlay, not actually the zone the app is using. lol. idk if we meant to do it like this, but ok. like, we want the data from sumo and obs to be sourced from the zone too yk haha. rn the cabs have requests and go freely outside the zone lol.
+
+> Motion: it's fine but theres no destination lines and stuff yet, and the circles are just blinking mess.
+
+> cabs: i dont really see a difference tbh, this sprite looks like an ovan bean tbh, like a rice grain. the one codex was using was so much better, i think you didnt even really look at the model i gave you, anyways. sadge. it looks like worms moving around a spoiled fruit. not like futuristic cars responding to roads or sth.
+
+> i think it's an ok job for layer 1 -- not really amazing quality, but i think you tried hard. thanks
+
+Extracted decision:
+
+- Zone shape unresolved: rendered union is jagged and has a visible hole
+  around Hansaviertel (its own Ortsteil, not in the 3-district union) — the
+  polygon source/composition needs review; possibly different file or added
+  Ortsteile, plus stronger smoothing.
+- Zone must eventually be the REAL data boundary (SUMO cut + demand filter),
+  not just a visual overlay; cabs/requests currently roam outside it. The
+  district-true re-cut moves up in priority from "someday Layer 3".
+- Destination lines (request/route paths) are wanted in the run view; do not
+  ship hidden.
+- Request circles read as "blinking mess" — lifecycle visuals need calmer
+  design.
+- Cybercab sprite rejected ("oval bean/rice grain"): must be built from the
+  actual Sketchfab model reference (or restore/iterate on the previous Codex
+  sprite from git history), not drawn from imagination.
+- Overall verdict: acceptable Layer 1 start, quality bar not yet met.
+
+## 2026-07-06 - Submission Day Reset: App Broken, Order of Work
+
+Raw user language:
+
+> ok so, look, the whole app is actually more or less broken rn actually, like this is not submittable at all, and i need to submit today :') -- and even building layer 3 will not actually fix the app, since what we have rn is broken.
+
+> the app opens with 3 cards - do you remmeber their idea? we can make the images at the end bc we need the map for that. so, this is the intro. then, the app opens. so, the map/core app is almost completely broken rn, so that needs to be fixed. then, we need to make some actual ui yk. not the intro card, but some ui. it's supposed to be a dispatch app/sim yk, not a video playback or sth. we need cab status, etc, like stuff yk. anyways, then the metrics etc at last i guess.
+
+> i think firstly we should start with the data today. so, first question, do u know what are the inputs for this app? like, before we even make any slop on top of it lol. just like, what are the sources yk
+
+Extracted decision:
+
+- DEADLINE: submission is TODAY (2026-07-06). Everything prioritized against that.
+- Current app state judged broken / not submittable; adding layers on top will
+  not fix it — core must be repaired first.
+- Intro = 3 cards again (reverses the 2026-07-05 "single cover card" lock).
+  Card imagery = screenshots of the finished app, made LAST.
+- App must read as a dispatch app/simulation, not a video playback: real UI
+  with cab status and similar operational elements, beyond the intro cards.
+- Order of work today: (1) data/inputs first, (2) fix broken map/core,
+  (3) build actual dispatch UI, (4) metrics last.
+
+Implementation note:
+
+- Data sources confirmed: BeST Berlin SUMO net (corridor cut), ALKIS Ortsteile
+  WFS polygons (Hansaviertel missing -> zone hole), MATSim Open Berlin v6.4 1%
+  demand (car+ride 18:00-19:00, 119 requests), BeST background routes, recorded
+  SUMO/TraCI replay cache streamed from HF Space, MapTiler basemap.
+
+## 2026-07-06 - First-Principles Reset: Real-Cybercab Realism, View Decides Everything
+
+Raw user language:
+
+> as for real cybercabs, they serve an area about the size of the moabit kiez i think, like smaller than our current area -- at the least (just guesstimate from some stuff ive seen on internet, ~80% accuracy estimate, good enough) -big? idk, probably a large area, probably not more than 2-3x larger than our current cutout, bc at that point it would like half of berlin and berlin is large.
+
+> also, time- i think 6 am to 2 am (so 2-6am off duty), i remember reading. not sure about how they charge, how far the depots are, etc. or how they roam between trips etc. but i think they prolly do roam and also park when off trip, not just return to depot yk. and this is useful bc ideally the app shouldnt have like, just one request after another being fulfilled by the cabs, bc it just looks like a prerecorded thing yk.
+
+> i think i kinda want like, nice demand generation (random selection or like yk, not always the same maybe) and then reaction to that , like how cabs react to trips, etc. but anyway, this is for later.
+
+> i think both sumo and matsim have drt or sth like taxi or like a dispatch kinda thing. sumo and maybe even matsim even had like evs and stuff, idk.
+
+> temporal - idk, like, both geographic, temporal, and fleet, this all depends on like what we want the app to be at the end, like what will the view actually be? bc that also decides everything else yk.
+
+Extracted decision:
+
+- Sample: assume 1pct for now, revisit later if needed.
+- Realism anchor = real robotaxi deployments: service zone between "Moabit Kiez size"
+  and ~2-3x current corridor; service hours ~06:00-02:00 (02-06 off duty); cabs roam
+  and park curbside between trips, not depot-ping-pong.
+- Anti-goal: app must not read as "one request after another fulfilled" — visible idle/
+  roaming/parked cab behavior is part of the product.
+- Wanted later (parking lot): stochastic demand generation (varying request selection
+  per run) + visible cab reaction, so runs differ.
+- Design order: decide the END VIEW first; geography, temporal window, and fleet size
+  all derive from it.
+
+Implementation note:
+
+- SUMO has device.taxi (dispatch: greedy/greedyShared/traci) — we already use it via
+  TraCI. MATSim has a full DRT module (rebalancing, used in real ridepooling studies)
+  and an EV/charging module; SUMO has battery device + charging stations. EV/charging
+  = candidate for the "slice of archetype 5" energy layer.
+
+## 2026-07-06 - Locked: 1-Hour Slice; Sim Controller Box Later; Bandwidth Concern
+
+Raw user language:
+
+> we will do 1 hour slice temporally bc 30 mins would probably be too short and 2 hours doesnt really offer any practical benefits over 1 i think.
+
+> btw, is 104mb the amount of data transmitted from backend to frontend for 1 hr? like, maybe the recruiter doesnt have fast internet idk.
+
+> actually i think later we can add the option to choose the timeframe and speed in a little sim controller ui box i guess, with the start simulation button sort of glowing or like, being annotated to start or sth yk. so normal behaviour would be to just start at default settings (60 min 30x or whatever, we'll decide later).
+
+Extracted decision:
+
+- Temporal window locked: 1-hour slice (30 min too short, 2 h no practical benefit).
+- (Rejected: full-day demand-curve chart as macro context — "no thats dumb".)
+- Later feature: small sim-controller UI box (timeframe + speed selection), Start
+  Simulation button glowing/annotated; default behavior = start at defaults
+  (~60 min, ~30x, exact numbers decided later).
+- Payload size to recruiter matters — assume slow internet possible.
+
+Implementation note:
+
+- Measured: replay cache = 108 MB gzip on disk, 490 MB decompressed JSON over
+  websocket. Frame autopsy: ~81 KB/frame, of which trafficLights 31 KB + dispatch
+  45 KB = 94%; what the UI actually renders (mapVehicles, cabRows, requests, totals)
+  is ~4-5 KB/frame. Slimmed public replay ~= 20-25 MB raw / few MB gzipped. Must slim
+  during rebuild.
+
+## 2026-07-06 - Reference Pasted: Real Cybercab/Robotaxi 2026 Facts (Batman Garage article)
+
+Raw user language:
+
+> some random info i wanna paste in here [article: "Tesla Robotaxi and Cybercab - Inside the 2026 Rollout", Batman Garage, 2026-06-21]
+
+Extracted reference facts (supersede earlier guessed specs):
+
+- Cybercab EPA-certified, in production Giga Texas since ~April 2026. Two-seat, no
+  wheel/pedals, butterfly doors, front single PM motor ~163 kW, FWD.
+- Battery 47.6 kWh (not 48); efficiency 165 Wh/mile (most efficient EV certified);
+  real-world range ~293 mi (~472 km); curb ~1,412 kg; wireless inductive charging
+  expected; target price <$30k unconfirmed.
+- Service: Austin + Dallas + Houston, mid-2026. Austin geofence ~245 sq mi (~635 km²),
+  grown >10x from launch — so launch-era zone was ~60 km²-ish; Dallas/Houston launched
+  with smaller tight geofences. Live driverless fleet ~20-42 vehicles total.
+- Safety: 4 months no at-fault FSD collision per NHTSA data; SAE Level 4 self-certified.
+- No meaningful Robotaxi revenue expected before 2027.
+
+Implementation note:
+
+- Our zone (24 km², 10-12 cabs) sits believably at "launch-day zone" scale; real fleet
+  sizes (dozens citywide) make 10-12 cabs per launch zone realistic.
+- Update battery constants: 47.6 kWh, 165 Wh/mile, ~472 km range — for the energy/
+  charging slice (archetype 5).
+
+## 2026-07-06 - Locked: Zone = Corridor Envelope Rectangle (Visual = Data)
+
+Raw user language:
+
+> ok so rn the polygon is actually still the previous 'cleaned rectangle' zone, right - u previously just overlayed the new borders on it in a previous chat, so maybe let's just restore that square and call it a decision. now just the actual map visuals, ui, and demand generation/response remain, maybe
+
+Extracted decision:
+
+- Service zone = the padded-bbox "cleaned rectangle" (corridor envelope), as both the
+  drawn zone AND the data boundary. The curvy Ortsteile-union overlay is retired.
+- This dissolves the Hansaviertel-hole problem (bbox covers it) and makes visual zone
+  = SUMO cut = demand filter, all one truth.
+- Remaining scope after this: map visuals, UI, demand generation/response.
+
+Implementation note:
+
+- Demand extraction ALREADY filters by the envelope rectangle; SUMO net already cut
+  from it. So zero pipeline rework for the zone — only frontend swaps curvy geojson
+  for the envelope rectangle (fallback path already exists).
+
+## 2026-07-06 - Locked: Map Layers On, Codex Sprite Back, Uber-Like Paths; Build Green Light
+
+Raw user language:
+
+> um, so will u implement roam/parking/whatever using sumo taxi or like how -- like u know where the cars can park on the sumo edges, etc? also, btw pls turn on lanes and traffic lights -- make sure the traffic cars are also on, and a static size. probably only clearly visible when zoomed in. also, use codex sprite, idk if it still exists, it prolly doesnt actually. but idk. it's prolly the same size as the current traffic cars yk -and looks GOOD. pls make the taxis have correct paths, like nice uber-app like pickup, etc. make good ui, etc. i think what you refer to as 'dispatch bloat' may be useful code yk. but your choice i guess.
+
+Extracted decision:
+
+- Lanes + traffic lights rendered ON. Background traffic cars ON, static (real-world)
+  size, naturally only clearly visible when zoomed in.
+- Cybercab sprite: restore the previous Codex sprite (createCybercabMarkerImage,
+  recoverable at git 87fc3ce^:src/App.tsx:1482) — same scale as traffic cars, "looks GOOD".
+- Taxi route paths visible and correct: Uber-app-like pickup/dropoff path presentation.
+- Good UI (dispatch app feel) — design freedom granted within earlier Tesla-light refs.
+- Replay slimming = my choice, but don't discard useful dispatch data the UI needs
+  (user flags it "may be useful").
+
+Implementation note:
+
+- Idle behavior via SUMO device.taxi idle-algorithm (stop = curbside park,
+  randomCircling = roam) + possible TraCI nudges; parking uses lane-level stops
+  (mechanism already proven by depot-return fallback). Will test and pick what
+  looks right. Fleet 10 assumed. Build starts now.
+
+## 2026-07-06 - Build Session Findings: Depot Ping-Pong Root Cause, Fleet Saturation Math
+
+(Agent findings during the submission-day rebuild, logged for the record.)
+
+- ROOT CAUSE of the "prerecorded / one request after another" feel: the dispatcher sent
+  every cab below 88% battery (the ready-charge threshold) back to the TXL depot whenever
+  it had no feasible request. Cabs commuted to Tegel all shift (62% deadhead, 500s avg
+  wait). Fixed: mid-shift depot return now only below the low-battery reserve (12 kWh).
+- Saturation math at 1pct: ride cycle ~14 min (pickup drive ~320s + 2x60s holds + trip)
+  means 10 cabs serve ~43 rides/h. 70+ requests/h oversaturates the fleet: long queues,
+  expiries, and 18:50-cutoff rejections. Rebalanced: pickup/dropoff hold 30s, demand
+  seeds recalibrated to ~52 requests/h (car/ride 25%, pt 12%, bike 6%, walk 3.5%
+  adoption), post-shift depot-recovery cap raised to 1500s so the full fleet gets home.
+- Replay slimming results: legacy cache 108 MB gz / 490 MB wire; slim format = TL deltas,
+  request lifecycle events, compact background-vehicle arrays (capped 180), route
+  polylines only on change = ~17.5 MB gz / ~85 MB raw per seed. Largest remaining chunks:
+  TL deltas 38%, background traffic 28%.
+- Cybercab battery constants updated to EPA reality (47.6 kWh, 102.5 Wh/km).
+- Intro copy drafted (3 cards): "Robotaxis in Berlin" / "Built on Berlin's own data"
+  (SUMO + MATSim credit) / "18:00. Ten cabs. One hour." — images deferred, slots ready.

@@ -51,8 +51,8 @@ def main() -> None:
     }
     frame = build_contract_frame_fields(dispatch_payload, [], 64_800)
 
-    assert MATSIM_ROBOTAXI_MODES == {"car", "ride"}
-    assert ROBOTAXI_FLEET_SIZE == 5
+    assert MATSIM_ROBOTAXI_MODES == {"car", "ride", "pt", "bike", "walk"}
+    assert ROBOTAXI_FLEET_SIZE == 10
     assert frame["phase"] == "running"
     assert frame["timeSec"] == 64_800
     assert frame["timeLabel"] == "18:00"
@@ -62,7 +62,7 @@ def main() -> None:
     assert frame["requestCounts"]["waiting"] == 2
     assert frame["requestCounts"]["assigned"] == 3
     assert frame["requestCounts"]["onboard"] == 1
-    assert len(frame["cabRows"]) == 5
+    assert len(frame["cabRows"]) == ROBOTAXI_FLEET_SIZE
     assert frame["mapVehicles"] == []
     assert frame["mapRequests"] == []
     assert frame["totals"] == {

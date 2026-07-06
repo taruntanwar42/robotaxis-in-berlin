@@ -10,7 +10,7 @@
   "beginSeconds": 64800,
   "endSeconds": 75600
  },
- "initialFleetSize": 5,
+ "initialFleetSize": 10,
  "depot": {
   "fixed": true,
   "depotEdge": "8036812#2",
@@ -196,6 +196,31 @@
     "internal": false,
     "validForTaxiOrPassenger": true,
     "nearestOtherStagingEdgeM": 1331.8
+   },
+   {
+    "edgeId": "-23075532#1",
+    "lengthM": 178.33,
+    "source": "2026-07-06 fleet-10 spread v2 (bidirectionally routable, max-min distance)"
+   },
+   {
+    "edgeId": "4493351#0",
+    "lengthM": 278.2,
+    "source": "2026-07-06 fleet-10 spread v2 (bidirectionally routable, max-min distance)"
+   },
+   {
+    "edgeId": "34057952#3",
+    "lengthM": 140.97,
+    "source": "2026-07-06 fleet-10 spread v2 (bidirectionally routable, max-min distance)"
+   },
+   {
+    "edgeId": "-4484024#4",
+    "lengthM": 100.0,
+    "source": "2026-07-06 fleet-10 spread v2 (bidirectionally routable, max-min distance)"
+   },
+   {
+    "edgeId": "281073954#3",
+    "lengthM": 153.54,
+    "source": "2026-07-06 fleet-10 spread v2 (bidirectionally routable, max-min distance)"
    }
   ]
  },

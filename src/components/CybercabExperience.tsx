@@ -1,5 +1,3 @@
-import { useState } from "react"
-
 export type ExperiencePhase = "cover" | "running" | "results"
 
 export type ShiftReportData = {
@@ -82,42 +80,33 @@ export function CybercabExperience({
   onStart,
   onReplay,
 }: CybercabExperienceProps) {
-  const [introStep, setIntroStep] = useState(0)
-  const card = INTRO_CARDS[Math.min(introStep, INTRO_CARDS.length - 1)]
-  const isLastCard = introStep >= INTRO_CARDS.length - 1
-
   return (
     <div className="experience-layer">
       {phase === "cover" ? (
         <div className="veil veil-cover">
-          {/* Whole card advances (except the final Start card): minimal friction. */}
-          <section
-            className={isLastCard ? "cover-card" : "cover-card cover-card-advance"}
-            aria-label="Robotaxis in Berlin"
-            onClick={() => {
-              if (!isLastCard) {
-                setIntroStep((step) => step + 1)
-              }
-            }}
-          >
-            {card.imageSrc ? (
-              <img className="cover-media" src={card.imageSrc} alt="" />
-            ) : null}
-            <span className="kicker">{card.kicker}</span>
-            <h1>{card.title}</h1>
-            <p>{card.body}</p>
+          {/* All three cards at once, one click total: Start. */}
+          <section className="cover-panel" aria-label="Robotaxis in Berlin">
+            <div className="cover-panel-grid">
+              {INTRO_CARDS.map((card) => (
+                <article key={card.title} className="cover-panel-card">
+                  {card.imageSrc ? (
+                    <img className="cover-media" src={card.imageSrc} alt="" />
+                  ) : null}
+                  <span className="kicker">{card.kicker}</span>
+                  <h1>{card.title}</h1>
+                  <p>{card.body}</p>
+                </article>
+              ))}
+            </div>
             {isUnavailable ? (
               <div className="cover-unavailable" role="status">
                 The simulation backend is waking up. Give it a minute, then reload.
               </div>
-            ) : isLastCard ? (
+            ) : (
               <button
                 type="button"
-                className="gold-button gold-button-glow"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onStart()
-                }}
+                className="gold-button gold-button-glow cover-start"
+                onClick={onStart}
                 disabled={isPreparing}
               >
                 {isPreparing ? (
@@ -129,32 +118,7 @@ export function CybercabExperience({
                   "Start the shift"
                 )}
               </button>
-            ) : (
-              <button
-                type="button"
-                className="gold-button"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setIntroStep((step) => step + 1)
-                }}
-              >
-                Next
-              </button>
             )}
-            <div className="cover-dots" aria-hidden="true">
-              {INTRO_CARDS.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className={index === introStep ? "cover-dot is-active" : "cover-dot"}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setIntroStep(index)
-                  }}
-                  aria-label={`Intro card ${index + 1}`}
-                />
-              ))}
-            </div>
             <span className="cover-microline">
               18:00 – 19:00 · runs by itself · about 2 minutes
             </span>
@@ -199,6 +163,27 @@ export function CybercabExperience({
               </ul>
             </aside>
           ) : null}
+
+          <aside className="map-legend" aria-label="Map legend">
+            <ul>
+              <li>
+                <span className="legend-swatch legend-pulse" aria-hidden="true" />
+                New ride request
+              </li>
+              <li>
+                <span className="legend-swatch legend-dot-open" aria-hidden="true" />
+                Rider waiting for a cab
+              </li>
+              <li>
+                <span className="legend-swatch legend-line-pickup" aria-hidden="true" />
+                Cab driving to pickup
+              </li>
+              <li>
+                <span className="legend-swatch legend-line-ride" aria-hidden="true" />
+                Ride to destination
+              </li>
+            </ul>
+          </aside>
 
           {feed && feed.length > 0 ? (
             <aside className="dispatch-feed" aria-label="Dispatch feed">

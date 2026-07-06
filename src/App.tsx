@@ -26,9 +26,21 @@ const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL a
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
-// Heading of the corridor rectangle's southern edge is 88.67deg; rotating the
-// map by the difference squares the zone with the viewport.
-const SERVICE_ZONE_BEARING_DEG = -1.33
+
+// Temporary startup profiling: report main-thread long tasks to the console.
+if (typeof PerformanceObserver !== "undefined") {
+  try {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration >= 200) {
+          console.log(`[perf] longtask ${Math.round(entry.duration)}ms @${Math.round(entry.startTime)}ms`)
+        }
+      }
+    }).observe({ entryTypes: ["longtask"] })
+  } catch {
+    // longtask observer unsupported: fine, profiling only.
+  }
+}
 const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
 const districtScope = "charlottenburg-moabit-tiergarten"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
@@ -1726,6 +1738,7 @@ export default function App() {
     if (!map || !network || !map.isStyleLoaded() || !ensureSumoLaneLayers(map)) {
       return false
     }
+    const perfStartedAt = performance.now()
 
     ensureSumoTrafficLightLayers(map)
     applySumoOverlayTheme(map, appThemeRef.current)
@@ -1750,6 +1763,7 @@ export default function App() {
       ),
     )
     setSumoLayerVisibility(map, sumoLayerVisibilityRef.current)
+    console.log(`[perf] syncSumoNetworkLayers ${Math.round(performance.now() - perfStartedAt)}ms`)
     return true
   }, [])
 
@@ -2708,14 +2722,12 @@ export default function App() {
         ? {
             padding: { top: 72, bottom: 36, left: 24, right: 24 },
             maxZoom: 12.2,
-            bearing: SERVICE_ZONE_BEARING_DEG,
           }
         : {
             // Keep the corridor clear of the dispatch panels: feed bottom-left,
             // fleet board top-right.
             padding: { top: 96, bottom: 96, left: 96, right: 272 },
             maxZoom: 12.9,
-            bearing: SERVICE_ZONE_BEARING_DEG,
           }
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,
@@ -2730,9 +2742,7 @@ export default function App() {
             fitBoundsOptions: defaultFitBoundsOptions,
           }),
       pitch: restoredCamera?.pitch ?? 0,
-      // Align the UTM-axis service rectangle with the screen; without this
-      // the zone reads as slightly tilted.
-      bearing: restoredCamera?.bearing ?? SERVICE_ZONE_BEARING_DEG,
+      bearing: restoredCamera?.bearing ?? 0,
       attributionControl: false,
     })
 

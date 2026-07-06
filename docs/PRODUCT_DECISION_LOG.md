@@ -937,3 +937,26 @@ Extracted decision:
   three overlay panels feels random; overall narrative/experience "isn't there yet".
 - Meta: chat at ~500k tokens; big reimagining deferred to a fresh session — only
   surgical fixes now.
+
+## 2026-07-06 - v3 Feedback: Canvas Rotation, One-Window Cards, Legend
+
+Raw user language:
+
+> the page skew is real, it was like this with codex too. adjusting maplibre makes it straight -- until you move it, or zoom or do anything, and sometimes even if you dont do anything. the fix we found at the end was to just roate the whole canvas underneath i think.
+
+> wow, u fixed the lines -- app actually looks great now, even tho i still dont really understand it. maybe i need a legend. or maybe this whole thing is just dumb.
+
+> still no 3 cards on one big window, still 3 successsive clicks needed .
+
+> i like the golden radiating circles but it isnt intuitive what they mean - announced trip? accepted trip? idk?
+
+Extracted decision:
+
+- Zone tilt: bearing-based fixes deemed fragile from experience; the proven fix is
+  rotating the map canvas itself (the old CSS rotate hack existed FOR this).
+  Rotate the canvas, keep UI overlays unrotated.
+- Intro: all 3 cards visible AT ONCE in one wide window; exactly one click (Start).
+  The 3-successive-cards interpretation was wrong.
+- Add a map legend explaining the visual language (pulse ring, marker states,
+  gray vs gold lines).
+- Route lines confirmed good ("app actually looks great now").

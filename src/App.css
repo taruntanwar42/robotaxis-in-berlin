@@ -678,3 +678,150 @@
   width: 12px;
   height: 12px;
 }
+
+/* The corridor rectangle is UTM-axis-aligned, ~1.3deg off web-mercator screen
+   axes. Rotating the map canvas itself (not the maplibre camera) squares the
+   zone permanently — camera-based fixes drift with interaction. UI overlays
+   live outside this element and stay straight. */
+.base-map-canvas {
+  transform: rotate(1.33deg) scale(1.05);
+  transform-origin: center;
+}
+
+/* ---------- One-window cover panel ---------- */
+
+.cover-panel {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  padding: 32px 36px 24px;
+  max-width: 1040px;
+  width: min(1040px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+
+.cover-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 36px;
+  align-items: start;
+}
+
+.cover-panel-card h1 {
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 8px 0 10px;
+}
+
+.cover-panel-card p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+
+.cover-start {
+  min-width: 260px;
+}
+
+@media (max-width: 860px) {
+  .cover-panel-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .cover-panel {
+    max-height: calc(100svh - 48px);
+    overflow-y: auto;
+  }
+}
+
+/* ---------- Map legend ---------- */
+
+.map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  padding: 12px 16px;
+  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.map-legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.legend-swatch {
+  width: 18px;
+  height: 12px;
+  flex: none;
+  display: inline-block;
+}
+
+.legend-pulse {
+  width: 12px;
+  height: 12px;
+  margin: 0 3px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-bright);
+  animation: legend-pulse 1.8s ease-out infinite;
+}
+
+@keyframes legend-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(232, 180, 35, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 6px rgba(232, 180, 35, 0);
+  }
+}
+
+.legend-dot-open {
+  width: 10px;
+  height: 10px;
+  margin: 0 4px;
+  border-radius: 50%;
+  background: #0f1418;
+}
+
+.legend-line-pickup {
+  height: 0;
+  border-top: 2.5px solid #5c6670;
+  opacity: 0.7;
+}
+
+.legend-line-ride {
+  height: 0;
+  border-top: 2.5px solid var(--gold);
+}
+
+@media (max-width: 900px) {
+  .map-legend {
+    display: none;
+  }
+}

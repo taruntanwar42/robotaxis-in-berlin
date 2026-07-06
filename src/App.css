@@ -1546,3 +1546,21 @@
   padding: 3px 7px;
   font-size: 11px;
 }
+
+/* v6 polish: speed gets its own row; terse everything */
+.ops-speed-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ops-speed-row .ops-speed-inline {
+  margin-left: auto;
+}
+
+.cab-camera-release {
+  margin-left: auto;
+  font-weight: 650;
+  color: var(--gold);
+}

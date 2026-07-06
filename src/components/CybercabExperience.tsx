@@ -102,7 +102,7 @@ export function CybercabExperience({
           <span className="ops-brand-mark" aria-hidden="true" />
           <div>
             <h1>Robotaxis in Berlin</h1>
-            <p>Tesla Cybercab fleet · one evening shift</p>
+            <p>Cybercab fleet · Berlin</p>
           </div>
         </header>
 
@@ -121,24 +121,28 @@ export function CybercabExperience({
           </span>
           <div className="ops-counters">
             <span>
-              <strong>{ridesServed ?? 0}</strong> rides served
+              <strong>{ridesServed ?? 0}</strong> served
             </span>
             <span>
               <strong>{openRequests ?? 0}</strong> waiting
             </span>
-            <span className="ops-speed-inline">
-              {SIM_SPEED_CHOICES.map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  className={choice === simSpeed ? "ops-speed-chip is-active" : "ops-speed-chip"}
-                  onClick={() => onSimSpeed(choice)}
-                >
-                  {choice}×
-                </button>
-              ))}
-            </span>
           </div>
+        </section>
+
+        <section className="ops-speed-row" aria-label="Speed">
+          <span className="ops-speed-label">Speed</span>
+          <span className="ops-speed-inline">
+            {SIM_SPEED_CHOICES.map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                className={choice === simSpeed ? "ops-speed-chip is-active" : "ops-speed-chip"}
+                onClick={() => onSimSpeed(choice)}
+              >
+                {choice}×
+              </button>
+            ))}
+          </span>
         </section>
 
         {phase === "idle" ? (
@@ -164,11 +168,7 @@ export function CybercabExperience({
                 )}
               </button>
             )}
-            <p className="ops-hint">
-              Ten Cybercabs serve one hour of real Berlin evening demand — streets from the
-              city&apos;s SUMO network, riders from TU Berlin&apos;s MATSim model. Runs by
-              itself, about two minutes.
-            </p>
+            <p className="ops-hint">Real Berlin demand · runs by itself · ~2 min</p>
           </section>
         ) : null}
 
@@ -255,7 +255,7 @@ export function CybercabExperience({
           {tab === "report" && report ? (
             <div className="ops-report">
               <p className="report-subline">
-                18:00 – 19:00 · {fleetSize} Cybercabs · Charlottenburg, Moabit &amp; Tiergarten
+                18:00 – 19:00 · {fleetSize} Cybercabs · Berlin West
               </p>
               {report.map((category) => (
                 <div key={category.title} className="report-category">
@@ -289,23 +289,23 @@ export function CybercabExperience({
                   <path d="M4.4 11.6 a3.6 3.6 0 0 1 7.2 0 z" fill="#1c242b" />
                 </svg>
               </span>
-              Rider waiting for a cab
+              Rider waiting
             </li>
             <li>
               <span className="legend-swatch legend-destination" aria-hidden="true" />
-              Ride destination
+              Destination
             </li>
             <li>
               <span className="legend-swatch legend-line-pickup" aria-hidden="true" />
-              Cab driving to pickup
+              To pickup
             </li>
             <li>
               <span className="legend-swatch legend-line-ride" aria-hidden="true" />
-              Ride under way
+              Ride
             </li>
             <li>
               <span className="legend-swatch legend-cab" aria-hidden="true" />
-              Cybercab · click to follow
+              Cybercab · click
             </li>
           </ul>
         </aside>
@@ -344,7 +344,8 @@ function CabDetail({
 
       <button type="button" className="cab-camera-note" onClick={onBack}>
         <span className="hud-live" aria-hidden="true" />
-        Camera locked to this cab — release
+        Chase cam
+        <span className="cab-camera-release">Release</span>
       </button>
 
       <div className="cab-stats">
@@ -384,15 +385,15 @@ function CabDetail({
         {rider ? (
           <>
             <span className="cab-rider-title">
-              {rider.status === "onboard" ? "Rider aboard" : "Heading to a rider"}
+              {rider.status === "onboard" ? "Rider aboard" : "To rider"}
             </span>
             <span>
-              Requested at {formatClock(rider.requestedAtSec)}
-              {rider.mode ? ` · usually rides ${modeLabel(rider.mode)}` : ""}
+              {formatClock(rider.requestedAtSec)}
+              {rider.mode ? ` · ${riderNoun(rider.mode)}` : ""}
             </span>
           </>
         ) : (
-          <span className="cab-rider-title">No rider assigned right now</span>
+          <span className="cab-rider-title">No rider</span>
         )}
       </div>
     </div>
@@ -501,42 +502,41 @@ function feedText(entry: DispatchFeedEntry) {
   const cab = entry.cab ? cabLabel(entry.cab) : null
   switch (entry.status) {
     case "waiting":
-      return entry.mode
-        ? `New request (usually rides ${modeLabel(entry.mode)})`
-        : "New ride request"
+      return entry.mode ? `New request · ${riderNoun(entry.mode)}` : "New request"
     case "assigned":
       return cab ? `${cab} assigned` : "Cab assigned"
     case "onboard":
-      return cab ? `Picked up by ${cab}` : "Rider picked up"
+      return cab ? `Picked up · ${cab}` : "Picked up"
     case "completed":
       return typeof entry.waitSec === "number"
-        ? `Dropped off · waited ${Math.round(entry.waitSec)}s`
+        ? `Dropped off · ${Math.round(entry.waitSec)}s wait`
         : "Dropped off"
     case "expired":
-      return "Request expired unserved"
+      return "Expired unserved"
     case "rejected":
-      return "Request declined (shift ending)"
+      return "Declined · shift ending"
     default:
       return entry.status.replaceAll("_", " ")
   }
 }
 
-function modeLabel(mode: string) {
+function riderNoun(mode: string) {
   switch (mode) {
     case "car":
-      return "by car"
+      return "driver"
     case "ride":
-      return "as passenger"
+      return "passenger"
     case "pt":
-      return "public transit"
+      return "transit rider"
     case "bike":
-      return "by bike"
+      return "cyclist"
     case "walk":
-      return "on foot"
+      return "walker"
     default:
       return mode
   }
 }
+
 
 function formatClock(simSec: number) {
   const hours = Math.floor(simSec / 3600) % 24

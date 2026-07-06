@@ -2622,63 +2622,63 @@ export default function App() {
       {
         title: "Service",
         rows: [
-          { label: "Ride requests", value: String(totalDemand ?? registry.length) },
+          { label: "Requests", value: String(totalDemand ?? registry.length) },
           {
-            label: "Rides served",
+            label: "Served",
             value:
               totalDemand && ridesServed !== undefined
                 ? `${ridesServed} (${Math.round((ridesServed / totalDemand) * 100)}%)`
                 : String(ridesServed ?? "–"),
           },
-          { label: "Expired unserved", value: String(expired) },
+          { label: "Expired", value: String(expired) },
           { label: "Median wait", value: fmtDur(medianWaitSec) },
-          { label: "90th-percentile wait", value: fmtDur(quantile(0.9)) },
-          { label: "Avg ride time", value: fmtDur(avgRideSec) },
+          { label: "P90 wait", value: fmtDur(quantile(0.9)) },
+          { label: "Ride time", value: fmtDur(avgRideSec) },
         ],
       },
       {
         title: "Fleet",
         rows: [
-          { label: "Fleet distance", value: fmt(fleetKm, 0, " km") },
-          { label: "Empty share (incl. repositioning)", value: fmt(emptyShare, 0, " %") },
+          { label: "Distance", value: fmt(fleetKm, 0, " km") },
+          { label: "Empty share¹", value: fmt(emptyShare, 0, " %") },
           {
             label: "Rides per cab",
             value:
               ridesServed !== undefined ? fmt(ridesServed / displayFleetSize, 1) : "–",
           },
           {
-            label: "Busiest cab",
+            label: "Busiest",
             value: busiest ? `Cab ${busiest[0].replace("cybercab_", "")} · ${busiest[1]} rides` : "–",
           },
-          { label: "Time with rider aboard", value: fmt(ridingShare, 0, " %") },
+          { label: "With rider", value: fmt(ridingShare, 0, " %") },
         ],
       },
       {
         title: "Energy",
         rows: [
-          { label: "Energy used", value: fmt(energyKwh, 1, " kWh") },
+          { label: "Used", value: fmt(energyKwh, 1, " kWh") },
           {
-            label: "Consumption",
+            label: "Per 100 km",
             value:
-              energyKwh !== undefined && fleetKm ? fmt((energyKwh / fleetKm) * 100, 1, " kWh/100 km") : "–",
+              energyKwh !== undefined && fleetKm ? fmt((energyKwh / fleetKm) * 100, 1, " kWh") : "–",
           },
           {
-            label: "Energy per ride",
+            label: "Per ride",
             value:
               energyKwh !== undefined && ridesServed ? fmt(energyKwh / ridesServed, 2, " kWh") : "–",
           },
-          { label: "Avg battery at close", value: fmt(avgBattery, 0, " %") },
-          { label: "Lowest battery", value: fmt(minBattery, 0, " %") },
+          { label: "Avg battery", value: fmt(avgBattery, 0, " %") },
+          { label: "Min battery", value: fmt(minBattery, 0, " %") },
         ],
       },
       {
         title: "People",
         rows: [
-          { label: "People moved", value: String(ridesServed ?? "–") },
-          { label: "Passenger distance", value: fmt(passengerKm, 0, " km") },
-          { label: "Would have driven", value: String(modeCount(["car", "ride"])) },
-          { label: "Would have taken transit", value: String(modeCount(["pt"])) },
-          { label: "Would have walked or cycled", value: String(modeCount(["walk", "bike"])) },
+          { label: "Moved", value: String(ridesServed ?? "–") },
+          { label: "Passenger km", value: fmt(passengerKm, 0, " km") },
+          { label: "Else by car", value: String(modeCount(["car", "ride"])) },
+          { label: "Else transit", value: String(modeCount(["pt"])) },
+          { label: "Else walk/bike", value: String(modeCount(["walk", "bike"])) },
         ],
       },
     ]

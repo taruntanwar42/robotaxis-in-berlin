@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./App.css"
 import {
   CybercabExperience,
+  type DispatchFeedEntry,
   type ExperiencePhase,
   type ShiftReportData,
 } from "./components/CybercabExperience"
@@ -223,6 +224,30 @@ type SumoTrafficLightState = {
   phase: number
 }
 
+type PlaybackRequestEvent = {
+  id: string
+  status: RobotaxiRequestStatus | string
+  atSec: number
+  cab?: string | null
+  waitSec?: number | null
+  pickup?: { lon: number; lat: number } | null
+  dropoff?: { lon: number; lat: number } | null
+  requestedAtSec?: number | null
+  mode?: string | null
+}
+
+type PlaybackCabRow = {
+  id: string
+  state?: string | null
+  label?: string | null
+  speedKph?: number | null
+  etaSec?: number | null
+  requestId?: string | null
+  lon?: number | null
+  lat?: number | null
+  heading?: number | null
+}
+
 type SumoFrame = {
   simSec: number
   vehicleCount?: number
@@ -230,7 +255,16 @@ type SumoFrame = {
   vehicles: SumoVehicle[]
   departed?: string[]
   arrived?: string[]
-  trafficLights: Record<string, SumoTrafficLightState | string>
+  // Slim public frames carry a full snapshot on the first frame, then deltas;
+  // the playback consumer hydrates a persistent state map.
+  trafficLights?: Record<string, SumoTrafficLightState | string>
+  trafficLightsDelta?: Record<string, string>
+  requestEvents?: PlaybackRequestEvent[]
+  cabRows?: PlaybackCabRow[]
+  timeLabel?: string
+  ridesServed?: number
+  cabsActive?: number
+  requestCounts?: Record<string, number>
   running?: boolean
   delayMs?: number
   dispatch?: RobotaxiDispatch
@@ -345,16 +379,17 @@ type RobotaxiRunAudit = {
   passed: boolean
 }
 
-// Layer-1 default view: only the robotaxis, requests, and zone — background
-// traffic, lanes, and signals return as a zoom-in reward in a later layer.
+// Dispatch view: everything on. Lanes, signals, and background traffic are
+// zoom-scaled so they only read clearly when zoomed in; robotaxis, requests,
+// paths, and the zone carry the default framing.
 const defaultSumoLayerVisibility: Record<SumoLayerKey, boolean> = {
-  lanes: false,
+  lanes: true,
   vehicles: true,
-  background: false,
-  trafficLights: false,
+  background: true,
+  trafficLights: true,
   boundary: true,
   requests: true,
-  paths: false,
+  paths: true,
 }
 const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   lanes: ["sumo-internal-lanes", "sumo-lanes"],
@@ -538,18 +573,51 @@ function isSumoFrame(value: unknown): value is SumoFrame {
 
   return (
     typeof value.simSec === "number" &&
-    Array.isArray(value.vehicles) &&
-    isRecord(value.trafficLights)
+    (Array.isArray(value.vehicles) || Array.isArray(value.cabs))
   )
 }
 
+// Slim public frames split vehicles into full robotaxi objects ("cabs") and
+// compact background arrays ("bg": [shortId, lon, lat, angle]).
+function vehiclesFromSlimFrame(frame: Record<string, unknown>): SumoVehicle[] | null {
+  const cabs = frame.cabs
+  const bg = frame.bg
+  if (!Array.isArray(cabs)) {
+    return null
+  }
+  const vehicles: SumoVehicle[] = []
+  for (const cab of cabs) {
+    if (isRecord(cab)) {
+      vehicles.push(cab as unknown as SumoVehicle)
+    }
+  }
+  if (Array.isArray(bg)) {
+    for (const row of bg) {
+      if (!Array.isArray(row) || row.length < 4) {
+        continue
+      }
+      vehicles.push({
+        id: `bg_${row[0]}`,
+        lon: Number(row[1]),
+        lat: Number(row[2]),
+        angle: Number(row[3]),
+        kind: "background",
+        state: null,
+      })
+    }
+  }
+  return vehicles
+}
+
 function normalizePlaybackFrame(frame: SumoFrame): SumoFrame {
+  const slimVehicles = vehiclesFromSlimFrame(frame as unknown as Record<string, unknown>)
+  const sourceVehicles = slimVehicles ?? frame.vehicles ?? []
   return {
     ...frame,
-    vehicleCount: frame.vehicleCount ?? frame.vehicles.length,
+    vehicleCount: frame.vehicleCount ?? sourceVehicles.length,
     departed: frame.departed ?? [],
     arrived: frame.arrived ?? [],
-    vehicles: frame.vehicles.map((vehicle) => ({
+    vehicles: sourceVehicles.map((vehicle) => ({
       ...vehicle,
       speed: vehicle.speed ?? 0,
       lane: vehicle.lane ?? "",
@@ -644,8 +712,12 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
   }
 }
 
-function pulseOpacity(simSec: number, high = 0.94, low = 0.28) {
-  return Math.sin(simSec * Math.PI * 2.4) >= 0 ? high : low
+// Gentle real-time breathing. Driven by wall-clock, not simSec: at 40x
+// playback a sim-second is 25ms, so any sim-time oscillator strobes.
+function pulseOpacity(_simSec: number, high = 0.94, low = 0.28) {
+  const mid = (high + low) / 2
+  const amp = (high - low) / 2
+  return mid + amp * Math.sin((performance.now() / 1000) * Math.PI * 1.1)
 }
 
 // Golden radiating ring shown for the first few sim-seconds of a request.
@@ -658,11 +730,12 @@ function requestPulseFeatureCollection(
     if (request.status !== "waiting" && request.status !== "assigned") {
       continue
     }
+    // 48 sim-seconds ≈ 1.2 real seconds at 40x playback: one readable ring.
     const age = simSec - request.requestedAtSec
-    if (age < 0 || age > 6) {
+    if (age < 0 || age > 48) {
       continue
     }
-    const phase = age / 6
+    const phase = age / 48
     features.push({
       type: "Feature",
       properties: {
@@ -777,7 +850,7 @@ function robotaxiRequestFeatureCollection(
       const opacity = pulseOpacity(simSec, 0.95, 0.36)
       if (
         typeof request.pickupAtSec === "number" &&
-        simSec - request.pickupAtSec <= 8
+        simSec - request.pickupAtSec <= 30
       ) {
         features.push({
           type: "Feature",
@@ -1333,66 +1406,52 @@ function createBackgroundVehicleMarkerImage() {
   }
 }
 
-// Top-down Cybercab glyph: golden wedge body with a raked glass canopy,
-// silhouette informed by the Cybercab 3D model (nose narrower than tail).
+// Top-down Cybercab glyph (restored original): golden teardrop body with warm
+// glow halo, dark canopy, bright lightbar nose and bronze tail band.
 function createCybercabMarkerImage() {
   const pixelRatio = 4
   const canvas = document.createElement("canvas")
-  canvas.width = 16 * pixelRatio
-  canvas.height = 28 * pixelRatio
+  canvas.width = 14 * pixelRatio
+  canvas.height = 24 * pixelRatio
   const context = canvas.getContext("2d")
   if (!context) {
     return null
   }
 
   context.scale(pixelRatio, pixelRatio)
-  context.translate(8, 14)
+  context.translate(7, 12)
 
-  // Soft drop shadow grounding the cab on the map.
-  context.fillStyle = "rgba(16, 20, 24, 0.28)"
-  context.beginPath()
-  context.ellipse(0, 1.2, 4.6, 10.6, 0, 0, Math.PI * 2)
+  context.shadowColor = "rgba(255, 182, 36, 0.7)"
+  context.shadowBlur = 4
+  context.fillStyle = "rgba(255, 191, 52, 0.38)"
+  drawRoundedRect(context, -4.2, -8.6, 8.4, 17.2, 3.7)
+  context.fill()
+  context.shadowBlur = 0
+
+  context.fillStyle = "rgba(68, 43, 4, 0.38)"
+  drawRoundedRect(context, -3.2, -7.2, 6.4, 14.6, 2.8)
   context.fill()
 
-  // Body: nose (top) narrower, widest over the rear wheels.
-  const body = context.createLinearGradient(0, -11, 0, 11)
-  body.addColorStop(0, "#f0bc2e")
-  body.addColorStop(0.55, "#e0a71b")
-  body.addColorStop(1, "#c98f0e")
-  context.fillStyle = body
+  context.fillStyle = "#e5a51d"
   context.beginPath()
-  context.moveTo(0, -11)
-  context.bezierCurveTo(2.5, -10.4, 3.9, -7.6, 4.2, -2.4)
-  context.bezierCurveTo(4.4, 3.2, 4.1, 7.6, 3.1, 9.6)
-  context.bezierCurveTo(2.1, 10.9, -2.1, 10.9, -3.1, 9.6)
-  context.bezierCurveTo(-4.1, 7.6, -4.4, 3.2, -4.2, -2.4)
-  context.bezierCurveTo(-3.9, -7.6, -2.5, -10.4, 0, -11)
+  context.moveTo(0, -9)
+  context.bezierCurveTo(2.8, -7.3, 3.8, -4.4, 3.6, 4.5)
+  context.bezierCurveTo(3.2, 7.3, 2.1, 8.5, 0, 8.9)
+  context.bezierCurveTo(-2.1, 8.5, -3.2, 7.3, -3.6, 4.5)
+  context.bezierCurveTo(-3.8, -4.4, -2.8, -7.3, 0, -9)
   context.closePath()
   context.fill()
 
-  // Glass canopy: one raked windshield-to-tail piece, like the real car.
-  const glass = context.createLinearGradient(0, -7, 0, 6)
-  glass.addColorStop(0, "#2a3138")
-  glass.addColorStop(1, "#12171c")
-  context.fillStyle = glass
-  context.beginPath()
-  context.moveTo(0, -7.4)
-  context.bezierCurveTo(1.9, -6.9, 2.9, -4.6, 3, -1.2)
-  context.bezierCurveTo(3, 2.6, 2.6, 4.8, 1.8, 5.8)
-  context.bezierCurveTo(1, 6.4, -1, 6.4, -1.8, 5.8)
-  context.bezierCurveTo(-2.6, 4.8, -3, 2.6, -3, -1.2)
-  context.bezierCurveTo(-2.9, -4.6, -1.9, -6.9, 0, -7.4)
-  context.closePath()
+  context.fillStyle = "#ffd76a"
+  drawRoundedRect(context, -1.8, -7.1, 3.6, 2.5, 1.1)
   context.fill()
 
-  // Nose lightbar hint.
-  context.fillStyle = "#fbe49a"
-  drawRoundedRect(context, -2.2, -10.3, 4.4, 1.3, 0.65)
+  context.fillStyle = "#10161a"
+  drawRoundedRect(context, -2.1, -3.7, 4.2, 6.9, 1.9)
   context.fill()
 
-  // Tail band.
-  context.fillStyle = "#a87708"
-  drawRoundedRect(context, -2.4, 9.1, 4.8, 1.3, 0.65)
+  context.fillStyle = "#b87b10"
+  drawRoundedRect(context, -1.8, 5.1, 3.6, 2.2, 1)
   context.fill()
 
   return {
@@ -1511,6 +1570,7 @@ export default function App() {
   const sumoNetworkRef = useRef<SumoNetwork | null>(null)
   const serviceAreaRef = useRef<FeatureCollection<Geometry> | null>(null)
   const completedWaitsRef = useRef<Map<string, number>>(new Map())
+  const [dispatchFeed, setDispatchFeed] = useState<DispatchFeedEntry[]>([])
   const sumoLayerVisibilityRef = useRef<Record<SumoLayerKey, boolean>>(
     defaultSumoLayerVisibility,
   )
@@ -1520,6 +1580,13 @@ export default function App() {
   const latestSumoFrameRef = useRef<SumoFrame | null>(null)
   const latestRobotaxiRequestsRef = useRef<RobotaxiRequest[] | undefined>(undefined)
   const lastTrafficLightSignatureRef = useRef("")
+  const lastTrafficLightUpdateAtRef = useRef(0)
+  // Slim-replay hydration state: frames carry deltas/events, these refs hold
+  // the accumulated picture (traffic-light states, request registry, per-cab
+  // active route polylines). Reset at the start of every run.
+  const playbackTlStateRef = useRef<Record<string, SumoTrafficLightState | string>>({})
+  const playbackRequestRegistryRef = useRef<Map<string, RobotaxiRequest>>(new Map())
+  const playbackCabRoutesRef = useRef<Map<string, Coordinate[]>>(new Map())
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
   const dataUpdateCountRef = useRef(0)
@@ -1707,10 +1774,19 @@ export default function App() {
         return false
       }
 
-      const lightSignature = trafficLightStateSignature(frame.trafficLights)
+      // Slim replays change some TL every frame; rebuilding thousands of
+      // signal-link features 40x/s pegs the main thread. Real signals hold
+      // phases for seconds — 600ms refresh is visually indistinguishable.
+      const now = performance.now()
+      if (!force && now - lastTrafficLightUpdateAtRef.current < 600) {
+        return true
+      }
+
+      const lightSignature = trafficLightStateSignature(frame.trafficLights ?? {})
       if (!force && lightSignature === lastTrafficLightSignatureRef.current) {
         return true
       }
+      lastTrafficLightUpdateAtRef.current = now
 
       if (!ensureSumoTrafficLightLayers(map)) {
         return false
@@ -1744,8 +1820,81 @@ export default function App() {
     }
   }, [])
 
+  // Slim public frames arrive as deltas/events; fold them into persistent
+  // state and hand downstream code the same full picture it always had.
+  const hydratePlaybackFrame = useCallback((frame: SumoFrame) => {
+    if (frame.trafficLights && Object.keys(frame.trafficLights).length > 0) {
+      playbackTlStateRef.current = { ...frame.trafficLights }
+    } else if (frame.trafficLightsDelta) {
+      Object.assign(playbackTlStateRef.current, frame.trafficLightsDelta)
+    }
+    frame.trafficLights = playbackTlStateRef.current
+
+    const registry = playbackRequestRegistryRef.current
+    for (const event of frame.requestEvents ?? []) {
+      const existing = registry.get(event.id)
+      const entry: RobotaxiRequest = existing ?? {
+        id: event.id,
+        status: "waiting",
+        requestedAtSec: event.requestedAtSec ?? event.atSec,
+        pickup: event.pickup ?? { lon: 0, lat: 0 },
+        dropoff: event.dropoff ?? { lon: 0, lat: 0 },
+        pickupEdge: "",
+        dropoffEdge: "",
+        sourceMode: event.mode ?? null,
+      }
+      entry.status = event.status as RobotaxiRequestStatus
+      if (event.cab !== undefined) {
+        entry.assignedVehicleId = event.cab
+      }
+      if (typeof event.waitSec === "number") {
+        entry.waitSec = event.waitSec
+      }
+      if (event.status === "onboard" && entry.pickupAtSec == null) {
+        entry.pickupAtSec = event.atSec
+      }
+      if (event.status === "completed") {
+        entry.completedAtSec = event.atSec
+      }
+      if (event.status === "expired") {
+        entry.expiredAtSec = event.atSec
+      }
+      registry.set(event.id, entry)
+    }
+    if (frame.requestEvents?.length || !latestRobotaxiRequestsRef.current) {
+      latestRobotaxiRequestsRef.current = Array.from(registry.values())
+    }
+
+    const cabRoutes = playbackCabRoutesRef.current
+    for (const vehicle of frame.vehicles) {
+      if (vehicle.kind !== "robotaxi") {
+        continue
+      }
+      const isActive =
+        vehicle.state === "en_route_pickup" ||
+        vehicle.state === "with_passenger" ||
+        vehicle.state === "returning_to_depot"
+      if (vehicle.routeCoordinates && vehicle.routeCoordinates.length > 1) {
+        cabRoutes.set(vehicle.id, vehicle.routeCoordinates)
+      } else if (isActive) {
+        vehicle.routeCoordinates = cabRoutes.get(vehicle.id) ?? null
+      } else {
+        cabRoutes.delete(vehicle.id)
+      }
+    }
+  }, [])
+
+  const resetPlaybackHydrationState = useCallback(() => {
+    playbackTlStateRef.current = {}
+    playbackRequestRegistryRef.current = new Map()
+    playbackCabRoutesRef.current = new Map()
+    latestRobotaxiRequestsRef.current = undefined
+    setDispatchFeed([])
+  }, [])
+
   const syncPlaybackFrameSources = useCallback(
     (frame: SumoFrame) => {
+      hydratePlaybackFrame(frame)
       latestSumoFrameRef.current = frame
       if (frame.dispatch?.requests) {
         latestRobotaxiRequestsRef.current = frame.dispatch.requests
@@ -1767,24 +1916,54 @@ export default function App() {
         map.triggerRepaint()
       }
     },
-    [updateSumoTrafficLightSource],
+    [hydratePlaybackFrame, updateSumoTrafficLightSource],
   )
 
-  const applyPlaybackFrame = useCallback(
+  // Folds a frame's cross-frame state (TL deltas, request events, waits, feed)
+  // into the persistent stores exactly once — including frames the pacer skips
+  // during catch-up, which would otherwise silently lose their events.
+  const absorbPlaybackFrame = useCallback(
     (frame: SumoFrame) => {
-      syncPlaybackFrameSources(frame)
-      // Completed-ride waits accumulate here so the shift report can show a
-      // median; the done-payload audit only carries the average.
+      const marked = frame as SumoFrame & { __absorbed?: boolean }
+      if (marked.__absorbed) {
+        return
+      }
+      marked.__absorbed = true
+      hydratePlaybackFrame(frame)
+      for (const event of frame.requestEvents ?? []) {
+        if (event.status === "completed" && typeof event.waitSec === "number") {
+          completedWaitsRef.current.set(event.id, event.waitSec)
+        }
+      }
+      if (frame.requestEvents && frame.requestEvents.length > 0) {
+        const entries: DispatchFeedEntry[] = frame.requestEvents.map((event) => ({
+          key: `${event.id}:${event.status}:${event.atSec}`,
+          atSec: event.atSec,
+          status: event.status,
+          cab: event.cab ?? null,
+          mode: event.mode ?? null,
+          waitSec: event.waitSec ?? null,
+        }))
+        setDispatchFeed((current) => [...entries.reverse(), ...current].slice(0, 40))
+      }
       for (const request of frame.dispatch?.requests ?? []) {
         if (request.status === "completed" && typeof request.waitSec === "number") {
           completedWaitsRef.current.set(request.id, request.waitSec)
         }
       }
+    },
+    [hydratePlaybackFrame],
+  )
+
+  const applyPlaybackFrame = useCallback(
+    (frame: SumoFrame) => {
+      absorbPlaybackFrame(frame)
+      syncPlaybackFrameSources(frame)
       dataUpdateCountRef.current += 1
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
     },
-    [syncPlaybackFrameSources],
+    [absorbPlaybackFrame, syncPlaybackFrameSources],
   )
 
   // The backend streams the replay much faster than the paced playback
@@ -1838,6 +2017,7 @@ export default function App() {
     }
 
     playbackFetchInFlightRef.current = true
+    resetPlaybackHydrationState()
     setPlaybackStatus((status) => (status === "Idle" || status === "Paused" ? "Buffering" : status))
 
     const handlePlaybackPayload = (payload: unknown) => {
@@ -1974,7 +2154,7 @@ export default function App() {
       setPlaybackStatus("Error")
       setLoadError("Playback websocket unavailable.")
     })
-  }, [appendPlaybackFrames, finalizePlaybackRun])
+  }, [appendPlaybackFrames, finalizePlaybackRun, resetPlaybackHydrationState])
 
   const startPlayback = useCallback(() => {
     if (playbackSocketRef.current) {
@@ -2026,8 +2206,9 @@ export default function App() {
   const estimatedTargetRequests = sourceTripCount
   const exactTargetRequests =
     dispatchMetrics?.targetRequests ?? demandMetadata?.targetRequestCount
-  const targetRequests = exactTargetRequests ?? estimatedTargetRequests
-  const completedRequests = dispatchMetrics?.completed ?? 0
+  const slimTotals = isRecord(sumoFrame?.totals) ? (sumoFrame?.totals as Record<string, number>) : null
+  const targetRequests = slimTotals?.totalDemand ?? exactTargetRequests ?? estimatedTargetRequests
+  const completedRequests = sumoFrame?.ridesServed ?? dispatchMetrics?.completed ?? 0
   const displayedCompletedRequests = finalRunAudit?.completed ?? completedRequests
   const dispatchableRequests =
     dispatchMetrics?.cybercabServeableRequests ?? targetRequests
@@ -2035,8 +2216,11 @@ export default function App() {
     dispatchableRequests && dispatchableRequests > 0
       ? Math.round((displayedCompletedRequests / dispatchableRequests) * 100)
       : 0
+  const slimRequestCounts = sumoFrame?.requestCounts
   const inProgressRequests =
-    (dispatchMetrics?.waiting ?? 0) + (dispatchMetrics?.assigned ?? 0) + (dispatchMetrics?.onboard ?? 0)
+    (slimRequestCounts?.waiting ?? dispatchMetrics?.waiting ?? 0) +
+    (slimRequestCounts?.assigned ?? dispatchMetrics?.assigned ?? 0) +
+    (slimRequestCounts?.onboard ?? dispatchMetrics?.onboard ?? 0)
   const isPreparingPlayback = playbackStatus === "Buffering" && playbackAppliedFrames === 0
   const targetRequestLabel = exactTargetRequests === undefined ? `~${targetRequests}` : String(targetRequests)
   const primaryActionLabel = isPreparingPlayback
@@ -2053,6 +2237,7 @@ export default function App() {
     fleetInit?.requested ?? 0,
     fleetInit?.added ?? 0,
     sumoFrame?.dispatch?.robotaxis?.length ?? 0,
+    sumoFrame?.cabRows?.length ?? 0,
     5,
   )
   const robotaxiVehicles = useMemo(
@@ -2153,10 +2338,11 @@ export default function App() {
         : waits.length % 2 === 1
           ? waits[(waits.length - 1) / 2]
           : (waits[waits.length / 2 - 1] + waits[waits.length / 2]) / 2
-    const ridesServed = finalRunAudit?.completed ?? dispatchMetrics?.completed
+    const ridesServed =
+      finalRunAudit?.completed ?? sumoFrame?.ridesServed ?? dispatchMetrics?.completed
     return {
       ridesServed,
-      totalDemand: exactTargetRequests,
+      totalDemand: slimTotals?.totalDemand ?? exactTargetRequests,
       // v1 contract: one MATSim person-trip = one request = one rider.
       peopleMoved: dispatchMetrics?.passengersCompleted ?? ridesServed,
       medianWaitSec,
@@ -2165,7 +2351,7 @@ export default function App() {
       emptySharePercent:
         finalRunAudit?.deadheadingPercent ?? dispatchMetrics?.deadheadingPercent,
     }
-  }, [finalRunAudit, playbackStatus, dispatchMetrics, exactTargetRequests])
+  }, [finalRunAudit, playbackStatus, dispatchMetrics, exactTargetRequests, slimTotals, sumoFrame?.ridesServed])
 
   const pausePlayback = useCallback(() => {
     setIsPlaybackPlaying(false)
@@ -2198,6 +2384,7 @@ export default function App() {
     lastTrafficLightSignatureRef.current = ""
     latestSumoFrameRef.current = null
     latestRobotaxiRequestsRef.current = undefined
+    resetPlaybackHydrationState()
 
     const map = baseMapRef.current
     if (map) {
@@ -2219,7 +2406,7 @@ export default function App() {
     setPlaybackStatus("Idle")
     setSumoFrame(null)
     setFinalRunAudit(null)
-  }, [])
+  }, [resetPlaybackHydrationState])
 
   useEffect(() => {
     if (!isPlaybackPlaying) {
@@ -2283,6 +2470,18 @@ export default function App() {
               playbackFrameRemainderMsRef.current,
               playbackFrameIntervalMs,
             )
+          }
+          // Skipped catch-up frames still carry events and deltas the
+          // persistent stores need; absorb them before applying the target.
+          for (
+            let skippedIndex = playbackAppliedIndexRef.current + 1;
+            skippedIndex < targetIndex;
+            skippedIndex += 1
+          ) {
+            const skippedFrame = timeline[skippedIndex]
+            if (skippedFrame) {
+              absorbPlaybackFrame(skippedFrame)
+            }
           }
           playbackAppliedIndexRef.current = targetIndex
           applyPlaybackFrame(timeline[targetIndex])
@@ -2364,7 +2563,7 @@ export default function App() {
       cancelAnimationFrame(playbackAnimationFrameRef.current)
       window.clearInterval(fallbackInterval)
     }
-  }, [applyPlaybackFrame, finalizePlaybackRun, isPlaybackPlaying, requestPlaybackChunk])
+  }, [absorbPlaybackFrame, applyPlaybackFrame, finalizePlaybackRun, isPlaybackPlaying, requestPlaybackChunk])
 
   useEffect(() => {
     return () => {
@@ -2466,7 +2665,9 @@ export default function App() {
             maxZoom: 12.2,
           }
         : {
-            padding: { top: 96, bottom: 64, left: 72, right: 72 },
+            // Keep the corridor clear of the dispatch panels: feed bottom-left,
+            // fleet board top-right.
+            padding: { top: 96, bottom: 96, left: 96, right: 272 },
             maxZoom: 12.9,
           }
     const map = new maplibregl.Map({
@@ -2593,16 +2794,21 @@ export default function App() {
         source: "sumo-vehicles",
         layout: {
           "icon-image": "sumo-background-vehicle-marker",
+          // Near-constant ground size (a real ~4.5 m car): exponential zoom
+          // scaling keeps traffic honest — faint specks at corridor zoom,
+          // clearly readable cars once you zoom in.
           "icon-size": [
             "interpolate",
-            ["linear"],
+            ["exponential", 2],
             ["zoom"],
-            11,
-            0.36,
+            12,
+            0.09,
             14,
-            0.6,
+            0.14,
             16,
-            0.95,
+            0.3,
+            18,
+            0.8,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -2610,7 +2816,17 @@ export default function App() {
           "icon-ignore-placement": true,
         },
         paint: {
-          "icon-opacity": 0.4,
+          "icon-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            12,
+            0.3,
+            14,
+            0.55,
+            16,
+            0.85,
+          ],
         },
         filter: ["!=", ["get", "kind"], "robotaxi"],
       })
@@ -2681,20 +2897,20 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            0.55,
+            1.2,
             14,
-            0.95,
+            2.0,
             16,
-            1.6,
+            3.0,
           ],
           "line-opacity": [
             "match",
             ["get", "visual"],
             "pickup-path",
-            0.36,
-            "dropoff-path",
-            0.56,
             0.5,
+            "dropoff-path",
+            0.75,
+            0.55,
           ],
         },
       })
@@ -3041,6 +3257,10 @@ export default function App() {
         phase={experiencePhase}
         clock={hudClock}
         ridesServed={displayedCompletedRequests}
+        openRequests={inProgressRequests}
+        fleetRows={sumoFrame?.cabRows}
+        feed={dispatchFeed}
+        fleetSize={displayFleetSize}
         isPreparing={!isStoryOpen && experiencePhase === "cover"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}

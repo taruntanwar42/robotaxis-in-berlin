@@ -1,3 +1,5 @@
+import { useState } from "react"
+
 export type ExperiencePhase = "cover" | "running" | "results"
 
 export type ShiftReportData = {
@@ -10,10 +12,30 @@ export type ShiftReportData = {
   emptySharePercent?: number
 }
 
+export type FleetBoardRow = {
+  id: string
+  state?: string | null
+  speedKph?: number | null
+  requestId?: string | null
+}
+
+export type DispatchFeedEntry = {
+  key: string
+  atSec: number
+  status: string
+  cab?: string | null
+  mode?: string | null
+  waitSec?: number | null
+}
+
 type CybercabExperienceProps = {
   phase: ExperiencePhase
   clock: string
   ridesServed?: number
+  openRequests?: number
+  fleetRows?: FleetBoardRow[]
+  feed?: DispatchFeedEntry[]
+  fleetSize: number
   isPreparing: boolean
   isUnavailable: boolean
   report: ShiftReportData | null
@@ -21,35 +43,68 @@ type CybercabExperienceProps = {
   onReplay: () => void
 }
 
+type IntroCard = {
+  kicker: string
+  title: string
+  body: string
+  imageSrc?: string
+}
+
+const INTRO_CARDS: IntroCard[] = [
+  {
+    kicker: "Fleet simulation",
+    title: "Robotaxis in Berlin",
+    body: "What if Tesla's Cybercab drove Berlin? A driverless fleet takes on one evening rush hour in the west of the city.",
+  },
+  {
+    kicker: "Real city, real demand",
+    title: "Built on Berlin's own data",
+    body: "The streets come from Berlin's SUMO traffic network. The riders come from TU Berlin's MATSim model of the city — every request is a synthetic Berliner's actual evening trip.",
+  },
+  {
+    kicker: "Your shift",
+    title: "18:00. Ten cabs. One hour.",
+    body: "Dispatch runs itself: cabs pick up riders, reposition toward demand, and park between trips. Watch the fleet work Charlottenburg, Moabit and Tiergarten.",
+  },
+]
+
 export function CybercabExperience({
   phase,
   clock,
   ridesServed,
+  openRequests,
+  fleetRows,
+  feed,
+  fleetSize,
   isPreparing,
   isUnavailable,
   report,
   onStart,
   onReplay,
 }: CybercabExperienceProps) {
+  const [introStep, setIntroStep] = useState(0)
+  const card = INTRO_CARDS[Math.min(introStep, INTRO_CARDS.length - 1)]
+  const isLastCard = introStep >= INTRO_CARDS.length - 1
+
   return (
     <div className="experience-layer">
       {phase === "cover" ? (
         <div className="veil veil-cover">
           <section className="cover-card" aria-label="Robotaxis in Berlin">
-            <span className="kicker">Fleet simulation</span>
-            <h1>Robotaxis in Berlin</h1>
-            <p>
-              Five Tesla Cybercabs serve one evening hour of real Berlin ride demand across
-              Charlottenburg, Moabit and Tiergarten.
-            </p>
+            {card.imageSrc ? (
+              <img className="cover-media" src={card.imageSrc} alt="" />
+            ) : null}
+            <span className="kicker">{card.kicker}</span>
+            <h1>{card.title}</h1>
+            <p>{card.body}</p>
             {isUnavailable ? (
               <div className="cover-unavailable" role="status">
                 The simulation backend is waking up. Give it a minute, then reload.
               </div>
-            ) : (
+            ) : isLastCard ? (
               <button
                 type="button"
-                className="gold-button"
+                className="gold-button gold-button-glow"
                 onClick={onStart}
                 disabled={isPreparing}
               >
@@ -62,20 +117,85 @@ export function CybercabExperience({
                   "Start the shift"
                 )}
               </button>
+            ) : (
+              <button
+                type="button"
+                className="gold-button"
+                onClick={() => setIntroStep((step) => step + 1)}
+              >
+                Next
+              </button>
             )}
-            <span className="cover-microline">18:00 – 19:00 · runs by itself · about 2 minutes</span>
+            <div className="cover-dots" aria-hidden="true">
+              {INTRO_CARDS.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={index === introStep ? "cover-dot is-active" : "cover-dot"}
+                  onClick={() => setIntroStep(index)}
+                  aria-label={`Intro card ${index + 1}`}
+                />
+              ))}
+            </div>
+            <span className="cover-microline">
+              18:00 – 19:00 · runs by itself · about 2 minutes
+            </span>
           </section>
         </div>
       ) : null}
 
       {phase === "running" ? (
-        <div className="hud" role="status" aria-label="Shift status">
-          <span className="hud-clock">{clock}</span>
-          <span className="hud-dot" aria-hidden="true" />
-          <span className="hud-counter">
-            <strong>{ridesServed ?? 0}</strong> rides served
-          </span>
-        </div>
+        <>
+          <div className="hud" role="status" aria-label="Shift status">
+            <span className="hud-clock">{clock}</span>
+            <span className="hud-dot" aria-hidden="true" />
+            <span className="hud-counter">
+              <strong>{ridesServed ?? 0}</strong> rides served
+            </span>
+            {typeof openRequests === "number" ? (
+              <>
+                <span className="hud-dot" aria-hidden="true" />
+                <span className="hud-counter">
+                  <strong>{openRequests}</strong> waiting
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          {fleetRows && fleetRows.length > 0 ? (
+            <aside className="fleet-board" aria-label="Fleet status">
+              <header className="panel-header">Fleet</header>
+              <ul>
+                {fleetRows.map((row) => (
+                  <li key={row.id} className="fleet-row">
+                    <span className={`fleet-state-dot state-${stateTone(row.state)}`} aria-hidden="true" />
+                    <span className="fleet-label">{cabLabel(row.id)}</span>
+                    <span className="fleet-status">{stateLabel(row.state)}</span>
+                    <span className="fleet-speed">
+                      {typeof row.speedKph === "number" && row.speedKph > 1
+                        ? `${Math.round(row.speedKph)} km/h`
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          ) : null}
+
+          {feed && feed.length > 0 ? (
+            <aside className="dispatch-feed" aria-label="Dispatch feed">
+              <header className="panel-header">Dispatch</header>
+              <ul>
+                {feed.slice(0, 7).map((entry) => (
+                  <li key={entry.key} className={`feed-row tone-${feedTone(entry.status)}`}>
+                    <span className="feed-time">{formatClock(entry.atSec)}</span>
+                    <span className="feed-text">{feedText(entry)}</span>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          ) : null}
+        </>
       ) : null}
 
       {phase === "results" ? (
@@ -83,7 +203,9 @@ export function CybercabExperience({
           <section className="report-card" aria-label="Shift report">
             <span className="kicker">Shift report</span>
             <h2>Shift complete</h2>
-            <p className="report-subline">18:00 – 19:00 · 5 Cybercabs · Charlottenburg, Moabit &amp; Tiergarten</p>
+            <p className="report-subline">
+              18:00 – 19:00 · {fleetSize} Cybercabs · Charlottenburg, Moabit &amp; Tiergarten
+            </p>
             <div className="report-grid">
               <ReportMetric
                 label="Rides served"
@@ -106,6 +228,115 @@ export function CybercabExperience({
       ) : null}
     </div>
   )
+}
+
+function cabLabel(id: string) {
+  const suffix = id.replace(/^cybercab_/, "")
+  return `Cab ${suffix}`
+}
+
+function stateLabel(state: string | null | undefined) {
+  switch (state) {
+    case "en_route_pickup":
+      return "To pickup"
+    case "with_passenger":
+      return "With rider"
+    case "roaming":
+      return "Roaming"
+    case "staged":
+      return "Repositioning"
+    case "idle":
+      return "Parked"
+    case "idle_at_depot":
+      return "At depot"
+    case "returning_to_depot":
+      return "To depot"
+    case "offline":
+      return "Off duty"
+    default:
+      return state ? state.replaceAll("_", " ") : "—"
+  }
+}
+
+function stateTone(state: string | null | undefined) {
+  switch (state) {
+    case "with_passenger":
+      return "riding"
+    case "en_route_pickup":
+      return "pickup"
+    case "roaming":
+    case "staged":
+      return "moving"
+    case "returning_to_depot":
+    case "idle_at_depot":
+    case "offline":
+      return "depot"
+    default:
+      return "parked"
+  }
+}
+
+function feedTone(status: string) {
+  switch (status) {
+    case "waiting":
+      return "open"
+    case "assigned":
+      return "assigned"
+    case "onboard":
+      return "onboard"
+    case "completed":
+      return "done"
+    case "expired":
+    case "rejected":
+      return "missed"
+    default:
+      return "open"
+  }
+}
+
+function feedText(entry: DispatchFeedEntry) {
+  const cab = entry.cab ? cabLabel(entry.cab) : null
+  switch (entry.status) {
+    case "waiting":
+      return entry.mode ? `New request (usually rides ${modeLabel(entry.mode)})` : "New ride request"
+    case "assigned":
+      return cab ? `${cab} assigned` : "Cab assigned"
+    case "onboard":
+      return cab ? `Picked up by ${cab}` : "Rider picked up"
+    case "completed":
+      return typeof entry.waitSec === "number"
+        ? `Dropped off · waited ${Math.round(entry.waitSec)}s`
+        : "Dropped off"
+    case "expired":
+      return "Request expired unserved"
+    case "rejected":
+      return "Request declined (shift ending)"
+    default:
+      return entry.status.replaceAll("_", " ")
+  }
+}
+
+function modeLabel(mode: string) {
+  switch (mode) {
+    case "car":
+      return "by car"
+    case "ride":
+      return "as passenger"
+    case "pt":
+      return "public transit"
+    case "bike":
+      return "by bike"
+    case "walk":
+      return "on foot"
+    default:
+      return mode
+  }
+}
+
+function formatClock(simSec: number) {
+  const hours = Math.floor(simSec / 3600) % 24
+  const minutes = Math.floor((simSec % 3600) / 60)
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 }
 
 function ReportMetric({ label, value, sub }: { label: string; value: string; sub?: string }) {

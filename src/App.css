@@ -464,3 +464,208 @@
 .fleet-panel button {
   margin: 2px;
 }
+
+/* ---------- Intro card extras ---------- */
+
+.cover-media {
+  width: calc(100% + 56px);
+  margin: -28px -28px 16px;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  display: block;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.cover-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.cover-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--hairline);
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.cover-dot.is-active {
+  background: var(--gold);
+  transform: scale(1.2);
+}
+
+.gold-button-glow {
+  animation: gold-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes gold-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 180, 35, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(232, 180, 35, 0);
+  }
+}
+
+/* ---------- Dispatch panels ---------- */
+
+.panel-header {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 16px 8px;
+}
+
+.fleet-board,
+.dispatch-feed {
+  position: absolute;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  overflow: hidden;
+}
+
+.fleet-board {
+  top: 84px;
+  right: 20px;
+  width: 232px;
+}
+
+.fleet-board ul,
+.dispatch-feed ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 10px;
+}
+
+.fleet-row {
+  display: grid;
+  grid-template-columns: 10px 56px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.fleet-row:nth-child(odd) {
+  background: rgba(16, 20, 24, 0.03);
+}
+
+.fleet-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.fleet-state-dot.state-riding {
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(232, 180, 35, 0.8);
+}
+
+.fleet-state-dot.state-pickup {
+  background: var(--gold-bright);
+}
+
+.fleet-state-dot.state-moving {
+  background: #7d94a5;
+}
+
+.fleet-state-dot.state-depot {
+  background: #b9c2c9;
+}
+
+.fleet-state-dot.state-parked {
+  background: #93a1ab;
+}
+
+.fleet-label {
+  font-weight: 620;
+  color: var(--ink);
+}
+
+.fleet-status {
+  color: var(--muted);
+}
+
+.fleet-speed {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.dispatch-feed {
+  bottom: 20px;
+  left: 20px;
+  width: 296px;
+}
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 10px;
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  animation: feed-in 260ms ease both;
+}
+
+.feed-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-text {
+  color: var(--ink);
+}
+
+.feed-row.tone-open .feed-text {
+  color: var(--ink);
+}
+
+.feed-row.tone-assigned .feed-text,
+.feed-row.tone-onboard .feed-text {
+  color: #6b5410;
+}
+
+.feed-row.tone-done .feed-text {
+  color: #3c6b40;
+}
+
+.feed-row.tone-missed .feed-text {
+  color: #8a949c;
+}
+
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .fleet-board {
+    display: none;
+  }
+
+  .dispatch-feed {
+    width: min(296px, calc(100vw - 40px));
+  }
+}

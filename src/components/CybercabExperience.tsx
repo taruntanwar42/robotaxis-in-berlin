@@ -270,6 +270,7 @@ export function CybercabExperience({
                   </dl>
                 </div>
               ))}
+              <p className="report-footnote">¹ incl. repositioning and depot legs</p>
               <button type="button" className="ghost-button" onClick={onReplay}>
                 Watch again
               </button>

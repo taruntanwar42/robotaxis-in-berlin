@@ -1564,3 +1564,9 @@
   font-weight: 650;
   color: var(--gold);
 }
+
+.report-footnote {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}

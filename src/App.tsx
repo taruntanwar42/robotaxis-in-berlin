@@ -1737,6 +1737,7 @@ export default function App() {
   // completed rides per cab (busiest cab).
   const cabStateSamplesRef = useRef<Map<string, number>>(new Map())
   const cabRideCountsRef = useRef<Map<string, number>>(new Map())
+  const cabBatteryHistoryRef = useRef<Map<string, number[]>>(new Map())
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
   const dataUpdateCountRef = useRef(0)
@@ -2074,6 +2075,7 @@ export default function App() {
     playbackCabRouteProgressRef.current = new Map()
     cabStateSamplesRef.current = new Map()
     cabRideCountsRef.current = new Map()
+    cabBatteryHistoryRef.current = new Map()
     latestRobotaxiRequestsRef.current = undefined
     setDispatchFeed([])
     setFollowedCabId(null)
@@ -2118,12 +2120,18 @@ export default function App() {
       }
       marked.__absorbed = true
       hydratePlaybackFrame(frame)
+      const sampleBattery = Math.floor(frame.simSec) % 30 === 0
       for (const row of frame.cabRows ?? []) {
         if (row.state) {
           cabStateSamplesRef.current.set(
             row.state,
             (cabStateSamplesRef.current.get(row.state) ?? 0) + 1,
           )
+        }
+        if (sampleBattery && typeof row.battery === "number") {
+          const history = cabBatteryHistoryRef.current.get(row.id) ?? []
+          history.push(row.battery)
+          cabBatteryHistoryRef.current.set(row.id, history)
         }
       }
       for (const event of frame.requestEvents ?? []) {
@@ -2375,7 +2383,7 @@ export default function App() {
       if (vehicle) {
         map.easeTo({
           center: [vehicle.lon, vehicle.lat],
-          zoom: Math.max(map.getZoom(), 14.2),
+          zoom: Math.max(map.getZoom(), 15.3),
           duration: 900,
         })
       }
@@ -3222,9 +3230,9 @@ export default function App() {
             13,
             0.35,
             15,
-            0.5,
+            0.62,
             17,
-            0.78,
+            1.0,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -3491,7 +3499,7 @@ export default function App() {
             setFollowedCabId(cabId)
             map.easeTo({
               center: event.lngLat,
-              zoom: Math.max(map.getZoom(), 14.2),
+              zoom: Math.max(map.getZoom(), 15.3),
               duration: 900,
             })
           }
@@ -3835,6 +3843,26 @@ export default function App() {
         onSimSpeed={(speed) => setSimSpeed(speed as SimSpeed)}
         followedCabId={followedCabId}
         onSelectCab={selectCabToFollow}
+        cabRides={Object.fromEntries(cabRideCountsRef.current)}
+        cabBatteryHistory={Object.fromEntries(
+          Array.from(cabBatteryHistoryRef.current.entries(), ([id, values]) => [id, [...values]]),
+        )}
+        riderByCab={Object.fromEntries(
+          (latestRobotaxiRequestsRef.current ?? [])
+            .filter(
+              (request) =>
+                request.assignedVehicleId &&
+                (request.status === "assigned" || request.status === "onboard"),
+            )
+            .map((request) => [
+              String(request.assignedVehicleId),
+              {
+                status: request.status,
+                mode: request.sourceMode ?? null,
+                requestedAtSec: request.requestedAtSec,
+              },
+            ]),
+        )}
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}

@@ -1028,3 +1028,21 @@ Implementation note (feasibility):
 - Today (Phase 1): delete cover, left rail (brand/controls/fleet/dispatch),
   sim-speed control, follow-cam on cab select, end metrics window computed
   client-side (service / fleet / energy / people categories).
+
+## 2026-07-06 - v6 Feedback: Tabs, Cab-Centric Detail, Report in Rail, Closer Chase Cam
+
+Raw user language:
+
+> i feel like, the left ui sidebar is kinda cluttered and not i mean its not bad, but i was maybe imaginig more intentional ui ... the most important thing i wanna say is that the results are not in the left sidebar? ... myabe like one should be able to see the stats for one cab first yk, and like with nice icons and stuff, like good readability ... i dont think anyoneis gonna read that much text ... so yes, maybe dedicated tabs? bc the dispath is very visually distracting, and idk what to do with it. i'm mostly interested in the cabs, but theres not much info about them visible. like maybe battery speed graph, idk whatever. maybe like mini cab icon for each cab that shows some kind of state, idk idk. anyways, minimalism is prolly most imp. also the map thing works i think -- but its completely zoomed out i think, so the robotaxi isnt reallly visible -- maybe allow zoom or like ... make the normal view when u wanna lock to a cab be closer maybe?? ... it's also not super clear that clicking a cab and then unclicking makes enables/disables this kind of chase cam ... the small area instead of dedicded cab tab limits us to a thin list entry
+
+Extracted decision:
+
+- Rail gets dedicated TABS (Fleet / Dispatch / Report). Dispatch feed hidden by
+  default (visually distracting). Report lives IN the rail as a tab, auto-opens at
+  shift end (modal retired).
+- Fleet tab is cab-centric: minimal list, then a dedicated CAB DETAIL view on
+  select — icons over text, battery graph/sparkline, state, rides, current rider.
+- Selecting a cab = camera lock at a CLOSER zoom; explicit "camera locked /
+  release" affordance fixes the toggle discoverability. Zooming stays free while
+  locked.
+- Minimalism is the top priority; nobody reads walls of text.

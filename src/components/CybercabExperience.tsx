@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react"
+
 export type ExperiencePhase = "idle" | "running" | "results"
 
 export type ShiftReportCategory = {
@@ -22,7 +24,15 @@ export type DispatchFeedEntry = {
   waitSec?: number | null
 }
 
-export const SIM_SPEED_CHOICES = [10, 40, 120] as const
+export type RiderInfo = {
+  status: string
+  mode: string | null
+  requestedAtSec: number
+}
+
+const SIM_SPEED_CHOICES = [10, 40, 120]
+
+type RailTab = "fleet" | "dispatch" | "report"
 
 type CybercabExperienceProps = {
   phase: ExperiencePhase
@@ -37,6 +47,9 @@ type CybercabExperienceProps = {
   onSimSpeed: (speed: number) => void
   followedCabId?: string | null
   onSelectCab: (cabId: string | null) => void
+  cabRides: Record<string, number>
+  cabBatteryHistory: Record<string, number[]>
+  riderByCab: Record<string, RiderInfo>
   isPreparing: boolean
   isUnavailable: boolean
   report: ShiftReportCategory[] | null
@@ -57,12 +70,31 @@ export function CybercabExperience({
   onSimSpeed,
   followedCabId,
   onSelectCab,
+  cabRides,
+  cabBatteryHistory,
+  riderByCab,
   isPreparing,
   isUnavailable,
   report,
   onStart,
   onReplay,
 }: CybercabExperienceProps) {
+  const [tab, setTab] = useState<RailTab>("fleet")
+
+  // The report is the shift's ending: bring it up once, in place.
+  useEffect(() => {
+    if (phase === "results") {
+      setTab("report")
+    }
+    if (phase === "idle") {
+      setTab("fleet")
+    }
+  }, [phase])
+
+  const followedRow = followedCabId
+    ? fleetRows?.find((row) => row.id === followedCabId)
+    : undefined
+
   return (
     <div className="experience-layer">
       <aside className="ops-rail" aria-label="Dispatch dashboard">
@@ -94,12 +126,24 @@ export function CybercabExperience({
             <span>
               <strong>{openRequests ?? 0}</strong> waiting
             </span>
+            <span className="ops-speed-inline">
+              {SIM_SPEED_CHOICES.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className={choice === simSpeed ? "ops-speed-chip is-active" : "ops-speed-chip"}
+                  onClick={() => onSimSpeed(choice)}
+                >
+                  {choice}×
+                </button>
+              ))}
+            </span>
           </div>
         </section>
 
-        <section className="ops-controls" aria-label="Simulation controls">
-          {phase === "idle" ? (
-            isUnavailable ? (
+        {phase === "idle" ? (
+          <section className="ops-controls" aria-label="Simulation controls">
+            {isUnavailable ? (
               <div className="cover-unavailable" role="status">
                 The simulation backend is waking up. Give it a minute, then reload.
               </div>
@@ -119,103 +163,120 @@ export function CybercabExperience({
                   "Start the shift"
                 )}
               </button>
-            )
-          ) : null}
-          <div className="ops-speed" role="group" aria-label="Simulation speed">
-            <span className="ops-speed-label">Sim speed</span>
-            <div className="ops-speed-options">
-              {SIM_SPEED_CHOICES.map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  className={choice === simSpeed ? "ops-speed-chip is-active" : "ops-speed-chip"}
-                  onClick={() => onSimSpeed(choice)}
-                >
-                  {choice}×
-                </button>
-              ))}
-            </div>
-          </div>
-          {phase === "idle" ? (
+            )}
             <p className="ops-hint">
               Ten Cybercabs serve one hour of real Berlin evening demand — streets from the
               city&apos;s SUMO network, riders from TU Berlin&apos;s MATSim model. Runs by
               itself, about two minutes.
             </p>
-          ) : null}
-        </section>
-
-        {fleetRows && fleetRows.length > 0 ? (
-          <section className="ops-fleet" aria-label="Fleet status">
-            <header className="panel-header">Fleet · {fleetRows.length} Cybercabs</header>
-            <ul>
-              {fleetRows.map((row) => (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    className={
-                      row.id === followedCabId ? "fleet-row is-followed" : "fleet-row"
-                    }
-                    title={
-                      row.id === followedCabId
-                        ? "Click to stop following"
-                        : "Click to follow this cab"
-                    }
-                    onClick={() => onSelectCab(row.id === followedCabId ? null : row.id)}
-                  >
-                    <span
-                      className={`fleet-state-dot state-${stateTone(row.state)}`}
-                      aria-hidden="true"
-                    />
-                    <span className="fleet-label">{cabLabel(row.id)}</span>
-                    <span className="fleet-status">{stateLabel(row.state)}</span>
-                    <span className="fleet-speed">
-                      {typeof row.speedKph === "number" && row.speedKph > 1
-                        ? `${Math.round(row.speedKph)} km/h`
-                        : ""}
-                    </span>
-                    {typeof row.battery === "number" ? (
-                      <span className="fleet-battery" title={`Battery ${row.battery}%`}>
-                        <i
-                          className={row.battery <= 25 ? "is-low" : undefined}
-                          style={{ width: `${Math.max(4, Math.min(100, row.battery))}%` }}
-                        />
-                      </span>
-                    ) : (
-                      <span className="fleet-battery is-empty" aria-hidden="true" />
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
           </section>
         ) : null}
 
-        {phase !== "idle" && feed && feed.length > 0 ? (
-          <section className="ops-dispatch" aria-label="Dispatch feed">
-            <header className="panel-header">Dispatch</header>
-            <ul>
-              {feed.slice(0, 30).map((entry) => (
+        <nav className="ops-tabs" aria-label="Dashboard sections">
+          <button
+            type="button"
+            className={tab === "fleet" ? "ops-tab is-active" : "ops-tab"}
+            onClick={() => setTab("fleet")}
+          >
+            Fleet
+          </button>
+          <button
+            type="button"
+            className={tab === "dispatch" ? "ops-tab is-active" : "ops-tab"}
+            onClick={() => setTab("dispatch")}
+          >
+            Dispatch
+          </button>
+          <button
+            type="button"
+            className={tab === "report" ? "ops-tab is-active" : "ops-tab"}
+            disabled={phase !== "results"}
+            onClick={() => setTab("report")}
+          >
+            Report
+          </button>
+        </nav>
+
+        <div className="ops-tab-body">
+          {tab === "fleet" ? (
+            followedCabId && phase !== "idle" ? (
+              <CabDetail
+                cabId={followedCabId}
+                row={followedRow}
+                rides={cabRides[followedCabId] ?? 0}
+                batteryHistory={cabBatteryHistory[followedCabId] ?? []}
+                rider={riderByCab[followedCabId]}
+                onBack={() => onSelectCab(null)}
+              />
+            ) : (
+              <ul className="cab-list">
+                {(fleetRows ?? []).map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className="cab-list-row"
+                      onClick={() => onSelectCab(row.id)}
+                      title="Open cab view and lock the camera to it"
+                    >
+                      <MiniCab tone={stateTone(row.state)} />
+                      <span className="cab-list-label">{cabLabel(row.id)}</span>
+                      <span className="cab-list-state">{stateLabel(row.state)}</span>
+                      {typeof row.battery === "number" ? (
+                        <span className="fleet-battery" title={`Battery ${row.battery}%`}>
+                          <i
+                            className={row.battery <= 25 ? "is-low" : undefined}
+                            style={{ width: `${Math.max(4, Math.min(100, row.battery))}%` }}
+                          />
+                        </span>
+                      ) : (
+                        <span className="fleet-battery is-empty" aria-hidden="true" />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : null}
+
+          {tab === "dispatch" ? (
+            <ul className="ops-feed-list">
+              {(feed ?? []).slice(0, 40).map((entry) => (
                 <li key={entry.key} className={`feed-row tone-${feedTone(entry.status)}`}>
                   <span className="feed-time">{formatClock(entry.atSec)}</span>
                   <span className="feed-text">{feedText(entry)}</span>
                 </li>
               ))}
+              {(feed ?? []).length === 0 ? (
+                <li className="ops-empty">Dispatch events appear here once the shift runs.</li>
+              ) : null}
             </ul>
-          </section>
-        ) : null}
-      </aside>
+          ) : null}
 
-      {phase === "running" && followedCabId ? (
-        <button
-          type="button"
-          className="follow-chip"
-          onClick={() => onSelectCab(null)}
-          title="Stop following"
-        >
-          Following {cabLabel(followedCabId)} <span aria-hidden="true">✕</span>
-        </button>
-      ) : null}
+          {tab === "report" && report ? (
+            <div className="ops-report">
+              <p className="report-subline">
+                18:00 – 19:00 · {fleetSize} Cybercabs · Charlottenburg, Moabit &amp; Tiergarten
+              </p>
+              {report.map((category) => (
+                <div key={category.title} className="report-category">
+                  <h3>{category.title}</h3>
+                  <dl>
+                    {category.rows.map((row) => (
+                      <div key={row.label} className="report-line">
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+              <button type="button" className="ghost-button" onClick={onReplay}>
+                Watch again
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </aside>
 
       {phase === "running" ? (
         <aside className="map-legend" aria-label="Map legend">
@@ -249,37 +310,126 @@ export function CybercabExperience({
           </ul>
         </aside>
       ) : null}
+    </div>
+  )
+}
 
-      {phase === "results" && report ? (
-        <div className="veil veil-report">
-          <section className="report-card report-card-wide" aria-label="Shift report">
-            <span className="kicker">Shift report</span>
-            <h2>Shift complete</h2>
-            <p className="report-subline">
-              18:00 – 19:00 · {fleetSize} Cybercabs · Charlottenburg, Moabit &amp; Tiergarten
-            </p>
-            <div className="report-categories">
-              {report.map((category) => (
-                <div key={category.title} className="report-category">
-                  <h3>{category.title}</h3>
-                  <dl>
-                    {category.rows.map((row) => (
-                      <div key={row.label} className="report-line">
-                        <dt>{row.label}</dt>
-                        <dd>{row.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
-            </div>
-            <button type="button" className="ghost-button" onClick={onReplay}>
-              Watch again
-            </button>
-          </section>
+function CabDetail({
+  cabId,
+  row,
+  rides,
+  batteryHistory,
+  rider,
+  onBack,
+}: {
+  cabId: string
+  row?: FleetBoardRow
+  rides: number
+  batteryHistory: number[]
+  rider?: RiderInfo
+  onBack: () => void
+}) {
+  return (
+    <div className="cab-detail">
+      <div className="cab-detail-head">
+        <button type="button" className="cab-back" onClick={onBack} aria-label="Back to fleet">
+          ←
+        </button>
+        <MiniCab tone={stateTone(row?.state)} large />
+        <div>
+          <strong>{cabLabel(cabId)}</strong>
+          <span className="cab-detail-state">{stateLabel(row?.state)}</span>
+        </div>
+      </div>
+
+      <button type="button" className="cab-camera-note" onClick={onBack}>
+        <span className="hud-live" aria-hidden="true" />
+        Camera locked to this cab — release
+      </button>
+
+      <div className="cab-stats">
+        <div className="cab-stat">
+          <span className="cab-stat-icon" aria-hidden="true">
+            ⚡
+          </span>
+          <strong>{typeof row?.battery === "number" ? `${row.battery}%` : "–"}</strong>
+          <span>battery</span>
+        </div>
+        <div className="cab-stat">
+          <span className="cab-stat-icon" aria-hidden="true">
+            🡒
+          </span>
+          <strong>
+            {typeof row?.speedKph === "number" ? `${Math.round(row.speedKph)}` : "0"}
+          </strong>
+          <span>km/h</span>
+        </div>
+        <div className="cab-stat">
+          <span className="cab-stat-icon" aria-hidden="true">
+            ✓
+          </span>
+          <strong>{rides}</strong>
+          <span>rides</span>
+        </div>
+      </div>
+
+      {batteryHistory.length > 1 ? (
+        <div className="cab-spark">
+          <span className="cab-spark-label">Battery over the shift</span>
+          <Sparkline values={batteryHistory} />
         </div>
       ) : null}
+
+      <div className="cab-rider">
+        {rider ? (
+          <>
+            <span className="cab-rider-title">
+              {rider.status === "onboard" ? "Rider aboard" : "Heading to a rider"}
+            </span>
+            <span>
+              Requested at {formatClock(rider.requestedAtSec)}
+              {rider.mode ? ` · usually rides ${modeLabel(rider.mode)}` : ""}
+            </span>
+          </>
+        ) : (
+          <span className="cab-rider-title">No rider assigned right now</span>
+        )}
+      </div>
     </div>
+  )
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const width = 240
+  const height = 44
+  const min = Math.min(60, ...values)
+  const max = 100
+  const points = values
+    .map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * width
+      const y = height - ((value - min) / Math.max(1, max - min)) * height
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(" ")
+  return (
+    <svg
+      className="cab-spark-svg"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Battery level over the shift"
+    >
+      <polyline points={points} fill="none" stroke="#4f8a54" strokeWidth="2" />
+    </svg>
+  )
+}
+
+function MiniCab({ tone, large }: { tone: string; large?: boolean }) {
+  return (
+    <span
+      className={large ? `mini-cab mini-cab-large tone-${tone}` : `mini-cab tone-${tone}`}
+      aria-hidden="true"
+    />
   )
 }
 
@@ -291,19 +441,19 @@ function cabLabel(id: string) {
 function stateLabel(state: string | null | undefined) {
   switch (state) {
     case "en_route_pickup":
-      return "Pickup"
+      return "Driving to pickup"
     case "with_passenger":
-      return "Riding"
+      return "Rider aboard"
     case "roaming":
       return "Roaming"
     case "staged":
-      return "Moving"
+      return "Repositioning"
     case "idle":
       return "Parked"
     case "idle_at_depot":
-      return "Depot"
+      return "At depot"
     case "returning_to_depot":
-      return "To depot"
+      return "Returning to depot"
     case "offline":
       return "Off duty"
     default:

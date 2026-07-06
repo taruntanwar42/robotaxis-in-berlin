@@ -1570,3 +1570,42 @@
   color: var(--muted);
   margin: 0 0 8px;
 }
+
+/* chase-cam zoom controls */
+.cab-camera-note {
+  cursor: default;
+}
+
+.cab-zoom-buttons {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.cab-zoom-buttons button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--hairline);
+  background: #fff;
+  border-radius: 7px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cab-camera-release {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.ops-report-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 4px 0 0;
+  letter-spacing: -0.01em;
+}

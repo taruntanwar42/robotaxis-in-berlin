@@ -1680,6 +1680,9 @@ export default function App() {
   const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
+  // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,
+  // so wheel and buttons adjust this instead.
+  const followZoomRef = useRef(15.3)
   const [diagnostics, setDiagnostics] = useState<RenderDiagnostics>({
     renderFps: 0,
     dataFps: 0,
@@ -2372,6 +2375,13 @@ export default function App() {
     simSpeedRef.current = simSpeed
   }, [simSpeed])
 
+  const nudgeFollowZoom = useCallback((direction: number) => {
+    followZoomRef.current = Math.min(
+      17.5,
+      Math.max(13, followZoomRef.current + direction * 0.8),
+    )
+  }, [])
+
   const selectCabToFollow = useCallback((cabId: string | null) => {
     setFollowedCabId(cabId)
     followedCabIdRef.current = cabId
@@ -2381,9 +2391,10 @@ export default function App() {
         (candidate) => candidate.id === cabId,
       )
       if (vehicle) {
+        followZoomRef.current = Math.max(map.getZoom(), 15.3)
         map.easeTo({
           center: [vehicle.lon, vehicle.lat],
-          zoom: Math.max(map.getZoom(), 15.3),
+          zoom: followZoomRef.current,
           duration: 900,
         })
       }
@@ -2877,7 +2888,7 @@ export default function App() {
         if (current) {
           const lon = next ? current.lon + (next.lon - current.lon) * t : current.lon
           const lat = next ? current.lat + (next.lat - current.lat) * t : current.lat
-          map.jumpTo({ center: [lon, lat] })
+          map.jumpTo({ center: [lon, lat], zoom: followZoomRef.current })
         }
       }
     }
@@ -3490,6 +3501,17 @@ export default function App() {
         setMapTooltip({ x: event.point.x, y: event.point.y, title: "Ride request", lines })
       })
       map.on("mouseleave", "request-riders", clearTooltip)
+      map.on("wheel", (event) => {
+        if (!followedCabIdRef.current) {
+          return
+        }
+        event.preventDefault()
+        const delta = event.originalEvent.deltaY
+        followZoomRef.current = Math.min(
+          17.5,
+          Math.max(13, followZoomRef.current - delta * 0.0035),
+        )
+      })
       map.on("click", (event) => {
         const cabHits = map.queryRenderedFeatures(event.point, { layers: ["sumo-cybercabs"] })
         if (cabHits.length > 0) {
@@ -3497,9 +3519,10 @@ export default function App() {
           if (cabId) {
             followedCabIdRef.current = cabId
             setFollowedCabId(cabId)
+            followZoomRef.current = Math.max(map.getZoom(), 15.3)
             map.easeTo({
               center: event.lngLat,
-              zoom: Math.max(map.getZoom(), 15.3),
+              zoom: followZoomRef.current,
               duration: 900,
             })
           }
@@ -3843,6 +3866,7 @@ export default function App() {
         onSimSpeed={(speed) => setSimSpeed(speed as SimSpeed)}
         followedCabId={followedCabId}
         onSelectCab={selectCabToFollow}
+        onFollowZoom={nudgeFollowZoom}
         cabRides={Object.fromEntries(cabRideCountsRef.current)}
         cabBatteryHistory={Object.fromEntries(
           Array.from(cabBatteryHistoryRef.current.entries(), ([id, values]) => [id, [...values]]),

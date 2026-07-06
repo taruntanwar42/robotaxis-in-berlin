@@ -47,6 +47,7 @@ type CybercabExperienceProps = {
   onSimSpeed: (speed: number) => void
   followedCabId?: string | null
   onSelectCab: (cabId: string | null) => void
+  onFollowZoom: (direction: number) => void
   cabRides: Record<string, number>
   cabBatteryHistory: Record<string, number[]>
   riderByCab: Record<string, RiderInfo>
@@ -70,6 +71,7 @@ export function CybercabExperience({
   onSimSpeed,
   followedCabId,
   onSelectCab,
+  onFollowZoom,
   cabRides,
   cabBatteryHistory,
   riderByCab,
@@ -207,6 +209,7 @@ export function CybercabExperience({
                 batteryHistory={cabBatteryHistory[followedCabId] ?? []}
                 rider={riderByCab[followedCabId]}
                 onBack={() => onSelectCab(null)}
+                onZoom={onFollowZoom}
               />
             ) : (
               <ul className="cab-list">
@@ -254,6 +257,7 @@ export function CybercabExperience({
 
           {tab === "report" && report ? (
             <div className="ops-report">
+              <h2 className="ops-report-title">Shift complete</h2>
               <p className="report-subline">
                 18:00 – 19:00 · {fleetSize} Cybercabs · Berlin West
               </p>
@@ -322,6 +326,7 @@ function CabDetail({
   batteryHistory,
   rider,
   onBack,
+  onZoom,
 }: {
   cabId: string
   row?: FleetBoardRow
@@ -329,6 +334,7 @@ function CabDetail({
   batteryHistory: number[]
   rider?: RiderInfo
   onBack: () => void
+  onZoom: (direction: number) => void
 }) {
   return (
     <div className="cab-detail">
@@ -343,11 +349,21 @@ function CabDetail({
         </div>
       </div>
 
-      <button type="button" className="cab-camera-note" onClick={onBack}>
+      <div className="cab-camera-note">
         <span className="hud-live" aria-hidden="true" />
         Chase cam
-        <span className="cab-camera-release">Release</span>
-      </button>
+        <span className="cab-zoom-buttons">
+          <button type="button" onClick={() => onZoom(-1)} aria-label="Zoom out">
+            −
+          </button>
+          <button type="button" onClick={() => onZoom(1)} aria-label="Zoom in">
+            +
+          </button>
+        </span>
+        <button type="button" className="cab-camera-release" onClick={onBack}>
+          Release
+        </button>
+      </div>
 
       <div className="cab-stats">
         <div className="cab-stat">

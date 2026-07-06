@@ -967,3 +967,294 @@
 .feed-row {
   animation: feed-in 260ms ease;
 }
+
+/* ---------- v5: left ops rail ---------- */
+
+.ops-rail {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  bottom: 16px;
+  width: 316px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.ops-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ops-brand-mark {
+  width: 14px;
+  height: 26px;
+  flex: none;
+  border-radius: 6px 6px 5px 5px;
+  background: linear-gradient(180deg, #f0bc2e, #c98f0e);
+  box-shadow: 0 0 10px rgba(232, 180, 35, 0.45);
+}
+
+.ops-brand h1 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.ops-brand p {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+.ops-shift {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ops-clock-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ops-clock-row .hud-live {
+  align-self: center;
+}
+
+.ops-clock {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.ops-window {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.ops-shift .hud-progress {
+  margin-top: 0;
+  flex-basis: auto;
+}
+
+.ops-counters {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ops-counters strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-controls {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ops-controls .gold-button {
+  width: 100%;
+}
+
+.ops-speed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ops-speed-label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ops-speed-options {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  background: rgba(16, 20, 24, 0.05);
+  border-radius: 9px;
+  padding: 3px;
+}
+
+.ops-speed-chip {
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 620;
+  color: var(--muted);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.ops-speed-chip.is-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(16, 20, 24, 0.16);
+}
+
+.ops-hint {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+
+.ops-fleet {
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 6px;
+}
+
+.ops-fleet ul,
+.ops-dispatch ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+}
+
+.ops-fleet .fleet-row {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 140ms ease;
+}
+
+.ops-fleet li:nth-child(odd) .fleet-row {
+  background: rgba(16, 20, 24, 0.03);
+}
+
+.ops-fleet .fleet-row:hover {
+  background: rgba(232, 180, 35, 0.12);
+}
+
+.ops-fleet .fleet-row.is-followed {
+  background: rgba(232, 180, 35, 0.2);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+
+.ops-dispatch {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+.ops-dispatch ul {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+.follow-chip {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  font-size: 12.5px;
+  font-weight: 620;
+  color: var(--ink);
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.follow-chip span {
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+/* ---------- v5: categorized shift report ---------- */
+
+.report-card-wide {
+  max-width: 880px;
+  width: min(880px, calc(100vw - 48px));
+}
+
+.report-categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px 28px;
+  margin: 18px 0 22px;
+  text-align: left;
+}
+
+.report-category h3 {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 8px;
+}
+
+.report-category dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.report-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.report-line dt {
+  color: var(--muted);
+}
+
+.report-line dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .ops-rail {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: auto;
+    max-height: 46svh;
+  }
+}

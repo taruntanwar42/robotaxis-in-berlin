@@ -18,7 +18,7 @@ import {
   CybercabExperience,
   type DispatchFeedEntry,
   type ExperiencePhase,
-  type ShiftReportData,
+  type ShiftReportCategory,
 } from "./components/CybercabExperience"
 
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_STYLE_URL as string | undefined
@@ -30,7 +30,10 @@ const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot
 const districtScope = "charlottenburg-moabit-tiergarten"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
-const playbackFrameIntervalMs = 25
+// Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
+const SIM_SPEED_OPTIONS = [10, 40, 120] as const
+type SimSpeed = (typeof SIM_SPEED_OPTIONS)[number]
+const DEFAULT_SIM_SPEED: SimSpeed = 40
 const playbackLowWatermarkFrames = 250
 const playbackRetainedPastFrames = 20
 // When the tab is visible, cap catch-up to a few frames per tick so a buffer
@@ -1671,7 +1674,12 @@ export default function App() {
   const [appTheme, setAppTheme] = useState<AppTheme>("light")
   const [isMapEnabled, setIsMapEnabled] = useState(true)
   const [isEngineeringPanelOpen, setIsEngineeringPanelOpen] = useState(false)
-  const [isStoryOpen, setIsStoryOpen] = useState(true)
+  const [isStoryOpen] = useState(false)
+  void isStoryOpen
+  const [simSpeed, setSimSpeed] = useState<SimSpeed>(DEFAULT_SIM_SPEED)
+  const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
+  const [followedCabId, setFollowedCabId] = useState<string | null>(null)
+  const followedCabIdRef = useRef<string | null>(null)
   const [diagnostics, setDiagnostics] = useState<RenderDiagnostics>({
     renderFps: 0,
     dataFps: 0,
@@ -1725,6 +1733,10 @@ export default function App() {
   // Monotonic per-cab progress index into its stored route polyline, so the
   // already-driven part of the path can be trimmed instead of trailing behind.
   const playbackCabRouteProgressRef = useRef<Map<string, number>>(new Map())
+  // Shift-report accumulators: per-state cab-frame samples (utilization) and
+  // completed rides per cab (busiest cab).
+  const cabStateSamplesRef = useRef<Map<string, number>>(new Map())
+  const cabRideCountsRef = useRef<Map<string, number>>(new Map())
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
   const dataUpdateCountRef = useRef(0)
@@ -2060,8 +2072,12 @@ export default function App() {
     playbackRequestRegistryRef.current = new Map()
     playbackCabRoutesRef.current = new Map()
     playbackCabRouteProgressRef.current = new Map()
+    cabStateSamplesRef.current = new Map()
+    cabRideCountsRef.current = new Map()
     latestRobotaxiRequestsRef.current = undefined
     setDispatchFeed([])
+    setFollowedCabId(null)
+    followedCabIdRef.current = null
   }, [])
 
   const syncPlaybackFrameSources = useCallback(
@@ -2102,9 +2118,23 @@ export default function App() {
       }
       marked.__absorbed = true
       hydratePlaybackFrame(frame)
+      for (const row of frame.cabRows ?? []) {
+        if (row.state) {
+          cabStateSamplesRef.current.set(
+            row.state,
+            (cabStateSamplesRef.current.get(row.state) ?? 0) + 1,
+          )
+        }
+      }
       for (const event of frame.requestEvents ?? []) {
         if (event.status === "completed" && typeof event.waitSec === "number") {
           completedWaitsRef.current.set(event.id, event.waitSec)
+        }
+        if (event.status === "completed" && event.cab) {
+          cabRideCountsRef.current.set(
+            event.cab,
+            (cabRideCountsRef.current.get(event.cab) ?? 0) + 1,
+          )
         }
       }
       if (frame.requestEvents && frame.requestEvents.length > 0) {
@@ -2165,6 +2195,8 @@ export default function App() {
     setPlaybackBufferSize(0)
     setIsPlaybackPlaying(false)
     isPlaybackPlayingRef.current = false
+    followedCabIdRef.current = null
+    setFollowedCabId(null)
     setPlaybackStatus("Ended")
   }, [syncPlaybackFrameSources])
 
@@ -2328,6 +2360,28 @@ export default function App() {
     })
   }, [appendPlaybackFrames, finalizePlaybackRun, resetPlaybackHydrationState])
 
+  useEffect(() => {
+    simSpeedRef.current = simSpeed
+  }, [simSpeed])
+
+  const selectCabToFollow = useCallback((cabId: string | null) => {
+    setFollowedCabId(cabId)
+    followedCabIdRef.current = cabId
+    const map = baseMapRef.current
+    if (map && cabId) {
+      const vehicle = latestSumoFrameRef.current?.vehicles.find(
+        (candidate) => candidate.id === cabId,
+      )
+      if (vehicle) {
+        map.easeTo({
+          center: [vehicle.lon, vehicle.lat],
+          zoom: Math.max(map.getZoom(), 14.2),
+          duration: 900,
+        })
+      }
+    }
+  }, [])
+
   const startPlayback = useCallback(() => {
     if (playbackSocketRef.current) {
       try {
@@ -2490,40 +2544,137 @@ export default function App() {
     ? `${finalRunAudit.fleetAtDepot}/${finalRunAudit.fleetSize}`
     : null
   const simTimeLabel = sumoFrame ? formatSimClock(sumoFrame.simSec) : scenarioWindowLabel
-  // Cover holds until the first frame is applied, so pressing Start shows the
-  // "Preparing" state on the cover instead of an empty running scene.
   const experiencePhase: ExperiencePhase =
     finalRunAudit || playbackStatus === "Ended"
       ? "results"
-      : isStoryOpen || !sumoFrame
-        ? "cover"
-        : "running"
+      : sumoFrame
+        ? "running"
+        : "idle"
   const hudClock = sumoFrame ? formatSimClock(sumoFrame.simSec) : "18:00"
-  const shiftReport: ShiftReportData | null = useMemo(() => {
+  const shiftReport: ShiftReportCategory[] | null = useMemo(() => {
     if (!finalRunAudit && playbackStatus !== "Ended") {
       return null
     }
     const waits = Array.from(completedWaitsRef.current.values()).sort((a, b) => a - b)
+    const quantile = (q: number) =>
+      waits.length === 0 ? undefined : waits[Math.min(waits.length - 1, Math.floor(q * waits.length))]
     const medianWaitSec =
       waits.length === 0
         ? undefined
         : waits.length % 2 === 1
           ? waits[(waits.length - 1) / 2]
           : (waits[waits.length / 2 - 1] + waits[waits.length / 2]) / 2
-    const ridesServed =
-      finalRunAudit?.completed ?? sumoFrame?.ridesServed ?? dispatchMetrics?.completed
-    return {
-      ridesServed,
-      totalDemand: slimTotals?.totalDemand ?? exactTargetRequests,
-      // v1 contract: one MATSim person-trip = one request = one rider.
-      peopleMoved: dispatchMetrics?.passengersCompleted ?? ridesServed,
-      medianWaitSec,
-      avgWaitSec: finalRunAudit?.avgWaitSec ?? dispatchMetrics?.avgWaitSec ?? undefined,
-      fleetKm: finalRunAudit?.vehicleKm ?? dispatchMetrics?.vehicleKm,
-      emptySharePercent:
-        finalRunAudit?.deadheadingPercent ?? dispatchMetrics?.deadheadingPercent,
+    const registry = Array.from(playbackRequestRegistryRef.current.values())
+    const completed = registry.filter((request) => request.status === "completed")
+    const expired = registry.filter((request) => request.status === "expired").length
+    const ridesServed = finalRunAudit?.completed ?? sumoFrame?.ridesServed ?? completed.length
+    const totalDemand = slimTotals?.totalDemand ?? registry.length
+    const rideDurations = completed
+      .filter(
+        (request) =>
+          typeof request.completedAtSec === "number" && typeof request.pickupAtSec === "number",
+      )
+      .map((request) => (request.completedAtSec as number) - (request.pickupAtSec as number))
+    const avgRideSec =
+      rideDurations.length > 0
+        ? rideDurations.reduce((sum, value) => sum + value, 0) / rideDurations.length
+        : undefined
+    const fleetKm = finalRunAudit?.vehicleKm ?? dispatchMetrics?.vehicleKm
+    const emptyShare = finalRunAudit?.deadheadingPercent ?? dispatchMetrics?.deadheadingPercent
+    const energyKwh = dispatchMetrics?.energyKwh
+    const passengerKm = dispatchMetrics?.passengerKm
+    const stateSamples = cabStateSamplesRef.current
+    const totalSamples = Array.from(stateSamples.values()).reduce((sum, value) => sum + value, 0)
+    const ridingShare =
+      totalSamples > 0 ? ((stateSamples.get("with_passenger") ?? 0) / totalSamples) * 100 : undefined
+    const rideCounts = Array.from(cabRideCountsRef.current.entries()).sort((a, b) => b[1] - a[1])
+    const busiest = rideCounts[0]
+    const lastRows = latestSumoFrameRef.current?.cabRows ?? []
+    const batteries = lastRows
+      .map((row) => row.battery)
+      .filter((value): value is number => typeof value === "number")
+    const avgBattery =
+      batteries.length > 0
+        ? batteries.reduce((sum, value) => sum + value, 0) / batteries.length
+        : undefined
+    const minBattery = batteries.length > 0 ? Math.min(...batteries) : undefined
+    const modeCounts = new Map<string, number>()
+    for (const request of completed) {
+      const mode = request.sourceMode ?? "unknown"
+      modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1)
     }
-  }, [finalRunAudit, playbackStatus, dispatchMetrics, exactTargetRequests, slimTotals, sumoFrame?.ridesServed])
+    const modeCount = (modes: string[]) =>
+      modes.reduce((sum, mode) => sum + (modeCounts.get(mode) ?? 0), 0)
+    const fmtDur = (seconds: number | undefined) =>
+      seconds === undefined ? "–" : seconds < 90 ? `${Math.round(seconds)} s` : `${(seconds / 60).toFixed(1)} min`
+    const fmt = (value: number | undefined, digits = 0, unit = "") =>
+      value === undefined || !Number.isFinite(value) ? "–" : `${value.toFixed(digits)}${unit}`
+
+    return [
+      {
+        title: "Service",
+        rows: [
+          { label: "Ride requests", value: String(totalDemand ?? registry.length) },
+          {
+            label: "Rides served",
+            value:
+              totalDemand && ridesServed !== undefined
+                ? `${ridesServed} (${Math.round((ridesServed / totalDemand) * 100)}%)`
+                : String(ridesServed ?? "–"),
+          },
+          { label: "Expired unserved", value: String(expired) },
+          { label: "Median wait", value: fmtDur(medianWaitSec) },
+          { label: "90th-percentile wait", value: fmtDur(quantile(0.9)) },
+          { label: "Avg ride time", value: fmtDur(avgRideSec) },
+        ],
+      },
+      {
+        title: "Fleet",
+        rows: [
+          { label: "Fleet distance", value: fmt(fleetKm, 0, " km") },
+          { label: "Empty share (incl. repositioning)", value: fmt(emptyShare, 0, " %") },
+          {
+            label: "Rides per cab",
+            value:
+              ridesServed !== undefined ? fmt(ridesServed / displayFleetSize, 1) : "–",
+          },
+          {
+            label: "Busiest cab",
+            value: busiest ? `Cab ${busiest[0].replace("cybercab_", "")} · ${busiest[1]} rides` : "–",
+          },
+          { label: "Time with rider aboard", value: fmt(ridingShare, 0, " %") },
+        ],
+      },
+      {
+        title: "Energy",
+        rows: [
+          { label: "Energy used", value: fmt(energyKwh, 1, " kWh") },
+          {
+            label: "Consumption",
+            value:
+              energyKwh !== undefined && fleetKm ? fmt((energyKwh / fleetKm) * 100, 1, " kWh/100 km") : "–",
+          },
+          {
+            label: "Energy per ride",
+            value:
+              energyKwh !== undefined && ridesServed ? fmt(energyKwh / ridesServed, 2, " kWh") : "–",
+          },
+          { label: "Avg battery at close", value: fmt(avgBattery, 0, " %") },
+          { label: "Lowest battery", value: fmt(minBattery, 0, " %") },
+        ],
+      },
+      {
+        title: "People",
+        rows: [
+          { label: "People moved", value: String(ridesServed ?? "–") },
+          { label: "Passenger distance", value: fmt(passengerKm, 0, " km") },
+          { label: "Would have driven", value: String(modeCount(["car", "ride"])) },
+          { label: "Would have taken transit", value: String(modeCount(["pt"])) },
+          { label: "Would have walked or cycled", value: String(modeCount(["walk", "bike"])) },
+        ],
+      },
+    ]
+  }, [finalRunAudit, playbackStatus, dispatchMetrics, slimTotals, sumoFrame, displayFleetSize])
 
   const pausePlayback = useCallback(() => {
     setIsPlaybackPlaying(false)
@@ -2604,6 +2755,7 @@ export default function App() {
       const isVisible =
         typeof document === "undefined" || document.visibilityState === "visible"
 
+      const playbackFrameIntervalMs = 1000 / simSpeedRef.current
       if (playbackFrameRemainderMsRef.current >= playbackFrameIntervalMs) {
         const dueFrameCount = Math.min(
           Math.max(
@@ -2703,11 +2855,23 @@ export default function App() {
       }
       const t = Math.max(
         0,
-        Math.min(1, playbackFrameRemainderMsRef.current / playbackFrameIntervalMs),
+        Math.min(1, playbackFrameRemainderMsRef.current / (1000 / simSpeedRef.current)),
       )
       source(map, "sumo-vehicles")?.setData(
         interpolatedVehicleCollection(timeline[index], timeline[index + 1], t),
       )
+      const followedId = followedCabIdRef.current
+      if (followedId) {
+        const frameA = timeline[index]
+        const frameB = timeline[index + 1]
+        const current = frameA.vehicles.find((vehicle) => vehicle.id === followedId)
+        const next = frameB?.vehicles.find((vehicle) => vehicle.id === followedId)
+        if (current) {
+          const lon = next ? current.lon + (next.lon - current.lon) * t : current.lon
+          const lat = next ? current.lat + (next.lat - current.lat) * t : current.lat
+          map.jumpTo({ center: [lon, lat] })
+        }
+      }
     }
 
     const tickPlayback = (now: number) => {
@@ -2844,7 +3008,7 @@ export default function App() {
         : {
             // Keep the corridor clear of the dispatch panels: feed bottom-left,
             // fleet board top-right.
-            padding: { top: 96, bottom: 96, left: 96, right: 272 },
+            padding: { top: 72, bottom: 72, left: 356, right: 88 },
             maxZoom: 12.9,
           }
     const map = new maplibregl.Map({
@@ -3318,6 +3482,26 @@ export default function App() {
         setMapTooltip({ x: event.point.x, y: event.point.y, title: "Ride request", lines })
       })
       map.on("mouseleave", "request-riders", clearTooltip)
+      map.on("click", (event) => {
+        const cabHits = map.queryRenderedFeatures(event.point, { layers: ["sumo-cybercabs"] })
+        if (cabHits.length > 0) {
+          const cabId = String(cabHits[0]?.properties?.id ?? "")
+          if (cabId) {
+            followedCabIdRef.current = cabId
+            setFollowedCabId(cabId)
+            map.easeTo({
+              center: event.lngLat,
+              zoom: Math.max(map.getZoom(), 14.2),
+              duration: 900,
+            })
+          }
+          return
+        }
+        if (followedCabIdRef.current) {
+          followedCabIdRef.current = null
+          setFollowedCabId(null)
+        }
+      })
 
       // Flowing dashes on active ride lines: canonical dasharray phase walk.
       const flowPhases = [
@@ -3647,11 +3831,14 @@ export default function App() {
         fleetRows={sumoFrame?.cabRows}
         feed={dispatchFeed}
         fleetSize={displayFleetSize}
-        isPreparing={!isStoryOpen && experiencePhase === "cover"}
+        simSpeed={simSpeed}
+        onSimSpeed={(speed) => setSimSpeed(speed as SimSpeed)}
+        followedCabId={followedCabId}
+        onSelectCab={selectCabToFollow}
+        isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}
         onStart={() => {
-          setIsStoryOpen(false)
           void startPlayback()
         }}
         onReplay={() => {

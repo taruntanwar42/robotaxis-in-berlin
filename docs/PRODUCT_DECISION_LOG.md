@@ -976,3 +976,55 @@ Extracted decision:
   implementation praised.
 - Build the final app version now, in this session; browser iteration allowed but
   minimize (user usage-limit cost ~10x).
+
+## 2026-07-06 - v4 Verdict: Core Solved
+
+Raw user language:
+
+> um, wow. what. you solved the app. it's done -- the core i mean, i think. like the map visual is perfect. you have no idea how good and smooth the app looks in animation now. it's truly a great looking app now. now, just the ui and story is missing- and i'm sure we could also do some nice features i guess.
+
+Extracted decision:
+
+- Core app + map visual language accepted as done. Remaining scope: UI/story arc +
+  optional features. Agent invited to propose/build next steps autonomously.
+
+## 2026-07-06 - v5 Direction: Kill Intro, Left Dashboard Rail, Depot Start, Sim Speed, Metrics Window
+
+Raw user language:
+
+> hmm no dont deploy yet, theres no use -- cant let the recruiter see it like this yk. u can commit ofc.
+
+> actually ykw? fuck the 3 cards - just remove that whole screen, its just an interruption anyway. delete.
+
+> for the actual app ui, i'm imagining that a dashboard naviation pane on the left could be good, either have distinct tabs, or maybe everything fits in vertically, idk idk. that seems like the natural starting point to me tho rather than random ui clutter on the map.
+
+> for the story, i actually think it would be cool to start the app at the cybercab depot yk, which would be like a cool place, and then the user otionally selects from a couple options, like maybe how much speed (3x, 30x, 150x, idk, whatever makes sense to you -- i think this can probably stay available during the sim -- as 'sim speed', is it viable or a really stupid idea for some reason? -- ofc it's only most useful when we also let the user choose eg. a time window and a fleet size and stuff like this -- then they click start and the cabs coolly on the highway to the city for their shift - maybe they start 15 mins before or yk whatever time they need or like maybe theyre a tiny bit earlier, idk. anyhoo, that does sound a bit boring and slow tho, possibly
+
+> and maybe hovering or selecting one of your cabs allows seeing it with locked view idk
+
+> and then most importantly, you get a compact window/view with multiple kinds of environment, ppl bla bla metrics that are leightweight but look good, like maybe about the size of an info section on a windows or linux or idk, mabye 20-40 total short lines of text, 3-4 categoreies, idk idk. shit should be useful tho lol, not fluff.
+
+Extracted decision:
+
+- NO deploy until the experience is worthy; local commits fine.
+- Intro/cover screen DELETED entirely (also drops the card-images task).
+- App shell = left dashboard rail (vertical sections or tabs) instead of floating
+  panels on the map.
+- Story arc: open at the Cybercab depot; optional pre-shift config (sim speed,
+  later time window + fleet size); Start -> cabs drive the highway into the city
+  (~15 min pre-shift, possibly compressed); shift with ops UI; cab select = locked
+  follow view; END = compact metrics window, 3-4 categories, 20-40 short lines,
+  system-info-panel aesthetic, strictly useful.
+- Sim speed selectable and adjustable DURING the run.
+
+Implementation note (feasibility):
+
+- Sim speed = pure frontend pacing over the same recording: fully viable, not
+  stupid (3x/30x/150x just changes ms-per-frame; interpolation keeps it smooth).
+- Fleet size / time window options require one pre-recorded replay per option:
+  viable as a small matrix later, not today.
+- Depot drive-in opening requires re-recording with a ~17:45 depot departure:
+  Phase 2.
+- Today (Phase 1): delete cover, left rail (brand/controls/fleet/dispatch),
+  sim-speed control, follow-cam on cab select, end metrics window computed
+  client-side (service / fleet / energy / people categories).

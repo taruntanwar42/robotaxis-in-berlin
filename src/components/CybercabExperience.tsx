@@ -1,13 +1,8 @@
-export type ExperiencePhase = "cover" | "running" | "results"
+export type ExperiencePhase = "idle" | "running" | "results"
 
-export type ShiftReportData = {
-  ridesServed?: number
-  totalDemand?: number
-  peopleMoved?: number
-  medianWaitSec?: number
-  avgWaitSec?: number
-  fleetKm?: number
-  emptySharePercent?: number
+export type ShiftReportCategory = {
+  title: string
+  rows: Array<{ label: string; value: string }>
 }
 
 export type FleetBoardRow = {
@@ -27,6 +22,8 @@ export type DispatchFeedEntry = {
   waitSec?: number | null
 }
 
+export const SIM_SPEED_CHOICES = [10, 40, 120] as const
+
 type CybercabExperienceProps = {
   phase: ExperiencePhase
   clock: string
@@ -36,37 +33,16 @@ type CybercabExperienceProps = {
   fleetRows?: FleetBoardRow[]
   feed?: DispatchFeedEntry[]
   fleetSize: number
+  simSpeed: number
+  onSimSpeed: (speed: number) => void
+  followedCabId?: string | null
+  onSelectCab: (cabId: string | null) => void
   isPreparing: boolean
   isUnavailable: boolean
-  report: ShiftReportData | null
+  report: ShiftReportCategory[] | null
   onStart: () => void
   onReplay: () => void
 }
-
-type IntroCard = {
-  kicker: string
-  title: string
-  body: string
-  imageSrc?: string
-}
-
-const INTRO_CARDS: IntroCard[] = [
-  {
-    kicker: "Fleet simulation",
-    title: "Robotaxis in Berlin",
-    body: "What if Tesla's Cybercab drove Berlin? A driverless fleet takes on one evening rush hour in the west of the city.",
-  },
-  {
-    kicker: "Real city, real demand",
-    title: "Built on Berlin's own data",
-    body: "The streets come from Berlin's SUMO traffic network. The riders come from TU Berlin's MATSim model of the city — every request is a synthetic Berliner's actual evening trip.",
-  },
-  {
-    kicker: "Your shift",
-    title: "18:00. Ten cabs. One hour.",
-    body: "Dispatch runs itself: cabs pick up riders, reposition toward demand, and park between trips. Watch the fleet work Charlottenburg, Moabit and Tiergarten.",
-  },
-]
 
 export function CybercabExperience({
   phase,
@@ -77,6 +53,10 @@ export function CybercabExperience({
   fleetRows,
   feed,
   fleetSize,
+  simSpeed,
+  onSimSpeed,
+  followedCabId,
+  onSelectCab,
   isPreparing,
   isUnavailable,
   report,
@@ -85,30 +65,48 @@ export function CybercabExperience({
 }: CybercabExperienceProps) {
   return (
     <div className="experience-layer">
-      {phase === "cover" ? (
-        <div className="veil veil-cover">
-          {/* All three cards at once, one click total: Start. */}
-          <section className="cover-panel" aria-label="Robotaxis in Berlin">
-            <div className="cover-panel-grid">
-              {INTRO_CARDS.map((card) => (
-                <article key={card.title} className="cover-panel-card">
-                  {card.imageSrc ? (
-                    <img className="cover-media" src={card.imageSrc} alt="" />
-                  ) : null}
-                  <span className="kicker">{card.kicker}</span>
-                  <h1>{card.title}</h1>
-                  <p>{card.body}</p>
-                </article>
-              ))}
-            </div>
-            {isUnavailable ? (
+      <aside className="ops-rail" aria-label="Dispatch dashboard">
+        <header className="ops-brand">
+          <span className="ops-brand-mark" aria-hidden="true" />
+          <div>
+            <h1>Robotaxis in Berlin</h1>
+            <p>Tesla Cybercab fleet · one evening shift</p>
+          </div>
+        </header>
+
+        <section className="ops-shift" aria-label="Shift status">
+          <div className="ops-clock-row">
+            {phase === "running" ? <span className="hud-live" aria-hidden="true" /> : null}
+            <span className="ops-clock">{phase === "idle" ? "18:00" : clock}</span>
+            <span className="ops-window">18:00 – 19:00</span>
+          </div>
+          <span className="hud-progress" aria-hidden="true">
+            <i
+              style={{
+                width: `${Math.round(Math.max(0, Math.min(1, shiftProgress ?? 0)) * 100)}%`,
+              }}
+            />
+          </span>
+          <div className="ops-counters">
+            <span>
+              <strong>{ridesServed ?? 0}</strong> rides served
+            </span>
+            <span>
+              <strong>{openRequests ?? 0}</strong> waiting
+            </span>
+          </div>
+        </section>
+
+        <section className="ops-controls" aria-label="Simulation controls">
+          {phase === "idle" ? (
+            isUnavailable ? (
               <div className="cover-unavailable" role="status">
                 The simulation backend is waking up. Give it a minute, then reload.
               </div>
             ) : (
               <button
                 type="button"
-                className="gold-button gold-button-glow cover-start"
+                className="gold-button gold-button-glow"
                 onClick={onStart}
                 disabled={isPreparing}
               >
@@ -121,45 +119,54 @@ export function CybercabExperience({
                   "Start the shift"
                 )}
               </button>
-            )}
-            <span className="cover-microline">
-              18:00 – 19:00 · runs by itself · about 2 minutes
-            </span>
-          </section>
-        </div>
-      ) : null}
-
-      {phase === "running" ? (
-        <>
-          <div className="hud" role="status" aria-label="Shift status">
-            <span className="hud-live" aria-hidden="true" />
-            <span className="hud-clock">{clock}</span>
-            <span className="hud-dot" aria-hidden="true" />
-            <span className="hud-counter">
-              <strong>{ridesServed ?? 0}</strong> rides served
-            </span>
-            {typeof openRequests === "number" ? (
-              <>
-                <span className="hud-dot" aria-hidden="true" />
-                <span className="hud-counter">
-                  <strong>{openRequests}</strong> waiting
-                </span>
-              </>
-            ) : null}
-            {typeof shiftProgress === "number" ? (
-              <span className="hud-progress" aria-hidden="true">
-                <i style={{ width: `${Math.round(Math.max(0, Math.min(1, shiftProgress)) * 100)}%` }} />
-              </span>
-            ) : null}
+            )
+          ) : null}
+          <div className="ops-speed" role="group" aria-label="Simulation speed">
+            <span className="ops-speed-label">Sim speed</span>
+            <div className="ops-speed-options">
+              {SIM_SPEED_CHOICES.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className={choice === simSpeed ? "ops-speed-chip is-active" : "ops-speed-chip"}
+                  onClick={() => onSimSpeed(choice)}
+                >
+                  {choice}×
+                </button>
+              ))}
+            </div>
           </div>
+          {phase === "idle" ? (
+            <p className="ops-hint">
+              Ten Cybercabs serve one hour of real Berlin evening demand — streets from the
+              city&apos;s SUMO network, riders from TU Berlin&apos;s MATSim model. Runs by
+              itself, about two minutes.
+            </p>
+          ) : null}
+        </section>
 
-          {fleetRows && fleetRows.length > 0 ? (
-            <aside className="fleet-board" aria-label="Fleet status">
-              <header className="panel-header">Fleet · {fleetRows.length} Cybercabs</header>
-              <ul>
-                {fleetRows.map((row) => (
-                  <li key={row.id} className="fleet-row">
-                    <span className={`fleet-state-dot state-${stateTone(row.state)}`} aria-hidden="true" />
+        {fleetRows && fleetRows.length > 0 ? (
+          <section className="ops-fleet" aria-label="Fleet status">
+            <header className="panel-header">Fleet · {fleetRows.length} Cybercabs</header>
+            <ul>
+              {fleetRows.map((row) => (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    className={
+                      row.id === followedCabId ? "fleet-row is-followed" : "fleet-row"
+                    }
+                    title={
+                      row.id === followedCabId
+                        ? "Click to stop following"
+                        : "Click to follow this cab"
+                    }
+                    onClick={() => onSelectCab(row.id === followedCabId ? null : row.id)}
+                  >
+                    <span
+                      className={`fleet-state-dot state-${stateTone(row.state)}`}
+                      aria-hidden="true"
+                    />
                     <span className="fleet-label">{cabLabel(row.id)}</span>
                     <span className="fleet-status">{stateLabel(row.state)}</span>
                     <span className="fleet-speed">
@@ -168,11 +175,7 @@ export function CybercabExperience({
                         : ""}
                     </span>
                     {typeof row.battery === "number" ? (
-                      <span
-                        className="fleet-battery"
-                        title={`Battery ${row.battery}%`}
-                        aria-label={`Battery ${row.battery}%`}
-                      >
+                      <span className="fleet-battery" title={`Battery ${row.battery}%`}>
                         <i
                           className={row.battery <= 25 ? "is-low" : undefined}
                           style={{ width: `${Math.max(4, Math.min(100, row.battery))}%` }}
@@ -181,80 +184,94 @@ export function CybercabExperience({
                     ) : (
                       <span className="fleet-battery is-empty" aria-hidden="true" />
                     )}
-                  </li>
-                ))}
-              </ul>
-            </aside>
-          ) : null}
-
-          <aside className="map-legend" aria-label="Map legend">
-            <ul>
-              <li>
-                <span className="legend-swatch legend-rider" aria-hidden="true">
-                  <svg viewBox="0 0 16 16" width="14" height="14">
-                    <circle cx="8" cy="8" r="7.2" fill="#ffffff" stroke="rgba(16,20,24,0.3)" />
-                    <circle cx="8" cy="5.9" r="2.1" fill="#1c242b" />
-                    <path d="M4.4 11.6 a3.6 3.6 0 0 1 7.2 0 z" fill="#1c242b" />
-                  </svg>
-                </span>
-                Rider waiting for a cab
-              </li>
-              <li>
-                <span className="legend-swatch legend-destination" aria-hidden="true" />
-                Ride destination
-              </li>
-              <li>
-                <span className="legend-swatch legend-line-pickup" aria-hidden="true" />
-                Cab driving to pickup
-              </li>
-              <li>
-                <span className="legend-swatch legend-line-ride" aria-hidden="true" />
-                Ride under way
-              </li>
-              <li>
-                <span className="legend-swatch legend-cab" aria-hidden="true" />
-                Cybercab
-              </li>
+                  </button>
+                </li>
+              ))}
             </ul>
-          </aside>
+          </section>
+        ) : null}
 
-          {feed && feed.length > 0 ? (
-            <aside className="dispatch-feed" aria-label="Dispatch feed">
-              <header className="panel-header">Dispatch</header>
-              <ul>
-                {feed.slice(0, 7).map((entry) => (
-                  <li key={entry.key} className={`feed-row tone-${feedTone(entry.status)}`}>
-                    <span className="feed-time">{formatClock(entry.atSec)}</span>
-                    <span className="feed-text">{feedText(entry)}</span>
-                  </li>
-                ))}
-              </ul>
-            </aside>
-          ) : null}
-        </>
+        {phase !== "idle" && feed && feed.length > 0 ? (
+          <section className="ops-dispatch" aria-label="Dispatch feed">
+            <header className="panel-header">Dispatch</header>
+            <ul>
+              {feed.slice(0, 30).map((entry) => (
+                <li key={entry.key} className={`feed-row tone-${feedTone(entry.status)}`}>
+                  <span className="feed-time">{formatClock(entry.atSec)}</span>
+                  <span className="feed-text">{feedText(entry)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </aside>
+
+      {phase === "running" && followedCabId ? (
+        <button
+          type="button"
+          className="follow-chip"
+          onClick={() => onSelectCab(null)}
+          title="Stop following"
+        >
+          Following {cabLabel(followedCabId)} <span aria-hidden="true">✕</span>
+        </button>
       ) : null}
 
-      {phase === "results" ? (
+      {phase === "running" ? (
+        <aside className="map-legend" aria-label="Map legend">
+          <ul>
+            <li>
+              <span className="legend-swatch legend-rider" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="14" height="14">
+                  <circle cx="8" cy="8" r="7.2" fill="#ffffff" stroke="rgba(16,20,24,0.3)" />
+                  <circle cx="8" cy="5.9" r="2.1" fill="#1c242b" />
+                  <path d="M4.4 11.6 a3.6 3.6 0 0 1 7.2 0 z" fill="#1c242b" />
+                </svg>
+              </span>
+              Rider waiting for a cab
+            </li>
+            <li>
+              <span className="legend-swatch legend-destination" aria-hidden="true" />
+              Ride destination
+            </li>
+            <li>
+              <span className="legend-swatch legend-line-pickup" aria-hidden="true" />
+              Cab driving to pickup
+            </li>
+            <li>
+              <span className="legend-swatch legend-line-ride" aria-hidden="true" />
+              Ride under way
+            </li>
+            <li>
+              <span className="legend-swatch legend-cab" aria-hidden="true" />
+              Cybercab · click to follow
+            </li>
+          </ul>
+        </aside>
+      ) : null}
+
+      {phase === "results" && report ? (
         <div className="veil veil-report">
-          <section className="report-card" aria-label="Shift report">
+          <section className="report-card report-card-wide" aria-label="Shift report">
             <span className="kicker">Shift report</span>
             <h2>Shift complete</h2>
             <p className="report-subline">
               18:00 – 19:00 · {fleetSize} Cybercabs · Charlottenburg, Moabit &amp; Tiergarten
             </p>
-            <div className="report-grid">
-              <ReportMetric
-                label="Rides served"
-                value={fmtCount(report?.ridesServed)}
-                sub={report?.totalDemand !== undefined ? `of ${report.totalDemand} requests` : undefined}
-              />
-              <ReportMetric label="People moved" value={fmtCount(report?.peopleMoved)} />
-              <ReportMetric
-                label={report?.medianWaitSec !== undefined ? "Median wait" : "Average wait"}
-                value={fmtWait(report?.medianWaitSec ?? report?.avgWaitSec)}
-              />
-              <ReportMetric label="Fleet distance" value={fmtKm(report?.fleetKm)} />
-              <ReportMetric label="Empty driving" value={fmtPercent(report?.emptySharePercent)} sub="share of fleet km" />
+            <div className="report-categories">
+              {report.map((category) => (
+                <div key={category.title} className="report-category">
+                  <h3>{category.title}</h3>
+                  <dl>
+                    {category.rows.map((row) => (
+                      <div key={row.label} className="report-line">
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
             </div>
             <button type="button" className="ghost-button" onClick={onReplay}>
               Watch again
@@ -334,7 +351,9 @@ function feedText(entry: DispatchFeedEntry) {
   const cab = entry.cab ? cabLabel(entry.cab) : null
   switch (entry.status) {
     case "waiting":
-      return entry.mode ? `New request (usually rides ${modeLabel(entry.mode)})` : "New ride request"
+      return entry.mode
+        ? `New request (usually rides ${modeLabel(entry.mode)})`
+        : "New ride request"
     case "assigned":
       return cab ? `${cab} assigned` : "Cab assigned"
     case "onboard":
@@ -373,39 +392,4 @@ function formatClock(simSec: number) {
   const hours = Math.floor(simSec / 3600) % 24
   const minutes = Math.floor((simSec % 3600) / 60)
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
-}
-
-function ReportMetric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="report-metric">
-      <span className="report-metric-label">{label}</span>
-      <strong className="report-metric-value">{value}</strong>
-      {sub ? <span className="report-metric-sub">{sub}</span> : null}
-    </div>
-  )
-}
-
-function fmtCount(value: number | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? String(Math.round(value)) : "--"
-}
-
-function fmtWait(seconds: number | undefined) {
-  if (typeof seconds !== "number" || !Number.isFinite(seconds)) {
-    return "--"
-  }
-  if (seconds < 90) {
-    return `${Math.round(seconds)} s`
-  }
-  return `${(seconds / 60).toFixed(1)} min`
-}
-
-function fmtKm(km: number | undefined) {
-  if (typeof km !== "number" || !Number.isFinite(km)) {
-    return "--"
-  }
-  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`
-}
-
-function fmtPercent(value: number | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)} %` : "--"
 }

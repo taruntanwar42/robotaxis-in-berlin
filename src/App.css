@@ -669,3 +669,12 @@
     width: min(296px, calc(100vw - 40px));
   }
 }
+
+.cover-card-advance {
+  cursor: pointer;
+}
+
+.cover-dot {
+  width: 12px;
+  height: 12px;
+}

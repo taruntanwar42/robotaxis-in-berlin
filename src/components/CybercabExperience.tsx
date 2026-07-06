@@ -90,7 +90,16 @@ export function CybercabExperience({
     <div className="experience-layer">
       {phase === "cover" ? (
         <div className="veil veil-cover">
-          <section className="cover-card" aria-label="Robotaxis in Berlin">
+          {/* Whole card advances (except the final Start card): minimal friction. */}
+          <section
+            className={isLastCard ? "cover-card" : "cover-card cover-card-advance"}
+            aria-label="Robotaxis in Berlin"
+            onClick={() => {
+              if (!isLastCard) {
+                setIntroStep((step) => step + 1)
+              }
+            }}
+          >
             {card.imageSrc ? (
               <img className="cover-media" src={card.imageSrc} alt="" />
             ) : null}
@@ -105,7 +114,10 @@ export function CybercabExperience({
               <button
                 type="button"
                 className="gold-button gold-button-glow"
-                onClick={onStart}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onStart()
+                }}
                 disabled={isPreparing}
               >
                 {isPreparing ? (
@@ -121,7 +133,10 @@ export function CybercabExperience({
               <button
                 type="button"
                 className="gold-button"
-                onClick={() => setIntroStep((step) => step + 1)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setIntroStep((step) => step + 1)
+                }}
               >
                 Next
               </button>
@@ -132,7 +147,10 @@ export function CybercabExperience({
                   key={index}
                   type="button"
                   className={index === introStep ? "cover-dot is-active" : "cover-dot"}
-                  onClick={() => setIntroStep(index)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setIntroStep(index)
+                  }}
                   aria-label={`Intro card ${index + 1}`}
                 />
               ))}

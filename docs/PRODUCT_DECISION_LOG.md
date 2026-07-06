@@ -903,3 +903,37 @@ Implementation note:
 - Cybercab battery constants updated to EPA reality (47.6 kWh, 102.5 Wh/km).
 - Intro copy drafted (3 cards): "Robotaxis in Berlin" / "Built on Berlin's own data"
   (SUMO + MATSim credit) / "18:00. Ten cabs. One hour." — images deferred, slots ready.
+
+## 2026-07-06 - QA Verdict on Rebuilt App (v2 watch-through)
+
+Raw user language:
+
+> hmm, it's annoying that the 'cards' are just one element that can be scrolled by clicking the dots, which are very small and hard to click. i mean, the point of 3 cards in like a window was to keep interaction friction minimum - this is maximum.
+
+> the map- zone is skewed again , or is it the map -- either way its tilted. best fix probably just to tilt the canvas again or sth idk.
+
+> the cabs are still way too big and look like beans. also the normal traffic like like, way too small lol. it should be like, around 3x wide and also long prolly
+
+> the ride destinations/map lines (not sumo lanes) appear very good now, actually, but its still kinda difficult to understand and unintuitive, but thats probably just my poor idea for the circles and lines yk. i was just winging it
+
+> there still seems to be a little big of lag, which feels somehow a bit periodic ... also one thing broken about the routes/lines: the path remains even after the cab has walked on it, looks weird and laggy.
+
+> i'm thinking that we need to reimagine/take ui advice from you or uber app or tesla app or sth idk rather than imagine my weird circles. but i quite like the way you chose the clors and stuff - the app feels smooth overall, also the ui. and isnt cluttered -- although the positioning of the three ui eleements seems kinda random on the map /main game screen. also the story isnt just there yet, like idk , the experience of the app yk.
+
+Extracted decision:
+
+- Intro cards: navigation friction must be minimal — Next-button/dot clicking is the
+  opposite of the intent. (Fix: advance on click-anywhere-on-card / bigger targets.)
+- Zone/map reads tilted (corridor rectangle is UTM-aligned, ~1.5deg off screen axes).
+  Acceptable fix: rotate map bearing to align zone with screen.
+- Sprite scale: cabs smaller (current = "beans"), background traffic ~3x bigger.
+- Route lines: keep (good), but trim traversed segment behind the cab — lingering
+  path reads as lag/bug.
+- Periodic micro-lag suspected (likely the 600ms traffic-light layer rebuild).
+- Request circles/lines language = user's improvisation; mandate to redesign the
+  map visual language from ride-app conventions (Uber/Tesla app) — agent has
+  creative authority here.
+- Liked: colors, overall smoothness, uncluttered UI. Disliked: placement of the
+  three overlay panels feels random; overall narrative/experience "isn't there yet".
+- Meta: chat at ~500k tokens; big reimagining deferred to a fresh session — only
+  surgical fixes now.

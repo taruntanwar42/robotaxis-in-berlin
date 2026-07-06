@@ -26,6 +26,9 @@ const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL a
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
+// Heading of the corridor rectangle's southern edge is 88.67deg; rotating the
+// map by the difference squares the zone with the viewport.
+const SERVICE_ZONE_BEARING_DEG = -1.33
 const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
 const districtScope = "charlottenburg-moabit-tiergarten"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
@@ -1587,6 +1590,9 @@ export default function App() {
   const playbackTlStateRef = useRef<Record<string, SumoTrafficLightState | string>>({})
   const playbackRequestRegistryRef = useRef<Map<string, RobotaxiRequest>>(new Map())
   const playbackCabRoutesRef = useRef<Map<string, Coordinate[]>>(new Map())
+  // Monotonic per-cab progress index into its stored route polyline, so the
+  // already-driven part of the path can be trimmed instead of trailing behind.
+  const playbackCabRouteProgressRef = useRef<Map<string, number>>(new Map())
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
   const dataUpdateCountRef = useRef(0)
@@ -1777,6 +1783,11 @@ export default function App() {
       // Slim replays change some TL every frame; rebuilding thousands of
       // signal-link features 40x/s pegs the main thread. Real signals hold
       // phases for seconds — 600ms refresh is visually indistinguishable.
+      // Below z13 the lights are sub-pixel dots: skip live updates entirely
+      // so the default corridor view pays nothing for them.
+      if (!force && (map.getZoom() ?? 0) < 13) {
+        return true
+      }
       const now = performance.now()
       if (!force && now - lastTrafficLightUpdateAtRef.current < 600) {
         return true
@@ -1866,6 +1877,7 @@ export default function App() {
     }
 
     const cabRoutes = playbackCabRoutesRef.current
+    const routeProgress = playbackCabRouteProgressRef.current
     for (const vehicle of frame.vehicles) {
       if (vehicle.kind !== "robotaxi") {
         continue
@@ -1876,10 +1888,37 @@ export default function App() {
         vehicle.state === "returning_to_depot"
       if (vehicle.routeCoordinates && vehicle.routeCoordinates.length > 1) {
         cabRoutes.set(vehicle.id, vehicle.routeCoordinates)
+        routeProgress.set(vehicle.id, 0)
       } else if (isActive) {
-        vehicle.routeCoordinates = cabRoutes.get(vehicle.id) ?? null
+        const stored = cabRoutes.get(vehicle.id)
+        if (stored && stored.length > 1) {
+          // Advance the progress cursor to the vertex nearest the cab (short
+          // forward window; the cab only moves ahead along its own route) and
+          // show just the remaining path.
+          let cursor = routeProgress.get(vehicle.id) ?? 0
+          let bestIndex = cursor
+          let bestDistance = Infinity
+          const searchEnd = Math.min(stored.length, cursor + 30)
+          for (let index = cursor; index < searchEnd; index += 1) {
+            const dLon = stored[index][0] - vehicle.lon
+            const dLat = stored[index][1] - vehicle.lat
+            const distance = dLon * dLon + dLat * dLat
+            if (distance < bestDistance) {
+              bestDistance = distance
+              bestIndex = index
+            }
+          }
+          cursor = bestIndex
+          routeProgress.set(vehicle.id, cursor)
+          const remaining = stored.slice(cursor)
+          vehicle.routeCoordinates =
+            remaining.length > 1 ? [[vehicle.lon, vehicle.lat], ...remaining.slice(1)] : null
+        } else {
+          vehicle.routeCoordinates = null
+        }
       } else {
         cabRoutes.delete(vehicle.id)
+        routeProgress.delete(vehicle.id)
       }
     }
   }, [])
@@ -1888,6 +1927,7 @@ export default function App() {
     playbackTlStateRef.current = {}
     playbackRequestRegistryRef.current = new Map()
     playbackCabRoutesRef.current = new Map()
+    playbackCabRouteProgressRef.current = new Map()
     latestRobotaxiRequestsRef.current = undefined
     setDispatchFeed([])
   }, [])
@@ -2571,7 +2611,12 @@ export default function App() {
     }
   }, [])
 
-  const sumoTrafficLightGeojson = trafficLightFeatureCollection(sumoNetwork, null)
+  // Memoized: building ~4k signal-link features on every render (40/s during
+  // playback) was a constant main-thread drag.
+  const sumoTrafficLightGeojson = useMemo(
+    () => trafficLightFeatureCollection(sumoNetwork, null),
+    [sumoNetwork],
+  )
   const sumoBoundaryGeojson = sumoNetwork?.boundary ?? null
 
   useEffect(() => {
@@ -2663,12 +2708,14 @@ export default function App() {
         ? {
             padding: { top: 72, bottom: 36, left: 24, right: 24 },
             maxZoom: 12.2,
+            bearing: SERVICE_ZONE_BEARING_DEG,
           }
         : {
             // Keep the corridor clear of the dispatch panels: feed bottom-left,
             // fleet board top-right.
             padding: { top: 96, bottom: 96, left: 96, right: 272 },
             maxZoom: 12.9,
+            bearing: SERVICE_ZONE_BEARING_DEG,
           }
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,
@@ -2683,7 +2730,9 @@ export default function App() {
             fitBoundsOptions: defaultFitBoundsOptions,
           }),
       pitch: restoredCamera?.pitch ?? 0,
-      bearing: restoredCamera?.bearing ?? 0,
+      // Align the UTM-axis service rectangle with the screen; without this
+      // the zone reads as slightly tilted.
+      bearing: restoredCamera?.bearing ?? SERVICE_ZONE_BEARING_DEG,
       attributionControl: false,
     })
 
@@ -2794,21 +2843,21 @@ export default function App() {
         source: "sumo-vehicles",
         layout: {
           "icon-image": "sumo-background-vehicle-marker",
-          // Near-constant ground size (a real ~4.5 m car): exponential zoom
-          // scaling keeps traffic honest — faint specks at corridor zoom,
-          // clearly readable cars once you zoom in.
+          // Roughly 3x ground scale for readability: visible moving traffic at
+          // corridor zoom, clearly cars once zoomed in (honest scale would be
+          // invisible specks below z15).
           "icon-size": [
             "interpolate",
             ["exponential", 2],
             ["zoom"],
             12,
-            0.09,
+            0.24,
             14,
-            0.14,
+            0.4,
             16,
-            0.3,
+            0.85,
             18,
-            0.8,
+            1.4,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -2840,14 +2889,14 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            5,
+            3.2,
             14,
-            8,
+            5.5,
             16,
-            13,
+            9,
           ],
           "circle-color": "#e8b423",
-          "circle-opacity": 0.22,
+          "circle-opacity": 0.2,
           "circle-blur": 0.85,
         },
         filter: ["==", ["get", "kind"], "robotaxi"],
@@ -2858,18 +2907,20 @@ export default function App() {
         source: "sumo-vehicles",
         layout: {
           "icon-image": "sumo-cybercab-marker",
+          // Slimmer than v1 ("beans"): small gold vehicle at corridor view,
+          // growing toward real scale zoomed in.
           "icon-size": [
             "interpolate",
             ["linear"],
             ["zoom"],
             11,
-            0.55,
+            0.34,
             13,
-            0.72,
+            0.46,
             15,
-            0.95,
+            0.66,
             17,
-            1.35,
+            1.0,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",

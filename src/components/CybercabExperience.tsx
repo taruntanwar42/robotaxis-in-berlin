@@ -13,6 +13,7 @@ export type ShiftReportData = {
 export type FleetBoardRow = {
   id: string
   state?: string | null
+  battery?: number | null
   speedKph?: number | null
   requestId?: string | null
 }
@@ -29,6 +30,7 @@ export type DispatchFeedEntry = {
 type CybercabExperienceProps = {
   phase: ExperiencePhase
   clock: string
+  shiftProgress?: number
   ridesServed?: number
   openRequests?: number
   fleetRows?: FleetBoardRow[]
@@ -69,6 +71,7 @@ const INTRO_CARDS: IntroCard[] = [
 export function CybercabExperience({
   phase,
   clock,
+  shiftProgress,
   ridesServed,
   openRequests,
   fleetRows,
@@ -129,6 +132,7 @@ export function CybercabExperience({
       {phase === "running" ? (
         <>
           <div className="hud" role="status" aria-label="Shift status">
+            <span className="hud-live" aria-hidden="true" />
             <span className="hud-clock">{clock}</span>
             <span className="hud-dot" aria-hidden="true" />
             <span className="hud-counter">
@@ -142,11 +146,16 @@ export function CybercabExperience({
                 </span>
               </>
             ) : null}
+            {typeof shiftProgress === "number" ? (
+              <span className="hud-progress" aria-hidden="true">
+                <i style={{ width: `${Math.round(Math.max(0, Math.min(1, shiftProgress)) * 100)}%` }} />
+              </span>
+            ) : null}
           </div>
 
           {fleetRows && fleetRows.length > 0 ? (
             <aside className="fleet-board" aria-label="Fleet status">
-              <header className="panel-header">Fleet</header>
+              <header className="panel-header">Fleet · {fleetRows.length} Cybercabs</header>
               <ul>
                 {fleetRows.map((row) => (
                   <li key={row.id} className="fleet-row">
@@ -158,6 +167,20 @@ export function CybercabExperience({
                         ? `${Math.round(row.speedKph)} km/h`
                         : ""}
                     </span>
+                    {typeof row.battery === "number" ? (
+                      <span
+                        className="fleet-battery"
+                        title={`Battery ${row.battery}%`}
+                        aria-label={`Battery ${row.battery}%`}
+                      >
+                        <i
+                          className={row.battery <= 25 ? "is-low" : undefined}
+                          style={{ width: `${Math.max(4, Math.min(100, row.battery))}%` }}
+                        />
+                      </span>
+                    ) : (
+                      <span className="fleet-battery is-empty" aria-hidden="true" />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -167,12 +190,18 @@ export function CybercabExperience({
           <aside className="map-legend" aria-label="Map legend">
             <ul>
               <li>
-                <span className="legend-swatch legend-pulse" aria-hidden="true" />
-                New ride request
+                <span className="legend-swatch legend-rider" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" width="14" height="14">
+                    <circle cx="8" cy="8" r="7.2" fill="#ffffff" stroke="rgba(16,20,24,0.3)" />
+                    <circle cx="8" cy="5.9" r="2.1" fill="#1c242b" />
+                    <path d="M4.4 11.6 a3.6 3.6 0 0 1 7.2 0 z" fill="#1c242b" />
+                  </svg>
+                </span>
+                Rider waiting for a cab
               </li>
               <li>
-                <span className="legend-swatch legend-dot-open" aria-hidden="true" />
-                Rider waiting for a cab
+                <span className="legend-swatch legend-destination" aria-hidden="true" />
+                Ride destination
               </li>
               <li>
                 <span className="legend-swatch legend-line-pickup" aria-hidden="true" />
@@ -180,7 +209,11 @@ export function CybercabExperience({
               </li>
               <li>
                 <span className="legend-swatch legend-line-ride" aria-hidden="true" />
-                Ride to destination
+                Ride under way
+              </li>
+              <li>
+                <span className="legend-swatch legend-cab" aria-hidden="true" />
+                Cybercab
               </li>
             </ul>
           </aside>
@@ -241,17 +274,17 @@ function cabLabel(id: string) {
 function stateLabel(state: string | null | undefined) {
   switch (state) {
     case "en_route_pickup":
-      return "To pickup"
+      return "Pickup"
     case "with_passenger":
-      return "With rider"
+      return "Riding"
     case "roaming":
       return "Roaming"
     case "staged":
-      return "Repositioning"
+      return "Moving"
     case "idle":
       return "Parked"
     case "idle_at_depot":
-      return "At depot"
+      return "Depot"
     case "returning_to_depot":
       return "To depot"
     case "offline":

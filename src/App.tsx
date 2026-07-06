@@ -26,21 +26,6 @@ const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL a
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
-
-// Temporary startup profiling: report main-thread long tasks to the console.
-if (typeof PerformanceObserver !== "undefined") {
-  try {
-    new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.duration >= 200) {
-          console.log(`[perf] longtask ${Math.round(entry.duration)}ms @${Math.round(entry.startTime)}ms`)
-        }
-      }
-    }).observe({ entryTypes: ["longtask"] })
-  } catch {
-    // longtask observer unsupported: fine, profiling only.
-  }
-}
 const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
 const districtScope = "charlottenburg-moabit-tiergarten"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
@@ -254,6 +239,7 @@ type PlaybackRequestEvent = {
 type PlaybackCabRow = {
   id: string
   state?: string | null
+  battery?: number | null
   label?: string | null
   speedKph?: number | null
   etaSec?: number | null
@@ -412,8 +398,8 @@ const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   background: ["sumo-vehicles"],
   trafficLights: ["sumo-traffic-lights"],
   boundary: ["service-area-halo", "sumo-depot-label", "base-service-area-line"],
-  requests: ["request-pulses", "robotaxi-request-markers"],
-  paths: ["robotaxi-request-paths"],
+  requests: ["request-pulses", "robotaxi-request-markers", "request-riders", "request-destinations"],
+  paths: ["robotaxi-request-paths", "robotaxi-ride-paths", "robotaxi-ride-paths-flow"],
 }
 
 function maptilerDarkStyleUrl(styleUrl: string | undefined) {
@@ -724,6 +710,63 @@ function pointFeatureCollection(vehicles: SumoVehicle[]): FeatureCollection {
         coordinates: [vehicle.lon, vehicle.lat],
       },
     })),
+  }
+}
+
+function publicCabStateLabel(state: string): string {
+  switch (state) {
+    case "en_route_pickup":
+      return "Driving to pickup"
+    case "with_passenger":
+      return "Rider on board"
+    case "roaming":
+      return "Roaming for demand"
+    case "staged":
+      return "Repositioning"
+    case "idle":
+      return "Parked, waiting"
+    case "idle_at_depot":
+      return "At the depot"
+    case "returning_to_depot":
+      return "Returning to depot"
+    case "offline":
+      return "Off duty"
+    default:
+      return state.replaceAll("_", " ")
+  }
+}
+
+function publicRequestStatusLine(request: RobotaxiRequest): string {
+  switch (request.status) {
+    case "waiting":
+      return "Waiting for a cab"
+    case "assigned":
+      return "Cab on its way"
+    case "onboard":
+      return "Riding"
+    case "completed":
+      return "Dropped off"
+    case "expired":
+      return "Expired unserved"
+    default:
+      return String(request.status).replaceAll("_", " ")
+  }
+}
+
+function publicModeFlavor(mode: string | null | undefined): string | null {
+  switch (mode) {
+    case "car":
+      return "Usually drives"
+    case "ride":
+      return "Usually rides along"
+    case "pt":
+      return "Usually takes transit"
+    case "bike":
+      return "Usually cycles"
+    case "walk":
+      return "Usually walks"
+    default:
+      return null
   }
 }
 
@@ -1475,6 +1518,76 @@ function createCybercabMarkerImage() {
   }
 }
 
+// Rider marker: white disc with a dark person glyph (ride-app convention).
+function createRiderMarkerImage() {
+  const pixelRatio = 4
+  const size = 18
+  const canvas = document.createElement("canvas")
+  canvas.width = size * pixelRatio
+  canvas.height = size * pixelRatio
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return null
+  }
+  context.scale(pixelRatio, pixelRatio)
+  context.translate(size / 2, size / 2)
+
+  context.fillStyle = "rgba(16, 20, 24, 0.18)"
+  context.beginPath()
+  context.arc(0, 0.6, 8.2, 0, Math.PI * 2)
+  context.fill()
+
+  context.fillStyle = "#ffffff"
+  context.strokeStyle = "rgba(16, 20, 24, 0.28)"
+  context.lineWidth = 1
+  context.beginPath()
+  context.arc(0, 0, 7.6, 0, Math.PI * 2)
+  context.fill()
+  context.stroke()
+
+  context.fillStyle = "#1c242b"
+  context.beginPath()
+  context.arc(0, -2.2, 2.4, 0, Math.PI * 2)
+  context.fill()
+  context.beginPath()
+  context.arc(0, 4.4, 4.4, Math.PI, 0)
+  context.closePath()
+  context.fill()
+
+  return {
+    data: context.getImageData(0, 0, canvas.width, canvas.height),
+    pixelRatio,
+  }
+}
+
+// Destination marker: dark rounded square with a white core.
+function createDestinationMarkerImage() {
+  const pixelRatio = 4
+  const size = 14
+  const canvas = document.createElement("canvas")
+  canvas.width = size * pixelRatio
+  canvas.height = size * pixelRatio
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return null
+  }
+  context.scale(pixelRatio, pixelRatio)
+  context.translate(size / 2, size / 2)
+
+  context.fillStyle = "#10161a"
+  drawRoundedRect(context, -5.2, -5.2, 10.4, 10.4, 3)
+  context.fill()
+  context.fillStyle = "#ffffff"
+  context.beginPath()
+  context.arc(0, 0, 2.1, 0, Math.PI * 2)
+  context.fill()
+
+  return {
+    data: context.getImageData(0, 0, canvas.width, canvas.height),
+    pixelRatio,
+  }
+}
+
 function ensureCybercabDepotMarkerImage(map: maplibregl.Map) {
   if (map.hasImage("cybercab-depot-marker")) {
     return
@@ -1586,6 +1699,12 @@ export default function App() {
   const serviceAreaRef = useRef<FeatureCollection<Geometry> | null>(null)
   const completedWaitsRef = useRef<Map<string, number>>(new Map())
   const [dispatchFeed, setDispatchFeed] = useState<DispatchFeedEntry[]>([])
+  const [mapTooltip, setMapTooltip] = useState<{
+    x: number
+    y: number
+    title: string
+    lines: string[]
+  } | null>(null)
   const sumoLayerVisibilityRef = useRef<Record<SumoLayerKey, boolean>>(
     defaultSumoLayerVisibility,
   )
@@ -1596,6 +1715,7 @@ export default function App() {
   const latestRobotaxiRequestsRef = useRef<RobotaxiRequest[] | undefined>(undefined)
   const lastTrafficLightSignatureRef = useRef("")
   const lastTrafficLightUpdateAtRef = useRef(0)
+  const rideFlowIntervalRef = useRef<number | null>(null)
   // Slim-replay hydration state: frames carry deltas/events, these refs hold
   // the accumulated picture (traffic-light states, request registry, per-cab
   // active route polylines). Reset at the start of every run.
@@ -1738,7 +1858,6 @@ export default function App() {
     if (!map || !network || !map.isStyleLoaded() || !ensureSumoLaneLayers(map)) {
       return false
     }
-    const perfStartedAt = performance.now()
 
     ensureSumoTrafficLightLayers(map)
     applySumoOverlayTheme(map, appThemeRef.current)
@@ -1763,7 +1882,6 @@ export default function App() {
       ),
     )
     setSumoLayerVisibility(map, sumoLayerVisibilityRef.current)
-    console.log(`[perf] syncSumoNetworkLayers ${Math.round(performance.now() - perfStartedAt)}ms`)
     return true
   }, [])
 
@@ -2791,6 +2909,18 @@ export default function App() {
           pixelRatio: cybercabMarker.pixelRatio,
         })
       }
+      const riderMarker = createRiderMarkerImage()
+      if (riderMarker && !map.hasImage("request-rider-marker")) {
+        map.addImage("request-rider-marker", riderMarker.data, {
+          pixelRatio: riderMarker.pixelRatio,
+        })
+      }
+      const destinationMarker = createDestinationMarkerImage()
+      if (destinationMarker && !map.hasImage("request-destination-marker")) {
+        map.addImage("request-destination-marker", destinationMarker.data, {
+          pixelRatio: destinationMarker.pixelRatio,
+        })
+      }
       ensureCybercabDepotMarkerImage(map)
       map.addLayer({
         id: "service-area-halo",
@@ -2899,11 +3029,11 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            3.2,
+            2.4,
             14,
-            5.5,
+            4.2,
             16,
-            9,
+            7,
           ],
           "circle-color": "#e8b423",
           "circle-opacity": 0.2,
@@ -2924,13 +3054,13 @@ export default function App() {
             ["linear"],
             ["zoom"],
             11,
-            0.34,
+            0.26,
             13,
-            0.46,
+            0.35,
             15,
-            0.66,
+            0.5,
             17,
-            1.0,
+            0.78,
           ],
           "icon-rotate": ["coalesce", ["get", "angle"], 0],
           "icon-rotation-alignment": "map",
@@ -2939,41 +3069,77 @@ export default function App() {
         },
         filter: ["==", ["get", "kind"], "robotaxi"],
       })
+      // Approach legs: light dashed gray. line-dasharray cannot be data-driven,
+      // so pickup and ride legs are separate layers over the same source.
       map.addLayer({
         id: "robotaxi-request-paths",
         type: "line",
         source: "robotaxi-request-paths",
+        layout: { "line-cap": "round" },
         paint: {
-          "line-color": [
-            "match",
-            ["get", "visual"],
-            "pickup-path",
-            "#5c6670",
-            "dropoff-path",
-            "#c79200",
-            "#5c6670",
-          ],
+          "line-color": "#7d8994",
           "line-width": [
             "interpolate",
             ["linear"],
             ["zoom"],
             11,
-            1.2,
+            1.4,
             14,
-            2.0,
+            2.2,
             16,
-            3.0,
+            3.2,
           ],
-          "line-opacity": [
-            "match",
-            ["get", "visual"],
-            "pickup-path",
-            0.5,
-            "dropoff-path",
-            0.75,
-            0.55,
-          ],
+          "line-opacity": 0.55,
+          "line-dasharray": [0.1, 2],
         },
+        filter: ["==", ["get", "visual"], "pickup-path"],
+      })
+      // Ride legs: soft gold base with brighter animated dashes flowing toward
+      // the destination.
+      map.addLayer({
+        id: "robotaxi-ride-paths",
+        type: "line",
+        source: "robotaxi-request-paths",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#c79200",
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            1.8,
+            14,
+            2.8,
+            16,
+            4.0,
+          ],
+          "line-opacity": 0.4,
+        },
+        filter: ["==", ["get", "visual"], "dropoff-path"],
+      })
+      map.addLayer({
+        id: "robotaxi-ride-paths-flow",
+        type: "line",
+        source: "robotaxi-request-paths",
+        layout: { "line-cap": "round" },
+        paint: {
+          "line-color": "#e8b423",
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            1.8,
+            14,
+            2.8,
+            16,
+            4.0,
+          ],
+          "line-opacity": 0.95,
+          "line-dasharray": [0, 4, 1, 4],
+        },
+        filter: ["==", ["get", "visual"], "dropoff-path"],
       })
       map.addLayer({
         id: "request-pulses",
@@ -2987,6 +3153,57 @@ export default function App() {
           "circle-stroke-opacity": ["coalesce", ["get", "opacity"], 0.4],
           "circle-pitch-alignment": "map",
         },
+      })
+      map.addLayer({
+        id: "request-riders",
+        type: "symbol",
+        source: "robotaxi-requests",
+        layout: {
+          "icon-image": "request-rider-marker",
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.62,
+            14,
+            0.82,
+            16,
+            1.05,
+          ],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+        paint: {
+          "icon-opacity": ["coalesce", ["get", "opacity"], 0.95],
+        },
+        filter: [
+          "in",
+          ["get", "visual"],
+          ["literal", ["pickup-waiting", "pickup-assigned", "pickup-arrived"]],
+        ],
+      })
+      map.addLayer({
+        id: "request-destinations",
+        type: "symbol",
+        source: "robotaxi-requests",
+        layout: {
+          "icon-image": "request-destination-marker",
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.62,
+            14,
+            0.82,
+            16,
+            1.05,
+          ],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+        filter: ["==", ["get", "visual"], "dropoff-active"],
       })
       map.addLayer({
         id: "robotaxi-request-markers",
@@ -3042,8 +3259,96 @@ export default function App() {
           ],
           "circle-stroke-opacity": ["coalesce", ["get", "opacity"], 0.9],
         },
+        filter: [
+          "in",
+          ["get", "visual"],
+          ["literal", ["dropoff-completed", "pickup-expired"]],
+        ],
       })
       setSumoLayerVisibility(map, defaultSumoLayerVisibility)
+
+      // Hover details: cabs and riders. Data comes from refs so the handlers
+      // stay valid for the map's lifetime.
+      const clearTooltip = () => {
+        map.getCanvas().style.cursor = ""
+        setMapTooltip(null)
+      }
+      map.on("mousemove", "sumo-cybercabs", (event) => {
+        const feature = event.features?.[0]
+        const cabId = String(feature?.properties?.id ?? "")
+        if (!cabId) {
+          return
+        }
+        const row = latestSumoFrameRef.current?.cabRows?.find((cab) => cab.id === cabId)
+        const lines: string[] = []
+        if (row?.state) {
+          lines.push(publicCabStateLabel(row.state))
+        }
+        if (typeof row?.speedKph === "number" && row.speedKph > 1) {
+          lines.push(`${Math.round(row.speedKph)} km/h`)
+        }
+        if (typeof row?.battery === "number") {
+          lines.push(`Battery ${row.battery}%`)
+        }
+        map.getCanvas().style.cursor = "pointer"
+        setMapTooltip({
+          x: event.point.x,
+          y: event.point.y,
+          title: `Cab ${cabId.replace("cybercab_", "")}`,
+          lines,
+        })
+      })
+      map.on("mouseleave", "sumo-cybercabs", clearTooltip)
+      map.on("mousemove", "request-riders", (event) => {
+        const feature = event.features?.[0]
+        const requestId = String(feature?.properties?.requestId ?? "")
+        const request = latestRobotaxiRequestsRef.current?.find(
+          (entry) => entry.id === requestId,
+        )
+        if (!request) {
+          return
+        }
+        const lines: string[] = [publicRequestStatusLine(request)]
+        lines.push(`Requested ${formatSimClock(request.requestedAtSec)}`)
+        const modeFlavor = publicModeFlavor(request.sourceMode)
+        if (modeFlavor) {
+          lines.push(modeFlavor)
+        }
+        map.getCanvas().style.cursor = "pointer"
+        setMapTooltip({ x: event.point.x, y: event.point.y, title: "Ride request", lines })
+      })
+      map.on("mouseleave", "request-riders", clearTooltip)
+
+      // Flowing dashes on active ride lines: canonical dasharray phase walk.
+      const flowPhases = [
+        [0, 4, 3],
+        [0.5, 4, 2.5],
+        [1, 4, 2],
+        [1.5, 4, 1.5],
+        [2, 4, 1],
+        [2.5, 4, 0.5],
+        [3, 4, 0],
+        [0, 0.5, 3, 3.5],
+        [0, 1, 3, 3],
+        [0, 1.5, 3, 2.5],
+        [0, 2, 3, 2],
+        [0, 2.5, 3, 1.5],
+        [0, 3, 3, 1],
+        [0, 3.5, 3, 0.5],
+      ]
+      let flowStep = -1
+      rideFlowIntervalRef.current = window.setInterval(() => {
+        if (!isPlaybackPlayingRef.current || !map.getLayer("robotaxi-ride-paths-flow")) {
+          return
+        }
+        const nextStep = Math.floor(performance.now() / 70) % flowPhases.length
+        if (nextStep === flowStep) {
+          return
+        }
+        flowStep = nextStep
+        map.setPaintProperty("robotaxi-ride-paths-flow", "line-dasharray", flowPhases[nextStep])
+      }, 70)
+
       scheduleStaticOverlaySync()
       if (restoredCamera) {
         map.jumpTo(restoredCamera)
@@ -3066,6 +3371,10 @@ export default function App() {
         staticOverlaySyncFrameRef.current = null
       }
       resizeObserver.disconnect()
+      if (rideFlowIntervalRef.current !== null) {
+        window.clearInterval(rideFlowIntervalRef.current)
+        rideFlowIntervalRef.current = null
+      }
       map.remove()
       baseMapRef.current = null
       setBaseMapReadyTick((tick) => tick + 1)
@@ -3298,7 +3607,20 @@ export default function App() {
 
       <section className="map-stage" aria-label="SUMO traffic map">
         {mapStyleUrl && isMapEnabled ? (
-          <div ref={baseMapContainerRef} className="map-canvas base-map-canvas" />
+          <>
+            <div ref={baseMapContainerRef} className="map-canvas base-map-canvas" />
+            {mapTooltip ? (
+              <div
+                className="map-tooltip"
+                style={{ left: mapTooltip.x + 14, top: mapTooltip.y + 14 }}
+              >
+                <strong>{mapTooltip.title}</strong>
+                {mapTooltip.lines.map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
+              </div>
+            ) : null}
+          </>
         ) : mapStyleUrl ? (
           <div className="map-fallback">
             <MapPinned size={30} />
@@ -3317,6 +3639,9 @@ export default function App() {
       <CybercabExperience
         phase={experiencePhase}
         clock={hudClock}
+        shiftProgress={
+          sumoFrame ? Math.max(0, Math.min(1, (sumoFrame.simSec - 64_800) / 3_600)) : 0
+        }
         ridesServed={displayedCompletedRequests}
         openRequests={inProgressRequests}
         fleetRows={sumoFrame?.cabRows}

@@ -960,3 +960,19 @@ Extracted decision:
 - Add a map legend explaining the visual language (pulse ring, marker states,
   gray vs gold lines).
 - Route lines confirmed good ("app actually looks great now").
+
+## 2026-07-06 - v4 Mandate: Final Design Pass, Full Creative Authority
+
+Raw user language:
+
+> the cybercabs are still too big, i find the ui completely boring and the legend on the map looks great, and your implementation of the lines is also great, but my color scheme is just stupid i think. could you think of a sane way to show what we're trynna show here? ... maybe it requires interactivity or sth -- like the routes are light or transparent with arrows flowing in the direction of movement by default, and on hover you see the cab details and maybe ride or idk what details. also, do u think you could take this from a bunch of random ui to a great experience - with batteries and whatnot? maybe the best marker for the ride is just a person icon ... i think maybe u just go build the finall app version now. and btw u can do anything you want for the browser if u wannt iterate that way ... but it is actually way more efficient, about 10x, for my usage limit, if you dont use playwright
+
+Extracted decision:
+
+- Full design authority to agent for the map visual language + UI experience.
+- Direction hints accepted: person icon for riders, light/transparent routes with
+  directional flow, hover for cab/ride details, batteries in the fleet UI.
+- Cabs still too big; UI "boring" (structure fine, rows too plain); legend + route
+  implementation praised.
+- Build the final app version now, in this session; browser iteration allowed but
+  minimize (user usage-limit cost ~10x).

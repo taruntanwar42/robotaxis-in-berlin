@@ -3580,10 +3580,12 @@ def build_contract_cab_rows(
         if status == "charging":
             # v1 hides charging entirely; a charging cab is just at the depot.
             status = "idle_at_depot"
+        battery_percent = robotaxi.get("batteryPercent")
         rows.append(
             {
                 "id": vehicle_id,
                 "state": status,
+                "battery": round(float(battery_percent)) if battery_percent is not None else None,
                 "label": robotaxi_label(vehicle_id),
                 "speedKph": round(float(speed) * 3.6, 1)
                 if isinstance(speed, (int, float))
@@ -5448,7 +5450,7 @@ def build_public_slim_frame(
     frame["cabRows"] = [
         {
             key: row.get(key)
-            for key in ("id", "state", "speedKph", "etaSec", "requestId", "lon", "lat", "heading")
+            for key in ("id", "state", "battery", "speedKph", "etaSec", "requestId", "lon", "lat", "heading")
             if row.get(key) is not None
         }
         for row in contract_fields.get("cabRows", [])

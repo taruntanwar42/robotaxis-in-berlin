@@ -148,22 +148,6 @@ function buildCabScene(container: HTMLDivElement, onReady: () => void) {
       }
     })
 
-    // Black-glass floor: a faint mirrored ghost under the ground plane.
-    const reflection = model.clone(true)
-    reflection.traverse((object) => {
-      const mesh = object as THREE.Mesh
-      if (mesh.isMesh && mesh.material) {
-        const cloned = (mesh.material as THREE.MeshStandardMaterial).clone()
-        cloned.transparent = true
-        cloned.opacity = 0.09
-        cloned.depthWrite = false
-        mesh.material = cloned
-      }
-    })
-    reflection.scale.y *= -1
-    reflection.position.y = -reflection.position.y
-    cab.add(reflection)
-
     // Resting pose: front three-quarter from the left, camera just above the
     // beltline — the product-shot angle, static.
     cab.rotation.y = 1.5 + Math.PI

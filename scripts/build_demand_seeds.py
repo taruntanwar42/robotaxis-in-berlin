@@ -45,6 +45,13 @@ def main() -> None:
     parser.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--scenario-key", default=SCENARIO_KEY)
+    parser.add_argument(
+        "--adoption-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier on ADOPTION_BY_MODE (city-wide pools need lower per-trip adoption).",
+    )
     args = parser.parse_args()
 
     with args.pool.open("r", encoding="utf-8") as handle:
@@ -54,15 +61,18 @@ def main() -> None:
         raise SystemExit(f"no trips in pool: {args.pool}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    expected = sum(ADOPTION_BY_MODE.get(str(t.get("primaryMode")).lower(), 0.0) for t in trips)
+    adoption = {
+        mode: rate * args.adoption_scale for mode, rate in ADOPTION_BY_MODE.items()
+    }
+    expected = sum(adoption.get(str(t.get("primaryMode")).lower(), 0.0) for t in trips)
     print(f"pool: {len(trips)} trips, expected requests/seed ~{expected:.1f}")
 
     for seed in args.seeds:
-        rng = random.Random(f"{SCENARIO_KEY}-demand-seed-{seed}")
+        rng = random.Random(f"{args.scenario_key}-demand-seed-{seed}")
         sampled = [
             trip
             for trip in trips
-            if rng.random() < ADOPTION_BY_MODE.get(str(trip.get("primaryMode")).lower(), 0.0)
+            if rng.random() < adoption.get(str(trip.get("primaryMode")).lower(), 0.0)
         ]
         mode_counts = Counter(str(t.get("primaryMode")).lower() for t in sampled)
         payload = {
@@ -70,7 +80,8 @@ def main() -> None:
                 **pool.get("metadata", {}),
                 "demandSeed": seed,
                 "samplingMethod": "bernoulli-mode-adoption",
-                "adoptionByMode": ADOPTION_BY_MODE,
+                "adoptionByMode": adoption,
+                "adoptionScale": args.adoption_scale,
                 "sampledTrips": len(sampled),
                 "sampledModeCounts": dict(mode_counts),
                 "poolFile": str(args.pool),
@@ -79,7 +90,7 @@ def main() -> None:
             "trips": sampled,
         }
         output_path = args.output_dir / (
-            f"{SCENARIO_KEY}_person_trips_1pct_180000_190000_seed{seed}.json"
+            f"{args.scenario_key}_person_trips_1pct_180000_190000_seed{seed}.json"
         )
         with output_path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, separators=(",", ":"))

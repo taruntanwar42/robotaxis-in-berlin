@@ -1609,3 +1609,564 @@
   margin: 4px 0 0;
   letter-spacing: -0.01em;
 }
+
+/* ---------- v8: split layout — control-room pane left, city map right ---------- */
+
+:root {
+  --pane-w: clamp(460px, 42vw, 680px);
+}
+
+.map-stage {
+  left: var(--pane-w);
+}
+
+/* The canvas tilt was a corridor-rectangle artifact (UTM-aligned bbox vs
+   screen axes). The city view has no drawn rectangle: no tilt. */
+.base-map-canvas {
+  transform: none;
+}
+
+.ops-pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--pane-w);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: var(--card);
+  border-right: 1px solid var(--hairline);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.ops-pane .ops-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ops-clock-box {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.ops-clock-box .ops-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 21px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.ops-phase-chip {
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Idle setup */
+.ops-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 6px;
+  max-width: 360px;
+}
+
+.setup-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.setup-label {
+  width: 64px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.setup-value {
+  color: var(--ink);
+}
+
+.setup-chips,
+.ops-speed-inline {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ops-chip {
+  border: 1px solid var(--hairline);
+  background: transparent;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.ops-chip.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+/* KPI strip */
+.ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 70%, var(--paper));
+  min-width: 0;
+}
+
+.kpi strong {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.kpi span {
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+/* Progress with service tick */
+.ops-progress {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  margin: 6px 2px 14px;
+}
+
+.ops-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #8d7017, #c99700);
+}
+
+.ops-progress-tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1.5px;
+  background: var(--ink-soft);
+  opacity: 0.55;
+}
+
+.ops-progress-labels {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.ops-progress-labels em {
+  position: absolute;
+  font-style: normal;
+  transform: translateX(-50%);
+}
+
+.ops-progress-labels em:first-child {
+  left: 0;
+  transform: none;
+}
+
+.ops-progress-labels em.is-end {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+/* Section titles */
+.block-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink);
+  margin-bottom: 7px;
+}
+
+.block-note {
+  font-weight: 400;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+
+/* Fleet grid */
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+}
+
+.fleet-cell {
+  position: relative;
+  aspect-ratio: 1.35;
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  background: var(--paper);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+.fleet-cell-num {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.fleet-cell-batt {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: rgba(20, 30, 40, 0.35);
+}
+
+.fleet-cell.tone-riding {
+  background: #c99700;
+  border-color: #a87e00;
+}
+
+.fleet-cell.tone-riding .fleet-cell-num {
+  color: #fff;
+}
+
+.fleet-cell.tone-riding .fleet-cell-batt {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.fleet-cell.tone-pickup {
+  background: #5b7c99;
+  border-color: #4a6883;
+}
+
+.fleet-cell.tone-pickup .fleet-cell-num {
+  color: #fff;
+}
+
+.fleet-cell.tone-pickup .fleet-cell-batt {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.fleet-cell.tone-moving {
+  background: #dfe5e9;
+}
+
+.fleet-cell.tone-depot {
+  background: #2c3840;
+  border-color: #222c33;
+}
+
+.fleet-cell.tone-depot .fleet-cell-num {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.fleet-cell.tone-depot .fleet-cell-batt {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.fleet-cell.is-followed {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* Cab card */
+.cab-card {
+  margin-top: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: color-mix(in srgb, var(--card) 70%, var(--paper));
+}
+
+.cab-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cab-card-title {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.cab-card-title span {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.cab-card-cam {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.cab-card-cam button {
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.cab-card-cam .cab-camera-release {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.cab-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+}
+
+.cab-card-stats strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cab-card-rider {
+  margin-left: auto;
+}
+
+/* Charts */
+.ops-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.chart-block {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 10px 12px 8px;
+  background: color-mix(in srgb, var(--card) 70%, var(--paper));
+  min-width: 0;
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: 74px;
+}
+
+.chart-row .chart-svg {
+  height: 64px;
+}
+
+.chart-tick {
+  font-size: 8px;
+  fill: var(--ink-soft);
+}
+
+.chart-empty {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.chart-legend i {
+  width: 14px;
+  height: 2.5px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.chart-legend .swatch-requested {
+  background: rgba(44, 56, 64, 0.55);
+}
+
+.chart-legend .swatch-served {
+  background: #c99700;
+  margin-left: 8px;
+}
+
+/* Ticker */
+.ops-ticker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+  min-height: 120px;
+}
+
+.ticker-row {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ticker-row:nth-child(n + 4) {
+  opacity: 0.55;
+}
+
+.ticker-time {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.ticker-row.tone-done .ticker-text {
+  color: #7a6410;
+}
+
+.ticker-row.tone-missed .ticker-text {
+  color: #9a4b3b;
+}
+
+/* Report */
+.ops-pane .ops-report {
+  margin-top: auto;
+  border-top: 1px solid var(--hairline);
+  padding-top: 12px;
+}
+
+.report-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 22px;
+}
+
+.report-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* Narrow screens: stack pane above map */
+@media (max-width: 900px) {
+  :root {
+    --pane-w: 100vw;
+  }
+
+  .ops-pane {
+    position: relative;
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+    max-height: 60vh;
+  }
+
+  .map-stage {
+    left: 0;
+    top: 60vh;
+  }
+
+  .ops-kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .fleet-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.map-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  padding: 6px 10px;
+  pointer-events: auto;
+}
+
+.map-controls-label {
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 2px;
+}

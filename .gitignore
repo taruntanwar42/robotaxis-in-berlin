@@ -16,7 +16,12 @@ __pycache__/
 qa-*.png
 hf-space/app/sumo/**/output/*
 !hf-space/app/sumo/**/output/.gitkeep
-hf-space/app/sumo/berlin/
+# Berlin city scenario: only the big sim inputs stay local (rebuild via
+# scripts/build_berlin_routes.py + copy of the BeST net); metadata/config ship.
+hf-space/app/sumo/berlin/berlin.net.xml
+hf-space/app/sumo/berlin/*.rou.xml
+hf-space/app/sumo/berlin/*.metadata.json
+hf-space/app/sumo/berlin/output/
 
 # Local data pipeline (rebuild via scripts/build_*.py)
 /data/

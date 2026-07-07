@@ -1046,3 +1046,126 @@ Extracted decision:
   release" affordance fixes the toggle discoverability. Zooming stays free while
   locked.
 - Minimalism is the top priority; nobody reads walls of text.
+
+## 2026-07-06 - v7 Feedback: Terse Language, Separation Over Labels, Chase-Cam Zoom Buttons
+
+Raw user language:
+
+> btw could you please clean up the slop text - just like, why so many words lol... i think clarity in desing language would come thru better separation, not by more extensive labeling - also i think some things probbaly deserve their own place yk, like why is rides served to the left of the speed control, makes no sense
+
+> btw after you're done with this, do anything you want for a bunch- continue iteration (finish minimalist and intentional ui from start to finishfirst, clear and zen user experience) or do refactor or write docs or whatever. btw still no zoom when chase cam locked. maybe zoom +- buttons in the thing itself - but idk. anyway, imma go take a shower
+
+Extracted decision:
+
+- UI copy: 1-2 words per label; clarity comes from SEPARATION (own row/place per
+  concept), never from longer labels. Status and controls never share a row.
+- Chase cam must be zoomable while locked; explicit -/+ buttons in the chase-cam
+  affordance accepted (shipped alongside owned wheel zoom).
+- Standing grant renewed: autonomous iteration toward "clear and zen" experience.
+
+## 2026-07-07 - Direction: Full-Berlin Simulation Area (UI Rethink Deferred)
+
+Raw user language:
+
+> the map and app itself are looking really good now, actually. so just the ui would need a complete rethink from first principles later, that's what i'd wanna do.
+
+> now, the only thing i'd like to know, is, if it would be possible to do the simulation for all of berlin. I see that we are currently at around maybe 25% or so (my visual estimate) of berlin's areain our sim. i think it would be really cool to see the robotaxis go all over berlin, and the rectangle is also kind of not beautiful yk -- whe the whole map is right there and we also have the data.
+
+> especially bc the animations and icons, etc u came up with are just chef's kiss for the app, and when i see them i just wanna remove all limitations from this beautiful app.
+
+> i guess it would probably be overoptimising if we aimed for anything more than 60x and 1 hour sim as our first scope (full berlin), cuz around 1-2 min of the recruiters time is what we expect to take (also result viewing etc, so around 1-2 mins of actual sim is probably optimal, i'd tend toward 1)
+
+Extracted decision:
+
+- Next big direction: scale the sim area to ALL of Berlin. Corridor rectangle judged
+  "not beautiful" next to a full-city map when the data exists anyway.
+- First full-Berlin scope: 1-hour window, ~60x playback, ~1-2 min (tending 1) of
+  recruiter viewing time. Anything beyond = overoptimizing.
+- UI: complete first-principles rethink WANTED but LATER; current map/app visuals
+  accepted as good.
+
+## 2026-07-07 - Locked: Measure First; Caching Acknowledged Wise; BeST Provenance Correction
+
+Raw user language:
+
+> i didnt mean the sim will be baked in. i want to make it so that one can choose the fleet size etc. i mean, it wouldnt really be a simulation then, would it? just a recording. but idk, i guess..... idk. maybe using prerecorded is acceptable and wise
+
+> caching sounds really wise for later. let's actually 1. measure first tho
+
+> the sumo artifact is not an artifact, its a github repo. someone did a simulation from the matsim people based data from tu berlin researchers ... in the microtraffic software sumo, and called it BeST
+
+Extracted decision:
+
+- Tension named: user wants choosable parameters (fleet size etc.) - a recording
+  library limits choice to the recorded grid. Prerecorded accepted as likely wise,
+  NOT yet locked as the only mode.
+- Process lock: benchmark full-Berlin SUMO performance FIRST; architecture decision
+  (live vs prerecorded vs hybrid) follows the numbers.
+- Provenance corrected on record: full-Berlin net/routes = BeST scenario
+  (github.com/mosaic-addons/best-scenario, TU Berlin DCAITI, CC-BY 4.0), built FROM
+  MATSim Open Berlin (TU Berlin VSP). Both repos cloned into git-ignored data/vendor/
+  for reference.
+
+## 2026-07-07 - Benchmark Results: libsumo Unlocks the Crazy Idea
+
+(Agent findings, logged for the record.)
+
+- Full-volume BeST Berlin (100% traffic, 32k+ concurrent vehicles): ~1.7x realtime.
+  Live-at-click impossible at full volume; even recording painful. BeST README
+  confirms: 24h takes 7h on a 3.4 GHz CPU.
+- The honest baseline is the 1pct world (1pct persons AND ~1pct-scale traffic,
+  ~330 concurrent vehicles): raw SUMO 189x realtime; with our TraCI polling 45x
+  (the per-step Windows socket round-trip is the cost, not the simulation).
+- libsumo (in-process SUMO, same API, no socket) measured 62x steady with our
+  exact polling pattern, fully compatible. Adopted as default transport
+  (ROBOTAXI_SUMO_TRANSPORT=traci to force the old path).
+- Recording a full city hour now takes ~2-4 minutes; a recording MATRIX
+  (fleet sizes x seeds) becomes cheap, giving "choose fleet size" without
+  live-mode fragility.
+
+## 2026-07-07 - v8 Mandate: No Compromises, Control-Room Left Pane, Full App Today
+
+Raw user language:
+
+> please dont make compromises or stuff like that. i think you understand the app i need to build, and i think you can build a beautiful one. so, if u do end up keeping the scope tight on this run, please take this message as a request to build the full awesome app and shatter all limitations. no compromises -- i didnt mean that when i said build speed, i meant that we shoudlnt waste an hour WAITING.
+
+> the robotaxi state screen should be a clear, detailed view of the fleet or yk, whatever you choose to build in the left pane, it shouldnt be like, a matryoshka, but rather a big beautiful stock market monitor or tesla headquarters view yk, like think of what elon probably sees about red light/green ligh when seeing production bottlenecks
+
+> i think what could be really great is if we have a dedicated ui on the left half side of the screen, and the sim runs on the right half, which is our current map and sim controls. currently it feels like youre just watching cars move, so yeah, idk what to do with that as a user. so in the right half, you can sort of 'monitor the situation' (on the map) and also have a small ui box at the top that lets u toggle speed
+
+> also very caveman wisdom-- why lot words when few do trick and goblin mode -- the desperate cave dwelling create that chases the shiny thing and does sth so resourceful and beautiful, in a crazy way. that's who we are, that's the backone of this project
+
+> i mean, theres no point of building traci first and then the libsumo and then an analytics layer later. idk, i think you can one shot this.
+
+Extracted decision:
+
+- v8 layout: LEFT HALF = dedicated control-room pane (stock-market-monitor /
+  Tesla-HQ density: everything visible at once, NO matryoshka drill-downs);
+  RIGHT HALF = the map ("monitor the situation") with a small speed box on top.
+- Skip intermediate architectures: libsumo + analytics built directly.
+- User's role framing: the viewer is the ops manager watching the fleet win or
+  lose against demand — not "watching cars move".
+- Left pane contents (agent design, accepted creative authority): KPI strip,
+  17:40-19:00 progress with 18:00 service tick, 30-cell fleet grid (click =
+  chase cam, inline cab card), demand requested-vs-served cumulative chart,
+  wait histogram, fleet-state stacked timeline, terse event ticker; report
+  renders in-pane at shift end with charts still live above it.
+- Stakes acknowledged: this application matters enormously to the user.
+
+## 2026-07-07 - Berlin City Scenario: Ground Truth From Recordings
+
+(Agent findings during the city build.)
+
+- Scenario "berlin": full BeST net (162 MB, 71,324 passenger edges), 1pct
+  background (2,005 window vehicles), fleet 30 spawning AT the TXL depot 17:40
+  in a staggered convoy (depot drive-in = the v5 wishlist opening, landed),
+  city-wide MATSim demand (7,502-trip pool, ~66-78 requests/seed at 6.5%
+  scaled adoption), request expiry 900s, no drawn service rectangle (the city
+  is the zone), no TL streaming (frontend draws no signals at city scale;
+  TL deltas were 68% of the first recording = 103 MB -> 8.5 MB after the cut).
+- Fleet-density physics learned the hard way: 30 cabs over 800 km2 = ~5 km
+  spacing = 10-15 min pickup drives. A 9-min pickup cap starved the fleet
+  (9/78 served); the corridor's 10-min expiry was equally corridor-scale.
+  Retuned: 12-min pickup cap, 15-min expiry, staging legs capped at 8 min
+  (depot exit exempt). Long waits at 30 cabs are the honest fleet-sizing
+  story the 10/30/50 matrix exists to tell.

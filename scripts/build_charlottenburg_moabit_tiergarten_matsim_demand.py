@@ -289,6 +289,10 @@ def load_service_edge_midpoints(
     return midpoints, net_offset
 
 
+_GRID_CELL_M = 500.0
+_midpoint_grid_cache: dict[int, dict[tuple[int, int], list[dict[str, Any]]]] = {}
+
+
 def nearest_service_edge(
     lon: float | None,
     lat: float | None,
@@ -303,11 +307,33 @@ def nearest_service_edge(
     sumo_y = source_y + net_offset[1]
     best: dict[str, Any] | None = None
     best_dist = float("inf")
-    for candidate in service_midpoints:
-        dist = ((candidate["x"] - sumo_x) ** 2 + (candidate["y"] - sumo_y) ** 2) ** 0.5
-        if dist < best_dist:
-            best = candidate
-            best_dist = dist
+    # Grid-bucketed search: linear scan is fine for a corridor cutout but takes
+    # hours against the 71k-edge full-Berlin net. Buckets are cached on the
+    # midpoint list object; ring search expands until a hit ring is exhausted.
+    grid = _midpoint_grid_cache.get(id(service_midpoints))
+    if grid is None:
+        grid = {}
+        for candidate in service_midpoints:
+            key = (int(candidate["x"] // _GRID_CELL_M), int(candidate["y"] // _GRID_CELL_M))
+            grid.setdefault(key, []).append(candidate)
+        _midpoint_grid_cache[id(service_midpoints)] = grid
+    center = (int(sumo_x // _GRID_CELL_M), int(sumo_y // _GRID_CELL_M))
+    for radius in range(0, 65):
+        ring: list[dict[str, Any]] = []
+        for gx in range(center[0] - radius, center[0] + radius + 1):
+            for gy in range(center[1] - radius, center[1] + radius + 1):
+                if max(abs(gx - center[0]), abs(gy - center[1])) != radius:
+                    continue
+                ring.extend(grid.get((gx, gy), ()))
+        for candidate in ring:
+            dist = ((candidate["x"] - sumo_x) ** 2 + (candidate["y"] - sumo_y) ** 2) ** 0.5
+            if dist < best_dist:
+                best = candidate
+                best_dist = dist
+        # A hit in ring r guarantees the true nearest lies within r+1 (chebyshev
+        # cells can hide a closer euclidean point one ring out).
+        if best is not None and radius >= 1 and best_dist <= (radius - 1) * _GRID_CELL_M:
+            break
     return {
         "edgeId": best["edgeId"] if best else None,
         "distanceM": round(best_dist, 1) if best else None,

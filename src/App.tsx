@@ -18,6 +18,7 @@ import {
   CybercabExperience,
   type DispatchFeedEntry,
   type ExperiencePhase,
+  type OpsSample,
   type ShiftReportCategory,
 } from "./components/CybercabExperience"
 
@@ -27,13 +28,20 @@ const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapSty
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
 const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
-const districtScope = "charlottenburg-moabit-tiergarten"
+const districtScope = "berlin"
+// The city-scale scenario skips the SUMO lane/TL geometry fetch: the full net
+// is 71k edges (a multi-hundred-MB payload) and the basemap already draws the
+// streets. Micro layers remain a corridor-scenario feature.
+const hasMicroNetworkLayers = districtScope !== "berlin"
+const FLEET_SIZE_CHOICES = [10, 30, 50] as const
+export type FleetChoice = (typeof FLEET_SIZE_CHOICES)[number]
+const SHIFT_START_SEC = 63_600 // 17:40 — depot drive-in
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
 // Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
-const SIM_SPEED_OPTIONS = [10, 40, 120] as const
+const SIM_SPEED_OPTIONS = [20, 60, 180] as const
 type SimSpeed = (typeof SIM_SPEED_OPTIONS)[number]
-const DEFAULT_SIM_SPEED: SimSpeed = 40
+const DEFAULT_SIM_SPEED: SimSpeed = 60
 const playbackLowWatermarkFrames = 250
 const playbackRetainedPastFrames = 20
 // When the tab is visible, cap catch-up to a few frames per tick so a buffer
@@ -46,11 +54,10 @@ type PlaybackMode = (typeof playbackModes)[number]
 const defaultPlaybackMode: PlaybackMode = 1000
 const demandSource = "matsim"
 const dispatchEngine = "taxi"
-// Corridor bbox (13.276-13.382, 52.495-52.544) extended north to include the
-// fixed TXL depot marker at (13.303, 52.557).
+// Full-Berlin BeST network bbox (city-wide scenario).
 const activeScenarioBounds: [Coordinate, Coordinate] = [
-  [13.2758, 52.4952],
-  [13.3818, 52.5572],
+  [13.0884, 52.3382],
+  [13.7611, 52.6755],
 ]
 // Fixed TXL-area depot (edge 8036812#2). The backend ships no depot geometry
 // for this scenario, so the marker location is a frontend constant.
@@ -1678,6 +1685,8 @@ export default function App() {
   void isStoryOpen
   const [simSpeed, setSimSpeed] = useState<SimSpeed>(DEFAULT_SIM_SPEED)
   const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
+  const [fleetChoice, setFleetChoice] = useState<FleetChoice>(30)
+  const fleetChoiceRef = useRef<number>(30)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
   // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,
@@ -1741,6 +1750,11 @@ export default function App() {
   const cabStateSamplesRef = useRef<Map<string, number>>(new Map())
   const cabRideCountsRef = useRef<Map<string, number>>(new Map())
   const cabBatteryHistoryRef = useRef<Map<string, number[]>>(new Map())
+  // Ops-monitor time series: one sample every 30 sim-seconds, driving the
+  // demand curve and the fleet-state timeline in the left pane.
+  const opsTimelineRef = useRef<OpsSample[]>([])
+  const requestedCumRef = useRef(0)
+  const expiredCumRef = useRef(0)
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
   const dataUpdateCountRef = useRef(0)
@@ -1773,10 +1787,13 @@ export default function App() {
     serviceAreaRef.current = serviceArea
   }, [serviceArea])
 
-  // The visual service area is the union of the official Ortsteil polygons
-  // (real district curves), shipped statically; the backend bbox envelope is
-  // only a fallback.
+  // The city scenario has no drawn service zone: the service area IS Berlin,
+  // and the city outline is already the map. (The corridor rectangle overlay
+  // was a cutout-era artifact.)
   useEffect(() => {
+    if (districtScope === "berlin") {
+      return
+    }
     let isCancelled = false
     async function loadServiceArea() {
       try {
@@ -2079,6 +2096,9 @@ export default function App() {
     cabStateSamplesRef.current = new Map()
     cabRideCountsRef.current = new Map()
     cabBatteryHistoryRef.current = new Map()
+    opsTimelineRef.current = []
+    requestedCumRef.current = 0
+    expiredCumRef.current = 0
     latestRobotaxiRequestsRef.current = undefined
     setDispatchFeed([])
     setFollowedCabId(null)
@@ -2138,6 +2158,12 @@ export default function App() {
         }
       }
       for (const event of frame.requestEvents ?? []) {
+        if (event.status === "waiting") {
+          requestedCumRef.current += 1
+        }
+        if (event.status === "expired") {
+          expiredCumRef.current += 1
+        }
         if (event.status === "completed" && typeof event.waitSec === "number") {
           completedWaitsRef.current.set(event.id, event.waitSec)
         }
@@ -2147,6 +2173,21 @@ export default function App() {
             (cabRideCountsRef.current.get(event.cab) ?? 0) + 1,
           )
         }
+      }
+      if (sampleBattery) {
+        const states: Record<string, number> = {}
+        for (const row of frame.cabRows ?? []) {
+          if (row.state) {
+            states[row.state] = (states[row.state] ?? 0) + 1
+          }
+        }
+        opsTimelineRef.current.push({
+          t: Math.floor(frame.simSec),
+          requested: requestedCumRef.current,
+          served: completedWaitsRef.current.size,
+          expired: expiredCumRef.current,
+          states,
+        })
       }
       if (frame.requestEvents && frame.requestEvents.length > 0) {
         const entries: DispatchFeedEntry[] = frame.requestEvents.map((event) => ({
@@ -2208,6 +2249,12 @@ export default function App() {
     isPlaybackPlayingRef.current = false
     followedCabIdRef.current = null
     setFollowedCabId(null)
+    // The report reads over the whole city, not the last chase-cam corner.
+    baseMapRef.current?.fitBounds(activeScenarioBounds, {
+      padding: { top: 40, bottom: 40, left: 40, right: 40 },
+      maxZoom: 11,
+      duration: 1400,
+    })
     setPlaybackStatus("Ended")
   }, [syncPlaybackFrameSources])
 
@@ -2223,7 +2270,7 @@ export default function App() {
     }
 
     const playbackUrl = backendWebSocketUrl(
-      `/ws/sumo/${districtScope}/playback?speed=${playbackModeRef.current}&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=auto`,
+      `/ws/sumo/${districtScope}/playback?speed=${playbackModeRef.current}&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=auto&fleet=${fleetChoiceRef.current}`,
     )
     if (!playbackUrl) {
       setPlaybackStatus("Error")
@@ -2386,7 +2433,10 @@ export default function App() {
     setFollowedCabId(cabId)
     followedCabIdRef.current = cabId
     const map = baseMapRef.current
-    if (map && cabId) {
+    if (!map) {
+      return
+    }
+    if (cabId) {
       const vehicle = latestSumoFrameRef.current?.vehicles.find(
         (candidate) => candidate.id === cabId,
       )
@@ -2398,6 +2448,14 @@ export default function App() {
           duration: 900,
         })
       }
+    } else {
+      // Release returns to the city overview — the whole point of the map at
+      // city scale; staying parked on a street corner orphans the report too.
+      map.fitBounds(activeScenarioBounds, {
+        padding: { top: 40, bottom: 40, left: 40, right: 40 },
+        maxZoom: 11,
+        duration: 1100,
+      })
     }
   }, [])
 
@@ -2570,6 +2628,24 @@ export default function App() {
         ? "running"
         : "idle"
   const hudClock = sumoFrame ? formatSimClock(sumoFrame.simSec) : "18:00"
+  // Snapshot the ops stores at sample cadence (every 30 sim-sec), not per
+  // paced frame — at 180x per-frame copies of 30 battery histories melt the
+  // main thread.
+  const opsSampleTick = Math.floor((sumoFrame?.simSec ?? 0) / 30)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const opsTimelineSnapshot = useMemo(() => [...opsTimelineRef.current], [opsSampleTick])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const waitsSnapshot = useMemo(() => Array.from(completedWaitsRef.current.values()), [opsSampleTick])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cabRidesSnapshot = useMemo(() => Object.fromEntries(cabRideCountsRef.current), [opsSampleTick])
+  const cabBatteryHistorySnapshot = useMemo(
+    () =>
+      Object.fromEntries(
+        Array.from(cabBatteryHistoryRef.current.entries(), ([id, values]) => [id, [...values]]),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opsSampleTick],
+  )
   const shiftReport: ShiftReportCategory[] | null = useMemo(() => {
     if (!finalRunAudit && playbackStatus !== "Ended") {
       return null
@@ -2962,6 +3038,11 @@ export default function App() {
       setIsSumoNetworkLoading(false)
       return
     }
+    if (!hasMicroNetworkLayers) {
+      setSumoStatus("Ready")
+      setIsSumoNetworkLoading(false)
+      return
+    }
 
     const networkUrl = backendHttpUrl(`/sumo/${districtScope}/network`)
     if (!networkUrl) {
@@ -3016,19 +3097,17 @@ export default function App() {
     }
 
     const restoredCamera = pendingThemeCameraRef.current
-    // Camera framing: corridor + depot fill the stage, with headroom for the
-    // HUD pill at the top. No side panels exist in the public layout.
+    // City framing: the map owns the right half of the split layout, so the
+    // padding is symmetric — the whole of Berlin fills the stage.
     const defaultFitBoundsOptions =
       window.innerWidth < 720
         ? {
-            padding: { top: 72, bottom: 36, left: 24, right: 24 },
-            maxZoom: 12.2,
+            padding: { top: 48, bottom: 24, left: 16, right: 16 },
+            maxZoom: 11,
           }
         : {
-            // Keep the corridor clear of the dispatch panels: feed bottom-left,
-            // fleet board top-right.
-            padding: { top: 72, bottom: 72, left: 356, right: 88 },
-            maxZoom: 12.9,
+            padding: { top: 40, bottom: 40, left: 40, right: 40 },
+            maxZoom: 11,
           }
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,
@@ -3236,10 +3315,10 @@ export default function App() {
             "interpolate",
             ["linear"],
             ["zoom"],
-            11,
-            0.26,
+            9,
+            0.5,
             13,
-            0.35,
+            0.38,
             15,
             0.62,
             17,
@@ -3854,23 +3933,24 @@ export default function App() {
       <CybercabExperience
         phase={experiencePhase}
         clock={hudClock}
-        shiftProgress={
-          sumoFrame ? Math.max(0, Math.min(1, (sumoFrame.simSec - 64_800) / 3_600)) : 0
-        }
+        simSec={sumoFrame?.simSec ?? SHIFT_START_SEC}
         ridesServed={displayedCompletedRequests}
         openRequests={inProgressRequests}
         fleetRows={sumoFrame?.cabRows}
         feed={dispatchFeed}
         fleetSize={displayFleetSize}
+        fleetChoice={fleetChoice}
+        onFleetChoice={(fleet) => {
+          setFleetChoice(fleet as FleetChoice)
+          fleetChoiceRef.current = fleet
+        }}
         simSpeed={simSpeed}
         onSimSpeed={(speed) => setSimSpeed(speed as SimSpeed)}
         followedCabId={followedCabId}
         onSelectCab={selectCabToFollow}
         onFollowZoom={nudgeFollowZoom}
-        cabRides={Object.fromEntries(cabRideCountsRef.current)}
-        cabBatteryHistory={Object.fromEntries(
-          Array.from(cabBatteryHistoryRef.current.entries(), ([id, values]) => [id, [...values]]),
-        )}
+        cabRides={cabRidesSnapshot}
+        cabBatteryHistory={cabBatteryHistorySnapshot}
         riderByCab={Object.fromEntries(
           (latestRobotaxiRequestsRef.current ?? [])
             .filter(
@@ -3887,6 +3967,8 @@ export default function App() {
               },
             ]),
         )}
+        opsTimeline={opsTimelineSnapshot}
+        waits={waitsSnapshot}
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}

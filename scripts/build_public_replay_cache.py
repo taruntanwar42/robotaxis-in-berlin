@@ -25,7 +25,13 @@ def websocket_url(base_url: str, path: str) -> str:
     return urlunparse((scheme, parsed.netloc, path, "", "", ""))
 
 
-async def build_cache(base_url: str, output_path: Path, demand_file: str | None = None) -> None:
+async def build_cache(
+    base_url: str,
+    output_path: Path,
+    demand_file: str | None = None,
+    scope: str = "charlottenburg-moabit-tiergarten",
+    fleet: int | None = None,
+) -> None:
     try:
         import websockets
     except ImportError as error:
@@ -36,9 +42,11 @@ async def build_cache(base_url: str, output_path: Path, demand_file: str | None 
     query = "?speed=50&demand=matsim&engine=taxi&detail=public&cache=live"
     if demand_file:
         query += f"&demandfile={demand_file}"
+    if fleet is not None:
+        query += f"&fleet={fleet}"
     uri = websocket_url(
         base_url,
-        f"/ws/sumo/charlottenburg-moabit-tiergarten/playback{query}",
+        f"/ws/sumo/{scope}/playback{query}",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
@@ -70,6 +78,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:7860")
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--scope", default="charlottenburg-moabit-tiergarten")
+    parser.add_argument(
+        "--fleet",
+        type=int,
+        default=None,
+        help="Fleet-size override (berlin recording matrix); part of the output name.",
+    )
     parser.add_argument(
         "--seed",
         type=int,
@@ -81,17 +96,15 @@ def main() -> None:
     demand_file = None
     output_path = args.output
     if args.seed is not None:
-        demand_file = (
-            f"charlottenburg-moabit-tiergarten_person_trips_1pct_180000_190000_seed{args.seed}.json"
-        )
-        if output_path is None:
-            output_path = DEFAULT_CACHE_PATH.with_name(
-                f"charlottenburg-moabit-tiergarten_taxi_matsim_public.seed{args.seed}.jsonl.gz"
-            )
+        demand_file = f"{args.scope}_person_trips_1pct_180000_190000_seed{args.seed}.json"
     if output_path is None:
-        output_path = DEFAULT_CACHE_PATH
+        fleet_part = f".fleet{args.fleet}" if args.fleet is not None else ""
+        seed_part = f".seed{args.seed}" if args.seed is not None else ""
+        output_path = DEFAULT_CACHE_PATH.with_name(
+            f"{args.scope}_taxi_matsim_public{fleet_part}{seed_part}.jsonl.gz"
+        )
 
-    asyncio.run(build_cache(args.base_url, output_path, demand_file))
+    asyncio.run(build_cache(args.base_url, output_path, demand_file, args.scope, args.fleet))
 
 
 if __name__ == "__main__":

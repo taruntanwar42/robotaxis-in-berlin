@@ -34,15 +34,22 @@ MATSIM_CORRIDOR_DEMAND_FILE = (
     / "charlottenburg-moabit-tiergarten_person_trips_1pct_180000_190000_car_ride.json"
 )
 MATSIM_DEFAULT_DEMAND_FILE = MATSIM_CORRIDOR_DEMAND_FILE
+SUMO_BERLIN_SCENARIO_DIR = APP_DIR / "sumo" / "berlin"
+MATSIM_BERLIN_DEMAND_FILE = MATSIM_DEMAND_DIR / "berlin_person_trips_1pct_180000_190000_seed1.json"
 SUMO_START_SEC = 64_800
 SUMO_END_SEC = 75_600
 SUMO_CORRIDOR_END_SEC = 68_400  # 19:00 — v1 one-hour watchable window
+# Berlin city scenario starts 17:40: the fleet leaves the TXL depot and drives
+# into position while the evening background traffic fills the city.
+SUMO_BERLIN_START_SEC = 63_600
 ROBOTAXI_REQUEST_EXPIRY_SEC = 600
 SUMO_WINDOW_LABEL = "18:00-21:00"
 DEFAULT_SUMO_DELAY_MS = 0
 MAX_SUMO_DELAY_MS = 1000
 FAST_SIM_BURST_STEPS = 500
 PLAYBACK_SCOPE = "charlottenburg-moabit-tiergarten"
+PLAYBACK_SCOPES = {"charlottenburg-moabit-tiergarten", "berlin"}
+FLEET_SIZE_OPTIONS = {10, 30, 50}
 PLAYBACK_DATA_FPS = 50
 PLAYBACK_DEFAULT_RATE = 10
 PLAYBACK_SPEEDS = {5, 10, 25, 50, 100, 250, 500, 1000}
@@ -99,6 +106,12 @@ ROBOTAXI_STAGING_CANDIDATE_LIMIT = 12
 ROBOTAXI_ROAM_IDLE_MIN_SEC = 120
 ROBOTAXI_ROAM_RECHECK_SEC = 150
 ROBOTAXI_ROAM_MIN_EDGE_LENGTH_M = 60.0
+# City-scale sanity caps. 30 cabs over 800 km2 means ~5 km spacing, i.e. a
+# typical pickup drive of 10-15 min — a tight cap starves the fleet (measured:
+# 9/78 served at 540 s). 12 min keeps hauls bounded without starving; the
+# staging cap keeps empty repositioning regional.
+ROBOTAXI_MAX_PICKUP_ROUTE_SEC = 900.0
+ROBOTAXI_MAX_STAGING_ROUTE_SEC = 480.0
 ROBOTAXI_CHARGE_READY_FRACTION = 0.88
 ROBOTAXI_FINAL_DEPOT_MARGIN_SEC = 180
 ROBOTAXI_TAXI_DRT_WINDDOWN_SEC = 600
@@ -147,6 +160,35 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "networkMaxLanes": None,
         "includeInternalLanes": True,
         "includeSignalLinks": True,
+    },
+    "berlin": {
+        "key": "berlin",
+        "label": "Berlin city (full BeST network, 1pct traffic)",
+        "dir": SUMO_BERLIN_SCENARIO_DIR,
+        "config": SUMO_BERLIN_SCENARIO_DIR / "berlin.sumocfg",
+        "net": SUMO_BERLIN_SCENARIO_DIR / "berlin.net.xml",
+        "route": SUMO_BERLIN_SCENARIO_DIR / "berlin-background-1pct.rou.xml",
+        "additional": None,
+        "boundary": SUMO_BERLIN_SCENARIO_DIR / "berlin.area.geojson",
+        "depotEdge": "8036812#2",
+        "startSec": SUMO_BERLIN_START_SEC,
+        "endSec": SUMO_CORRIDOR_END_SEC,
+        "networkMaxLanes": None,
+        "includeInternalLanes": True,
+        "includeSignalLinks": True,
+        "fleetSize": 30,
+        "demandFileDefault": MATSIM_BERLIN_DEMAND_FILE,
+        "spawnAtDepot": True,
+        "includeTrafficLights": False,
+        # City-scale: with ~5 km between idle cabs a rider realistically waits
+        # longer than the corridor's 10 min before "no cab nearby", and an
+        # accepted 18:45 rider with a cross-town trip still gets driven home —
+        # the shift closes when the last accepted ride ends (up to ~19:30).
+        "requestExpirySec": 900,
+        "postServiceRecoverySec": 1_800,
+        # City scale: accept requests until the window ends (no 18:50 cutoff);
+        # accepted rides finish inside the recovery cushion.
+        "assignmentWinddownSec": 0,
     },
 }
 
@@ -214,6 +256,26 @@ def parse_playback_cache(websocket: WebSocket) -> str:
     return raw_cache if raw_cache in PLAYBACK_CACHE_OPTIONS else DEFAULT_PLAYBACK_CACHE
 
 
+def parse_fleet_size(websocket: WebSocket) -> int | None:
+    """Optional fleet-size override (recording matrix / fleet-sizing runs)."""
+    raw = str(websocket.query_params.get("fleet") or "").strip()
+    if not raw:
+        return None
+    try:
+        fleet = int(raw)
+    except ValueError:
+        return None
+    return fleet if fleet in FLEET_SIZE_OPTIONS else None
+
+
+def scenario_fleet_size(selected: dict[str, Any]) -> int:
+    try:
+        fleet = int(selected.get("fleetSize") or 0)
+    except (TypeError, ValueError):
+        fleet = 0
+    return fleet if fleet > 0 else ROBOTAXI_FLEET_SIZE
+
+
 def parse_demand_file(websocket: WebSocket) -> Path | None:
     """Optional demand-file override for live recordings (seed variants).
 
@@ -246,14 +308,23 @@ def public_replay_cache_path(
     playback_detail: str,
 ) -> Path | None:
     if (
-        selected["key"] != "charlottenburg-moabit-tiergarten"
+        selected["key"] not in PLAYBACK_SCOPES
         or demand_source != "matsim"
         or dispatch_engine != "taxi"
         or playback_detail != "public"
     ):
         return None
     # Seeded recordings are different sampled evenings; pick one at random per
-    # connection so repeat visits do not replay the identical run.
+    # connection so repeat visits do not replay the identical run. The berlin
+    # scenario additionally keys the cache on fleet size (recording matrix).
+    if selected["key"] == "berlin":
+        fleet = scenario_fleet_size(selected)
+        seeded = sorted(
+            PUBLIC_REPLAY_DIR.glob(f"berlin_taxi_matsim_public.fleet{fleet}.seed*.jsonl.gz")
+        )
+        if seeded:
+            return random.choice(seeded)
+        return PUBLIC_REPLAY_DIR / f"berlin_taxi_matsim_public.fleet{fleet}.jsonl.gz"
     seeded = sorted(
         PUBLIC_REPLAY_DIR.glob("charlottenburg-moabit-tiergarten_taxi_matsim_public.seed*.jsonl.gz")
     )
@@ -338,7 +409,36 @@ def find_sumo_binary() -> str | None:
 
 
 def ensure_traci_import() -> Any:
+    """Return the SUMO control module: libsumo (in-process) when available.
+
+    libsumo mirrors the traci API but replaces the per-command TCP round-trip
+    with direct C++ calls (~15 ms/step saved on Windows loopback; measured
+    45x -> 62x real-time on the Berlin scenario). Set
+    ROBOTAXI_SUMO_TRANSPORT=traci to force the socket transport.
+    """
     ensure_sumo_tools()
+
+    transport = os.getenv("ROBOTAXI_SUMO_TRANSPORT", "libsumo").strip().lower()
+    if transport != "traci":
+        try:
+            import libsumo  # type: ignore[import-not-found]
+
+            if not hasattr(libsumo, "constants"):
+                libsumo.constants = libsumo  # constants live on the module
+            if not hasattr(libsumo, "getConnection"):
+                libsumo.getConnection = lambda label=None: libsumo
+            if not getattr(libsumo, "_robotaxi_start_shim", False):
+                original_start = libsumo.start
+
+                def start_without_label(cmd: Any, *args: Any, **kwargs: Any) -> Any:
+                    kwargs.pop("label", None)
+                    return original_start(cmd, *args, **kwargs)
+
+                libsumo.start = start_without_label
+                libsumo._robotaxi_start_shim = True
+            return libsumo
+        except ImportError:
+            pass
 
     import traci  # type: ignore[import-not-found]
 
@@ -1450,10 +1550,20 @@ def build_taxi_drt_route_file(
         )
     ET.SubElement(vehicle_type, "param", key="parking.ignoreDest", value="1")
 
-    for index in range(ROBOTAXI_FLEET_SIZE):
+    spawn_at_depot = bool(selected.get("spawnAtDepot")) and selected.get("depotEdge")
+    for index in range(scenario_fleet_size(selected)):
         vehicle_id = f"{ROBOTAXI_ID_PREFIX}{index + 1:02d}"
         route_id = f"{ROBOTAXI_ROUTE_ID}_{index + 1:02d}"
-        start_edge = scenario_staging_edge_id(selected, index)
+        if spawn_at_depot:
+            # Depot drive-in: the fleet leaves the depot in a staggered convoy
+            # at shift start; the staging dispatcher routes them into the city.
+            start_edge = str(selected["depotEdge"])
+            depart = str(int(selected["startSec"]) + index * 8)
+            depart_pos = "base"
+        else:
+            start_edge = scenario_staging_edge_id(selected, index)
+            depart = str(selected["startSec"])
+            depart_pos = scenario_staging_depart_pos(selected, index)
         ET.SubElement(root, "route", id=route_id, edges=start_edge)
         vehicle = ET.SubElement(
             root,
@@ -1461,9 +1571,9 @@ def build_taxi_drt_route_file(
             id=vehicle_id,
             type=ROBOTAXI_TYPE_ID,
             route=route_id,
-            depart=str(selected["startSec"]),
+            depart=depart,
             departLane="best",
-            departPos=scenario_staging_depart_pos(selected, index),
+            departPos=depart_pos,
             departSpeed="0",
         )
         ET.SubElement(vehicle, "param", key="device.battery.capacity", value=str(ROBOTAXI_BATTERY_CAPACITY_WH))
@@ -1607,7 +1717,7 @@ def sumo_summary(scope: str) -> dict[str, Any]:
             "label": scenario_window_label(selected),
         },
         "requestExpirySec": ROBOTAXI_REQUEST_EXPIRY_SEC,
-        "fleetSize": ROBOTAXI_FLEET_SIZE,
+        "fleetSize": scenario_fleet_size(selected),
         "files": packaged_sumo_files(selected),
     }
 
@@ -1759,11 +1869,11 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
         await websocket.close()
         return
 
-    if selected["key"] != PLAYBACK_SCOPE:
+    if selected["key"] not in PLAYBACK_SCOPES:
         await websocket.send_json(
             {
                 "type": "error",
-                "message": f"Playback recording is only available for {PLAYBACK_SCOPE}.",
+                "message": f"Playback recording is only available for {sorted(PLAYBACK_SCOPES)}.",
             }
         )
         await websocket.close()
@@ -1775,11 +1885,16 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
     dispatch_engine = parse_dispatch_engine(websocket)
     playback_detail = parse_playback_detail(websocket)
     playback_cache = parse_playback_cache(websocket)
-    selected["demandFile"] = parse_demand_file(websocket)
+    selected["demandFile"] = parse_demand_file(websocket) or selected.get("demandFileDefault")
+    fleet_override = parse_fleet_size(websocket)
+    if fleet_override:
+        selected["fleetSize"] = fleet_override
     frame_step_sec, visual_stride = playback_step_and_stride(playback_rate)
     runtime_end_sec = float(selected["endSec"])
     if dispatch_engine == "taxi":
-        runtime_end_sec += ROBOTAXI_POST_SERVICE_RECOVERY_SEC
+        runtime_end_sec += float(
+            selected.get("postServiceRecoverySec") or ROBOTAXI_POST_SERVICE_RECOVERY_SEC
+        )
     selected["runtimeEndSec"] = runtime_end_sec
     cache_path = public_replay_cache_path(
         selected,
@@ -3703,8 +3818,8 @@ def create_taxi_drt_dispatch_state(
         "routePath": generated["routePath"],
         "runId": run_id or "",
         "fleetInit": {
-            "requested": ROBOTAXI_FLEET_SIZE,
-            "added": ROBOTAXI_FLEET_SIZE,
+            "requested": scenario_fleet_size(selected),
+            "added": scenario_fleet_size(selected),
             "parkStopIssued": 0,
             "chargerCount": ROBOTAXI_DEPOT_CHARGER_COUNT,
             "chargingPowerKw": round(ROBOTAXI_DEPOT_CHARGING_POWER_W / 1000),
@@ -3727,18 +3842,26 @@ def create_taxi_drt_dispatch_state(
                 "id": f"{ROBOTAXI_ID_PREFIX}{index + 1:02d}",
                 "status": "staged",
                 "requestId": None,
-                "targetEdge": scenario_staging_edge_id(selected, index),
+                "targetEdge": (
+                    str(selected["depotEdge"])
+                    if selected.get("spawnAtDepot") and selected.get("depotEdge")
+                    else scenario_staging_edge_id(selected, index)
+                ),
                 "phaseSinceSec": selected["startSec"],
                 "lastEnergyUpdateSec": selected["startSec"],
                 "batteryWh": float(ROBOTAXI_INITIAL_CHARGE_WH),
                 "chargingSessionActive": False,
                 "chargingSessions": 0,
                 "lastChargeReturnReason": None,
-                "stagingTargetEdge": scenario_staging_edge_id(selected, index),
-                "locationEdge": scenario_staging_edge_id(selected, index),
+                "stagingTargetEdge": None if selected.get("spawnAtDepot") else scenario_staging_edge_id(selected, index),
+                "locationEdge": (
+                    str(selected["depotEdge"])
+                    if selected.get("spawnAtDepot") and selected.get("depotEdge")
+                    else scenario_staging_edge_id(selected, index)
+                ),
                 "error": None,
             }
-            for index in range(ROBOTAXI_FLEET_SIZE)
+            for index in range(scenario_fleet_size(selected))
         },
         "metrics": {
             "servedRequests": 0,
@@ -3781,7 +3904,11 @@ def taxi_reservation_can_complete_before_close(
         )
     except Exception:
         return False
-    return sim_sec + required_sec <= float(selected["endSec"])
+    # An accepted rider is driven home even if the drop-off lands after 19:00:
+    # the ride must finish inside the post-close recovery window, not by the
+    # assignment close itself. (By-19:00-sharp rejected every request after
+    # ~18:15 at city scale, where a pickup+ride estimate runs 30-45 min.)
+    return sim_sec + required_sec <= float(selected.get("runtimeEndSec", selected["endSec"]))
 
 
 def route_empty_taxi_to_depot(
@@ -3883,7 +4010,13 @@ def choose_taxi_staging_target_edges(
             pickup_edge = str(request.get("pickupEdge") or "")
             if pickup_edge:
                 pickup_counts[pickup_edge] += 1
-    return [edge for edge, _ in pickup_counts.most_common(ROBOTAXI_STAGING_CANDIDATE_LIMIT)]
+    # Enough distinct hotspots for the whole fleet to spread; a fixed small
+    # limit made fleet sizes 30 and 50 behave identically (cabs piled onto the
+    # same few edges while outer districts starved).
+    candidate_limit = max(
+        ROBOTAXI_STAGING_CANDIDATE_LIMIT, len(dispatch_state.get("robotaxis", {}))
+    )
+    return [edge for edge, _ in pickup_counts.most_common(candidate_limit)]
 
 
 @lru_cache(maxsize=4)
@@ -4207,7 +4340,12 @@ def update_taxi_drt_dispatch(
     live_person_ids = set(connection.person.getIDList())
     reservation_to_person_id: dict[str, str] = dispatch_state["reservationToPersonId"]
     pending_reservation_ids: list[str] = dispatch_state["pendingReservationIds"]
-    assignment_closed = sim_sec + ROBOTAXI_TAXI_DRT_WINDDOWN_SEC >= float(selected["endSec"])
+    winddown_sec = float(
+        selected.get("assignmentWinddownSec")
+        if selected.get("assignmentWinddownSec") is not None
+        else ROBOTAXI_TAXI_DRT_WINDDOWN_SEC
+    )
+    assignment_closed = sim_sec + winddown_sec >= float(selected["endSec"])
     if assignment_closed:
         close_taxi_drt_service_window(connection, dispatch_state, sim_sec)
     add_profile_ms("setupMs", profile_started_at)
@@ -4267,18 +4405,19 @@ def update_taxi_drt_dispatch(
     add_profile_ms("reservationMs", profile_started_at)
 
     profile_started_at = time.perf_counter()
+    request_expiry_sec = float(selected.get("requestExpirySec") or ROBOTAXI_REQUEST_EXPIRY_SEC)
     for person_id, request in dispatch_state["requestsByPersonId"].items():
         if request.get("status") != "waiting":
             continue
         requested_at = request.get("requestedAtSec")
         if requested_at is None:
             continue
-        if sim_sec <= float(requested_at) + ROBOTAXI_REQUEST_EXPIRY_SEC:
+        if sim_sec <= float(requested_at) + request_expiry_sec:
             continue
         request["status"] = "expired"
         request["expiredAtSec"] = sim_sec
         request["closedAtSec"] = sim_sec
-        request["rejectionReason"] = "expired_unassigned_600s"
+        request["rejectionReason"] = f"expired_unassigned_{int(request_expiry_sec)}s"
         reservation_id = request.get("reservationId")
         if reservation_id in pending_reservation_ids:
             pending_reservation_ids.remove(reservation_id)
@@ -4371,17 +4510,45 @@ def update_taxi_drt_dispatch(
                     and sim_sec - last_staging_decision_sec >= ROBOTAXI_STAGING_RECHECK_SEC
                     and str(robotaxi.get("stagingTargetEdge") or "") not in staging_target_edges
                 ):
-                    target_edge = min(staging_target_edges, key=lambda edge: staging_load[edge])
-                    route_empty_taxi_to_staging(
-                        connection,
-                        dispatch_state,
-                        vehicle_id,
-                        target_edge,
-                        sim_sec,
+                    # Least-loaded hotspot that is also reachable in a sane
+                    # empty leg; if every hotspot is too far, the cab holds its
+                    # region instead of deadheading across the city. The leg
+                    # OUT of the depot is exempt — the initial deployment drive
+                    # is long by design (Tegel -> city).
+                    staging_edge = current_vehicle_edge(connection, vehicle_id)
+                    depot_edges = {str(selected.get("depotEdge") or ""), *ROBOTAXI_DEPOT_ROUTE_EDGES}
+                    staging_cap_sec = (
+                        float("inf")
+                        if staging_edge in depot_edges
+                        else ROBOTAXI_MAX_STAGING_ROUTE_SEC
                     )
-                    if robotaxi.get("stagingTargetEdge") == target_edge:
-                        robotaxi["isRoaming"] = False
-                        staging_load[target_edge] += 1
+                    target_edge = None
+                    for candidate in sorted(
+                        staging_target_edges, key=lambda edge: staging_load[edge]
+                    ):
+                        try:
+                            leg_sec = cached_route_travel_time_sec(
+                                connection,
+                                dispatch_state,
+                                staging_edge,
+                                candidate,
+                            )
+                        except Exception:
+                            continue
+                        if leg_sec <= staging_cap_sec:
+                            target_edge = candidate
+                            break
+                    if target_edge is not None:
+                        route_empty_taxi_to_staging(
+                            connection,
+                            dispatch_state,
+                            vehicle_id,
+                            target_edge,
+                            sim_sec,
+                        )
+                        if robotaxi.get("stagingTargetEdge") == target_edge:
+                            robotaxi["isRoaming"] = False
+                            staging_load[target_edge] += 1
                     dispatch_state["lastStagingDecisionSecByVehicleId"][vehicle_id] = sim_sec
             elif (
                 robotaxi.get("status") in {"idle", "staged"}
@@ -4446,6 +4613,8 @@ def update_taxi_drt_dispatch(
                 )
             except Exception:
                 score = float("inf")
+            if score > ROBOTAXI_MAX_PICKUP_ROUTE_SEC:
+                continue
             if score < best_score:
                 best_score = score
                 best_index = index
@@ -4751,7 +4920,11 @@ def produce_sumo_taxi_drt_playback_chunks(
         traci_constants = traci.constants
         net_offset, utm_zone = load_sumo_projection(str(selected["net"]))
         edge_line_shapes = load_sumo_edge_line_shapes(str(selected["net"]))
-        traffic_light_ids = list(connection.trafficlight.getIDList())
+        traffic_light_ids = (
+            list(connection.trafficlight.getIDList())
+            if selected.get("includeTrafficLights", True)
+            else []
+        )
         for traffic_light_id in traffic_light_ids:
             connection.trafficlight.subscribe(
                 traffic_light_id,
@@ -5456,19 +5629,23 @@ def build_public_slim_frame(
         for row in contract_fields.get("cabRows", [])
     ]
 
-    last_traffic_lights = dispatch_state.setdefault("lastEmittedTrafficLightStates", {})
-    if not last_traffic_lights:
-        frame["trafficLights"] = traffic_lights
-        last_traffic_lights.update(traffic_lights)
-    else:
-        delta = {
-            light_id: state
-            for light_id, state in traffic_lights.items()
-            if last_traffic_lights.get(light_id) != state
-        }
-        if delta:
-            frame["trafficLightsDelta"] = delta
-            last_traffic_lights.update(delta)
+    # City-scale scenarios stream no TL state at all: the frontend draws no
+    # signal layer there, and 2.3k actuated signals delta-churned to 68% of
+    # the replay bytes (250 MB raw) before this gate existed.
+    if traffic_lights:
+        last_traffic_lights = dispatch_state.setdefault("lastEmittedTrafficLightStates", {})
+        if not last_traffic_lights:
+            frame["trafficLights"] = traffic_lights
+            last_traffic_lights.update(traffic_lights)
+        else:
+            delta = {
+                light_id: state
+                for light_id, state in traffic_lights.items()
+                if last_traffic_lights.get(light_id) != state
+            }
+            if delta:
+                frame["trafficLightsDelta"] = delta
+                last_traffic_lights.update(delta)
     return frame
 
 

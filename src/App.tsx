@@ -37,6 +37,11 @@ const hasMicroNetworkLayers = districtScope !== "berlin"
 const FLEET_SIZE_CHOICES = [10, 30, 50] as const
 export type FleetChoice = (typeof FLEET_SIZE_CHOICES)[number]
 const SHIFT_START_SEC = 63_600 // 17:40 — depot drive-in
+// DEV spike (?spike=chase): pitched 3D chase view with extruded buildings —
+// evidence run for the Tesla-style in-world driving view. Not a product flag.
+const CHASE_SPIKE =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("spike") === "chase"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
 // Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
@@ -1702,7 +1707,8 @@ export default function App() {
   const followedCabIdRef = useRef<string | null>(null)
   // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,
   // so wheel and buttons adjust this instead.
-  const followZoomRef = useRef(15.3)
+  const followZoomRef = useRef(CHASE_SPIKE ? 17.2 : 15.3)
+  const chaseBearingRef = useRef(0)
   const [diagnostics, setDiagnostics] = useState<RenderDiagnostics>({
     renderFps: 0,
     dataFps: 0,
@@ -2999,6 +3005,15 @@ export default function App() {
       source(map, "sumo-vehicles")?.setData(
         interpolatedVehicleCollection(timeline[index], timeline[index + 1], t),
       )
+      if (CHASE_SPIKE && !followedCabIdRef.current) {
+        const mover = timeline[index].vehicles.find(
+          (vehicle) => vehicle.kind === "robotaxi" && (vehicle.speed ?? 0) > 2,
+        )
+        if (mover) {
+          followedCabIdRef.current = mover.id
+          setFollowedCabId(mover.id)
+        }
+      }
       const followedId = followedCabIdRef.current
       if (followedId) {
         const frameA = timeline[index]
@@ -3008,7 +3023,22 @@ export default function App() {
         if (current) {
           const lon = next ? current.lon + (next.lon - current.lon) * t : current.lon
           const lat = next ? current.lat + (next.lat - current.lat) * t : current.lat
-          map.jumpTo({ center: [lon, lat], zoom: followZoomRef.current })
+          if (CHASE_SPIKE) {
+            // Pitched chase: look along the cab's travel direction; smooth the
+            // bearing on the shortest arc so intersections don't whip the camera.
+            const target = current.angle ?? 0
+            const currentBearing = chaseBearingRef.current
+            let delta = ((target - currentBearing + 540) % 360) - 180
+            chaseBearingRef.current = (currentBearing + delta * 0.08 + 360) % 360
+            map.jumpTo({
+              center: [lon, lat],
+              zoom: followZoomRef.current,
+              pitch: 62,
+              bearing: chaseBearingRef.current,
+            })
+          } else {
+            map.jumpTo({ center: [lon, lat], zoom: followZoomRef.current })
+          }
         }
       }
     }
@@ -3688,6 +3718,42 @@ export default function App() {
       }, 70)
 
       scheduleStaticOverlaySync()
+      if (CHASE_SPIKE) {
+        // Extruded buildings from the style's own vector source; best-effort —
+        // if the source layer is absent the spike still runs on the flat map.
+        try {
+          const sources = map.getStyle().sources ?? {}
+          const vectorSourceId = Object.entries(sources).find(
+            ([, source]) => (source as { type?: string }).type === "vector",
+          )?.[0]
+          if (vectorSourceId) {
+            map.addLayer({
+              id: "spike-3d-buildings",
+              type: "fill-extrusion",
+              source: vectorSourceId,
+              "source-layer": "building",
+              minzoom: 14,
+              paint: {
+                "fill-extrusion-color": "#e2e4e6",
+                "fill-extrusion-height": [
+                  "coalesce",
+                  ["get", "render_height"],
+                  ["get", "height"],
+                  8,
+                ],
+                "fill-extrusion-base": [
+                  "coalesce",
+                  ["get", "render_min_height"],
+                  0,
+                ],
+                "fill-extrusion-opacity": 0.85,
+              },
+            })
+          }
+        } catch (error) {
+          console.warn("[spike] 3d buildings unavailable", error)
+        }
+      }
       if (restoredCamera) {
         map.jumpTo(restoredCamera)
         pendingThemeCameraRef.current = null

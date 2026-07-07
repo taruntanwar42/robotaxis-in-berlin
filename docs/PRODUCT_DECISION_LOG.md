@@ -1193,3 +1193,28 @@ Extracted decision:
   fleet size.
 - Replays: 12-21 MB gz per run (TL cut from 103 MB); five shipped:
   fleet10/30/50 x seed1 + fleet30 x seeds 2-3.
+
+## 2026-07-07 - v9 Final QA: Verified End-to-End; Two Ghosts Exorcised
+
+(Agent findings, closing the day.)
+
+- Full recruiter run verified in the production build: idle setup (centered,
+  fleet 10/30/50 chips) -> Start -> 17:40 depot convoy -> live control room
+  (KPIs, fleet grid, demand curve, wait histogram, fleet-state timeline,
+  ticker, hover cards on riders/cabs) -> chase cam with inline cab card and
+  zoom -> 19:00 close -> winddown drop-offs ("21.4m wait" late riders driven
+  home) -> camera eases back to the whole city -> in-pane shift report
+  (49/76 served, energy self-validates at 10.3 kWh/100 km) -> rerun chips.
+- GHOST 1 (the "~15s early-click dead window"): NOT a product bug. The Start
+  button is topmost and enabled; a synthetic click works instantly. The
+  browser-automation extension's coordinate clicks are what get swallowed.
+  Real mice are unaffected.
+- GHOST 2 (the "rerun freeze"): NOT a product bug. document.hidden=true —
+  occluded-tab rAF throttling (documented since the corridor). Visible
+  windows run smooth; zero long tasks measured.
+- Shipped replay set: fleet10/30/50 seed 1 + fleet30 seed 2 (45/66, 68%).
+  Seed 3 dropped: deterministic stuck depot-returner (one cab loops until the
+  hard cap; pre-existing return-routing edge case, logged for next session).
+- Late crash class fixed for good: runtime edge mapping now skips lanes
+  without taxi access (a rider on a passenger-only lane killed the SUMO
+  reservation add mid-recording).

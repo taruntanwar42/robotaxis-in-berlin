@@ -2249,6 +2249,7 @@ export default function App() {
     isPlaybackPlayingRef.current = false
     followedCabIdRef.current = null
     setFollowedCabId(null)
+    setMapTooltip(null)
     // The report reads over the whole city, not the last chase-cam corner.
     baseMapRef.current?.fitBounds(activeScenarioBounds, {
       padding: { top: 40, bottom: 40, left: 40, right: 40 },

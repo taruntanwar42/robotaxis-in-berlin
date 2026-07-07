@@ -2170,3 +2170,28 @@
   letter-spacing: 0.08em;
   margin-right: 2px;
 }
+
+/* v9 polish */
+.ops-pane.is-idle .ops-setup {
+  margin: auto 0;
+}
+
+.ops-pane.is-idle .ops-brand {
+  margin-top: 4vh;
+}
+
+.map-legend {
+  bottom: 44px;
+}
+
+.ops-pane {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 30, 40, 0.18) transparent;
+}
+
+.report-rerun {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}

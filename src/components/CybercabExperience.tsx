@@ -125,7 +125,10 @@ export function CybercabExperience({
 
   return (
     <div className="experience-layer">
-      <aside className="ops-pane" aria-label="Fleet control room">
+      <aside
+        className={phase === "idle" ? "ops-pane is-idle" : "ops-pane"}
+        aria-label="Fleet control room"
+      >
         <header className="ops-brand">
           <span className="ops-brand-mark" aria-hidden="true" />
           <div>
@@ -324,9 +327,23 @@ export function CybercabExperience({
                   <span className="report-footnote">
                     ¹ incl. repositioning and depot legs · 1% population sample, full city
                   </span>
-                  <button type="button" className="ghost-button" onClick={onReplay}>
-                    Run another evening
-                  </button>
+                  <span className="report-rerun">
+                    <span className="setup-chips">
+                      {FLEET_CHOICES.map((choice) => (
+                        <button
+                          key={choice}
+                          type="button"
+                          className={choice === fleetChoice ? "ops-chip is-active" : "ops-chip"}
+                          onClick={() => onFleetChoice(choice)}
+                        >
+                          {choice}
+                        </button>
+                      ))}
+                    </span>
+                    <button type="button" className="ghost-button" onClick={onReplay}>
+                      Run again
+                    </button>
+                  </span>
                 </div>
               </section>
             ) : (

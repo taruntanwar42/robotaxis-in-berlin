@@ -1295,3 +1295,34 @@ Extracted decision:
   ("cant waste tokens and time on chrome, i'll give quick input").
 - Process reaffirmed: Claude proposes options concretely, user picks, Claude
   builds ("you imagine, i choose for a feature, then you build it").
+
+## 2026-07-08 - Direction reset: light app + intro card + LIVE sim default
+
+Raw user language:
+
+> ok so, sorry, i think we wont actually be able to finish the app at this pace. let's roll back. i have a new idea. let's go in an easier direction. we'll just make a user experience, working with/building on top of our previous light app.
+
+> the app loads with a white-ish small tutorial/sim controls window on the top left. tesla design language. says - cybercabs are coming to berlin, shows them driving on a highway road, light/gray map ... blue driving lanes showing the direction they're going in/their intended path, like tesla app ... and then a blue button that says start simulation. at which point the map switches from one robotaxi to a zoomed out view of berlin i guess ... let's keep it simple, modern, fresh. shadcn like ui
+
+> but what i do not understand is, why you keep saying re-record, recordings, etc. like, arent we using a real sim or sth? like, the 'sim' would already start as soon as the site first laods i guess.
+
+> [blue lanes] let's just skip it for now, ok? make your life a bit easier.
+
+Extracted decision:
+
+- Dark 3D-pane entry abandoned; EntryPane/GLB scene deleted (git history
+  keeps them). Light v9 app is the base again.
+- Live simulation is now the DEFAULT: ws opens with cache=live at page load;
+  ?cache=auto is a dev-only fallback to recorded evenings.
+- New pre-service experience: full-bleed light map; sim starts computing at
+  page load (17:40 depot roll-out); playback holds just before 18:00 until
+  the viewer clicks Start; street-level auto-follow of the first cab that
+  moves during the intro; on Start the camera releases to the whole city and
+  the v9 ops pane takes over.
+- Intro card top-left, shadcn language: title "Cybercabs are coming to
+  Berlin", two lines, one blue button "Start simulation" (disabled
+  "Preparing the city…" until first frames), hint "Runs by itself · about
+  two minutes".
+- Blue intended-path lanes: deferred by user (needs cab route polylines in
+  the stream — same mechanism as the existing request path lines).
+- .env.local backend URL corrected 7860→7861 (zombie servers squat 7860).

@@ -22,7 +22,7 @@ import {
   type RunSummary,
   type ShiftReportCategory,
 } from "./components/CybercabExperience"
-import { EntryPane } from "./components/EntryPane"
+import { IntroCard } from "./components/IntroCard"
 
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_STYLE_URL as string | undefined
 const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL as string | undefined
@@ -43,11 +43,18 @@ const SHIFT_START_SEC = 63_600 // 17:40 — depot drive-in
 const CHASE_SPIKE =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("spike") === "chase"
-// Dev escape hatch while the v10 entry is under construction: ?entry=off
-// exposes the legacy idle pane (and its Start button) underneath.
-const ENTRY_OFF =
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).get("entry") === "off"
+// Real simulation, always: every visit computes its own evening live on the
+// backend. ?cache=auto reverts to the recorded evenings (dev fallback only).
+const playbackCacheMode = (() => {
+  if (typeof window === "undefined") {
+    return "live"
+  }
+  const requested = new URLSearchParams(window.location.search).get("cache")
+  return requested === "auto" || requested === "cache" ? requested : "live"
+})()
+// The stream begins at page load (17:40 depot roll-out); playback holds just
+// before the service hour so the viewer starts it, then it runs by itself.
+const SERVICE_HOLD_SIM_SEC = 64_795
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
 // Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
@@ -1702,6 +1709,10 @@ export default function App() {
   const [finalRunAudit, setFinalRunAudit] = useState<RobotaxiRunAudit | null>(null)
   const [appTheme, setAppTheme] = useState<AppTheme>("light")
   const [isMapEnabled, setIsMapEnabled] = useState(true)
+  // Pre-service intro: the sim streams from page load but playback holds just
+  // before 18:00 until the viewer starts the service hour.
+  const [serviceReleased, setServiceReleased] = useState(false)
+  const playbackServiceHoldRef = useRef(true)
   const [isEngineeringPanelOpen, setIsEngineeringPanelOpen] = useState(false)
   const [isStoryOpen] = useState(false)
   void isStoryOpen
@@ -2242,6 +2253,9 @@ export default function App() {
       dataUpdateCountRef.current += 1
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
+      if (import.meta.env.DEV) {
+        ;(window as unknown as Record<string, unknown>).__simSec = frame.simSec
+      }
     },
     [absorbPlaybackFrame, syncPlaybackFrameSources],
   )
@@ -2297,7 +2311,7 @@ export default function App() {
     }
 
     const playbackUrl = backendWebSocketUrl(
-      `/ws/sumo/${districtScope}/playback?speed=${playbackModeRef.current}&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=auto&fleet=${fleetChoiceRef.current}`,
+      `/ws/sumo/${districtScope}/playback?speed=${playbackModeRef.current}&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=${playbackCacheMode}&fleet=${fleetChoiceRef.current}`,
     )
     if (!playbackUrl) {
       setPlaybackStatus("Error")
@@ -2522,6 +2536,36 @@ export default function App() {
     )
     void requestPlaybackChunk()
   }, [requestPlaybackChunk])
+
+  // The sim starts computing the moment the page loads — the depot roll-out
+  // is what the viewer watches while deciding to press Start.
+  const playbackAutoStartedRef = useRef(false)
+  useEffect(() => {
+    if (playbackAutoStartedRef.current) {
+      return
+    }
+    playbackAutoStartedRef.current = true
+    void startPlayback()
+  }, [startPlayback])
+
+  const releaseServiceHold = useCallback(() => {
+    playbackServiceHoldRef.current = false
+    setServiceReleased(true)
+    // Leaving the convoy chase: the service hour reads at city scale.
+    selectCabToFollow(null)
+  }, [selectCabToFollow])
+
+  // Intro chase: ride along with the first cab that moves off the depot, at
+  // street level, until the viewer starts the service hour.
+  useEffect(() => {
+    if (serviceReleased || followedCabId || !sumoFrame) {
+      return
+    }
+    const mover = sumoFrame.vehicles.find((vehicle) => (vehicle.speed ?? 0) > 2)
+    if (mover) {
+      selectCabToFollow(mover.id)
+    }
+  }, [sumoFrame, serviceReleased, followedCabId, selectCabToFollow])
 
   const canChangePlaybackMode =
     !isPlaybackPlaying &&
@@ -2917,10 +2961,28 @@ export default function App() {
           // beats wall-clock accuracy while someone is watching.
           isVisible ? playbackVisibleCatchupFrames : 80,
         )
-        const targetIndex = Math.min(
+        let targetIndex = Math.min(
           playbackAppliedIndexRef.current + dueFrameCount,
           timeline.length - 1,
         )
+        if (playbackServiceHoldRef.current) {
+          // Hold at the service boundary: frames keep buffering behind the
+          // scenes, the picture waits for the viewer to start the hour.
+          while (
+            targetIndex > playbackAppliedIndexRef.current &&
+            (timeline[targetIndex]?.simSec ?? 0) >= SERVICE_HOLD_SIM_SEC
+          ) {
+            targetIndex -= 1
+          }
+          if (
+            targetIndex === playbackAppliedIndexRef.current &&
+            targetIndex >= 0 &&
+            (timeline[targetIndex + 1]?.simSec ?? 0) >= SERVICE_HOLD_SIM_SEC
+          ) {
+            playbackFrameRemainderMsRef.current = 0
+            return
+          }
+        }
         if (targetIndex === playbackAppliedIndexRef.current && targetIndex >= 0) {
           // Buffer underrun mid-run: don't re-apply the same frame.
           if (playbackDoneRef.current) {
@@ -4006,7 +4068,9 @@ export default function App() {
   }, [])
 
   return (
-    <main className={`app-shell theme-${appTheme}`}>
+    <main
+      className={`app-shell theme-${appTheme}${serviceReleased ? "" : " intro-stage"}`}
+    >
       {showEngineeringDiagnostics ? (
         <aside className="nav-rail" aria-label="Simulation navigation">
           <div className="brand-mark">
@@ -4046,6 +4110,7 @@ export default function App() {
         )}
       </section>
 
+      {serviceReleased ? (
       <CybercabExperience
         phase={experiencePhase}
         clock={hudClock}
@@ -4096,8 +4161,16 @@ export default function App() {
           void startPlayback()
         }}
       />
-
-      {experiencePhase === "idle" && !ENTRY_OFF ? <EntryPane /> : null}
+      ) : (
+        <IntroCard
+          ready={sumoFrame !== null}
+          failed={playbackStatus === "Error"}
+          onStart={releaseServiceHold}
+          onRetry={() => {
+            void startPlayback()
+          }}
+        />
+      )}
 
       {showEngineeringDiagnostics ? (
       <>

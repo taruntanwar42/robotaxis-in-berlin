@@ -185,7 +185,9 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         # accepted 18:45 rider with a cross-town trip still gets driven home —
         # the shift closes when the last accepted ride ends (up to ~19:30).
         "requestExpirySec": 900,
-        "postServiceRecoverySec": 1_800,
+        # Hard cap only: the run ends the moment the whole fleet is parked at
+        # the depot. City-scale returns from Köpenick to Tegel take ~30-40 min.
+        "postServiceRecoverySec": 3_600,
         # City scale: accept requests until the window ends (no 18:50 cutoff);
         # accepted rides finish inside the recovery cushion.
         "assignmentWinddownSec": 0,
@@ -966,6 +968,17 @@ def load_sumo_edge_reference_points(
             continue
         lane = edge.find("lane")
         if lane is None:
+            continue
+        # Riders board taxis: a pickup/dropoff on a lane without taxi access
+        # crashes SUMO's reservation add mid-run ("origin edge does not permit
+        # taxi access"), killing the whole recording.
+        lane_allow = lane.attrib.get("allow")
+        if lane_allow is not None:
+            allow_classes = lane_allow.split()
+            taxi_allowed = "taxi" in allow_classes or "all" in allow_classes
+        else:
+            taxi_allowed = "taxi" not in (lane.attrib.get("disallow") or "").split()
+        if not taxi_allowed:
             continue
 
         xy_shape = parse_sumo_xy_shape(lane.attrib.get("shape", ""))

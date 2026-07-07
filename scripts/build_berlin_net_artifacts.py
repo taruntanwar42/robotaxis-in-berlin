@@ -43,8 +43,12 @@ def main() -> None:
     depot = net.getEdge(DEPOT_EDGE_ID)
     print(f"depot edge {DEPOT_EDGE_ID}: OK length {depot.getLength():.0f}m", flush=True)
 
+    # Both vClasses required: riders board taxis, so a passenger-only edge
+    # (no taxi access) crashes SUMO's reservation add mid-run.
     service_edges = [
-        e for e in net.getEdges() if e.allows("passenger") and not e.isSpecial()
+        e
+        for e in net.getEdges()
+        if e.allows("passenger") and e.allows("taxi") and not e.isSpecial()
     ]
     (OUTPUT_DIR / "berlin.service-edges.txt").write_text(
         "\n".join(e.getID() for e in service_edges) + "\n", encoding="utf-8"

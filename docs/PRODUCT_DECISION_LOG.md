@@ -1169,3 +1169,27 @@ Extracted decision:
   Retuned: 12-min pickup cap, 15-min expiry, staging legs capped at 8 min
   (depot exit exempt). Long waits at 30 cabs are the honest fleet-sizing
   story the 10/30/50 matrix exists to tell.
+
+## 2026-07-07 - v9 Shipped State: Definitive Tuning + Fleet-Sizing Result
+
+(Agent findings; final numbers of the day.)
+
+- Definitive city tuning: pickup cap 15 min, expiry 15 min, staging legs 8 min
+  (depot exit exempt), NO assignment cutoff (requests accepted to 19:00),
+  recovery cushion up to 60 min hard cap — every run ends the moment the whole
+  fleet is parked back at Tegel (verified allFleetRecovered=True on all three
+  fleet sizes; runs end 19:37-19:55).
+- Fleet-sizing experiment (same evening, same riders, seed 1):
+  fleet 10 = 29/76 served (38%), fleet 30 = 49/76 (64%), fleet 50 = 49/76
+  (64%). Ten cabs drown; thirty is the sweet spot; fifty adds nothing because
+  the binding constraint is spatial coverage + 15-min patience, not fleet
+  count. This diminishing-returns curve is the report tab's data story.
+- Waits P50 ~14 min are 1pct-density physics: the fleet IS a 1% sample. A
+  real-scale fleet (~100x) would wait minutes. One footnote line covers it.
+- Two corridor-era bugs found by the matrix (fleet 30 = fleet 50 exactly):
+  ride-must-finish-by-19:00-sharp rejected everything after ~18:15 at city
+  trip lengths; fixed to finish-within-recovery. Hotspot candidate list was
+  capped at 12 edges so extra cabs piled onto the same spots; now scales with
+  fleet size.
+- Replays: 12-21 MB gz per run (TL cut from 103 MB); five shipped:
+  fleet10/30/50 x seed1 + fleet30 x seeds 2-3.

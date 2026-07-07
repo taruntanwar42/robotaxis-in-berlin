@@ -38,6 +38,12 @@ export type OpsSample = {
   states: Record<string, number>
 }
 
+export type RunSummary = {
+  fleet: number
+  servedPct: number
+  p50Min: number
+}
+
 const SIM_SPEED_CHOICES = [20, 60, 180]
 const FLEET_CHOICES = [10, 30, 50]
 
@@ -67,6 +73,7 @@ type CybercabExperienceProps = {
   riderByCab: Record<string, RiderInfo>
   opsTimeline: OpsSample[]
   waits: number[]
+  runHistory: RunSummary[]
   isPreparing: boolean
   isUnavailable: boolean
   report: ShiftReportCategory[] | null
@@ -95,6 +102,7 @@ export function CybercabExperience({
   riderByCab,
   opsTimeline,
   waits,
+  runHistory,
   isPreparing,
   isUnavailable,
   report,
@@ -243,7 +251,7 @@ export function CybercabExperience({
               <div className="fleet-grid">
                 {(fleetRows ?? []).map((row) => (
                   <button
-                    key={row.id}
+                    key={`${row.id}:${cabRides[row.id] ?? 0}`}
                     type="button"
                     className={
                       row.id === followedCabId
@@ -279,8 +287,10 @@ export function CybercabExperience({
                 <div className="block-title">
                   <span>Demand</span>
                   <span className="chart-legend">
-                    <i className="swatch-requested" /> requested
-                    <i className="swatch-served" /> served
+                    <i className="swatch-requested" /> requested{" "}
+                    {opsTimeline.length ? opsTimeline[opsTimeline.length - 1].requested : 0}
+                    <i className="swatch-served" /> served{" "}
+                    {opsTimeline.length ? opsTimeline[opsTimeline.length - 1].served : 0}
                   </span>
                 </div>
                 {chartNodes.demand}
@@ -298,6 +308,13 @@ export function CybercabExperience({
                     <span>Fleet state</span>
                   </div>
                   {chartNodes.states}
+                  <div className="state-legend" aria-hidden="true">
+                    <i style={{ background: "#c99700" }} /> riding
+                    <i style={{ background: "#5b7c99" }} /> pickup
+                    <i style={{ background: "#b9c2c9" }} /> moving
+                    <i style={{ background: "#e4e8eb" }} /> parked
+                    <i style={{ background: "#2c3840" }} /> depot
+                  </div>
                 </div>
               </div>
             </section>
@@ -323,6 +340,23 @@ export function CybercabExperience({
                     </div>
                   ))}
                 </div>
+                {runHistory.length > 1 ? (
+                  <div className="report-compare">
+                    <span className="report-compare-label">Fleet sizing · your runs</span>
+                    {runHistory.map((run) => (
+                      <span
+                        key={run.fleet}
+                        className={
+                          run.fleet === fleetSize
+                            ? "report-compare-item is-current"
+                            : "report-compare-item"
+                        }
+                      >
+                        {run.fleet} cabs · {run.servedPct}% served · P50 {run.p50Min}m
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="report-footer">
                   <span className="report-footnote">
                     ¹ incl. repositioning and depot legs · 1% population sample, full city
@@ -497,19 +531,27 @@ function DemandChart({ timeline }: { timeline: OpsSample[] }) {
     timeline[timeline.length - 1].t,
   ).toFixed(1)},${height}`
   return (
-    <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Requested versus served rides over the hour">
-      <line
-        x1={x(SERVICE_START)}
-        y1="0"
-        x2={x(SERVICE_START)}
-        y2={height}
-        stroke="rgba(20,30,40,0.15)"
-        strokeDasharray="3 3"
-      />
-      <polygon points={servedArea} fill="rgba(201,151,0,0.14)" />
-      <polyline points={line((s) => s.requested)} fill="none" stroke="rgba(44,56,64,0.55)" strokeWidth="1.6" />
-      <polyline points={line((s) => s.served)} fill="none" stroke="#c99700" strokeWidth="2" />
-    </svg>
+    <div className="demand-chart-wrap">
+      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Requested versus served rides over the hour">
+        <line
+          x1={x(SERVICE_START)}
+          y1="0"
+          x2={x(SERVICE_START)}
+          y2={height}
+          stroke="rgba(20,30,40,0.15)"
+          strokeDasharray="3 3"
+        />
+        <polygon points={servedArea} fill="rgba(201,151,0,0.14)" />
+        <polyline points={line((s) => s.requested)} fill="none" stroke="rgba(44,56,64,0.55)" strokeWidth="1.6" />
+        <polyline points={line((s) => s.served)} fill="none" stroke="#c99700" strokeWidth="2" />
+      </svg>
+      <span
+        className="demand-service-tick"
+        style={{ left: `${((SERVICE_START - SHIFT_START) / SHIFT_SPAN) * 100}%` }}
+      >
+        18:00
+      </span>
+    </div>
   )
 }
 

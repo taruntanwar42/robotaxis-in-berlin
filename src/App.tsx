@@ -19,6 +19,7 @@ import {
   type DispatchFeedEntry,
   type ExperiencePhase,
   type OpsSample,
+  type RunSummary,
   type ShiftReportCategory,
 } from "./components/CybercabExperience"
 
@@ -1673,6 +1674,16 @@ export default function App() {
   const [isSumoRunning, setIsSumoRunning] = useState(false)
   const [sumoDelayMs, setSumoDelayMs] = useState(0)
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>("Idle")
+  // Latest finished run per fleet size — the fleet-sizing experiment becomes
+  // visible in the report as the user reruns the same evening with 10/30/50.
+  const [runHistory, setRunHistory] = useState<RunSummary[]>(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("berlin-run-history") || "[]")
+      return Array.isArray(stored) ? stored : []
+    } catch {
+      return []
+    }
+  })
   const [playbackBufferSize, setPlaybackBufferSize] = useState(0)
   const [isPlaybackPlaying, setIsPlaybackPlaying] = useState(false)
   const [playbackAppliedFrames, setPlaybackAppliedFrames] = useState(0)
@@ -2089,6 +2100,9 @@ export default function App() {
   }, [])
 
   const resetPlaybackHydrationState = useCallback(() => {
+    // Clean slate on every new run: a rerun must not flash the previous run's
+    // final KPIs/grid while the fresh stream buffers.
+    setSumoFrame(null)
     playbackTlStateRef.current = {}
     playbackRequestRegistryRef.current = new Map()
     playbackCabRoutesRef.current = new Map()
@@ -2629,6 +2643,35 @@ export default function App() {
         ? "running"
         : "idle"
   const hudClock = sumoFrame ? formatSimClock(sumoFrame.simSec) : "18:00"
+  // Persist the finished run per fleet size for the report's comparison row.
+  useEffect(() => {
+    if (playbackStatus !== "Ended") {
+      return
+    }
+    const waits = Array.from(completedWaitsRef.current.values()).sort((a, b) => a - b)
+    const served = completedWaitsRef.current.size
+    const total = slimTotals?.totalDemand ?? playbackRequestRegistryRef.current.size
+    if (!total || !displayFleetSize) {
+      return
+    }
+    const p50 = waits.length ? waits[Math.floor((waits.length - 1) / 2)] : 0
+    const entry: RunSummary = {
+      fleet: displayFleetSize,
+      servedPct: Math.round((served / total) * 100),
+      p50Min: Math.round((p50 / 60) * 10) / 10,
+    }
+    setRunHistory((current) => {
+      const next = [...current.filter((run) => run.fleet !== entry.fleet), entry].sort(
+        (a, b) => a.fleet - b.fleet,
+      )
+      try {
+        window.localStorage.setItem("berlin-run-history", JSON.stringify(next))
+      } catch {
+        // Storage may be unavailable (private mode); the row just won't persist.
+      }
+      return next
+    })
+  }, [playbackStatus, slimTotals, displayFleetSize])
   // Snapshot the ops stores at sample cadence (every 30 sim-sec), not per
   // paced frame — at 180x per-frame copies of 30 battery histories melt the
   // main thread.
@@ -3970,6 +4013,7 @@ export default function App() {
         )}
         opsTimeline={opsTimelineSnapshot}
         waits={waitsSnapshot}
+        runHistory={runHistory}
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}

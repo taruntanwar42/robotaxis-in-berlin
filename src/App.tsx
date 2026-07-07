@@ -52,9 +52,13 @@ const playbackCacheMode = (() => {
   const requested = new URLSearchParams(window.location.search).get("cache")
   return requested === "auto" || requested === "cache" ? requested : "live"
 })()
-// The stream begins at page load (17:40 depot roll-out); playback holds just
-// before the service hour so the viewer starts it, then it runs by itself.
-const SERVICE_HOLD_SIM_SEC = 64_795
+// The stream begins at page load; playback holds on the very first frame —
+// the fleet parked at its depot — until the viewer starts the run.
+const SERVICE_HOLD_SIM_SEC = 63_601
+// After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
+// convoy is drama, not twenty minutes of commuting. Service runs at 1x.
+const SERVICE_START_SIM_SEC = 64_800
+const DRIVE_IN_PACE_FACTOR = 3
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
 // Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
@@ -2310,8 +2314,11 @@ export default function App() {
       return
     }
 
+    // speed=50 = dense frames (1 per sim-second, stride 1): the pacing and
+    // interpolation assume that cadence. Higher values make the backend skip
+    // frames (stride = speed/50) — only useful for bulk recording.
     const playbackUrl = backendWebSocketUrl(
-      `/ws/sumo/${districtScope}/playback?speed=${playbackModeRef.current}&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=${playbackCacheMode}&fleet=${fleetChoiceRef.current}`,
+      `/ws/sumo/${districtScope}/playback?speed=50&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=${playbackCacheMode}&fleet=${fleetChoiceRef.current}`,
     )
     if (!playbackUrl) {
       setPlaybackStatus("Error")
@@ -2551,21 +2558,30 @@ export default function App() {
   const releaseServiceHold = useCallback(() => {
     playbackServiceHoldRef.current = false
     setServiceReleased(true)
-    // Leaving the convoy chase: the service hour reads at city scale.
+    // Clear the depot framing's persistent padding, then read the run at
+    // city scale (the map owns the right half from here on).
+    baseMapRef.current?.setPadding({ left: 0, top: 0, right: 0, bottom: 0 })
     selectCabToFollow(null)
   }, [selectCabToFollow])
 
-  // Intro chase: ride along with the first cab that moves off the depot, at
-  // street level, until the viewer starts the service hour.
+  // Pre-service framing: the story starts at the depot, where the parked
+  // convoy is waiting — not on an anonymous stretch of empty city.
   useEffect(() => {
-    if (serviceReleased || followedCabId || !sumoFrame) {
+    if (serviceReleased) {
       return
     }
-    const mover = sumoFrame.vehicles.find((vehicle) => (vehicle.speed ?? 0) > 2)
-    if (mover) {
-      selectCabToFollow(mover.id)
+    const map = baseMapRef.current
+    if (!map) {
+      return
     }
-  }, [sumoFrame, serviceReleased, followedCabId, selectCabToFollow])
+    const paneWidth = Math.min(Math.max(500, window.innerWidth * 0.5), 900)
+    map.easeTo({
+      center: [depotCoordinate[0] + 0.012, depotCoordinate[1] - 0.004],
+      zoom: 12.4,
+      padding: { left: paneWidth, top: 0, right: 0, bottom: 0 },
+      duration: 2200,
+    })
+  }, [baseMapReadyTick, serviceReleased])
 
   const canChangePlaybackMode =
     !isPlaybackPlaying &&
@@ -2950,7 +2966,12 @@ export default function App() {
       const isVisible =
         typeof document === "undefined" || document.visibilityState === "visible"
 
-      const playbackFrameIntervalMs = 1000 / simSpeedRef.current
+      const appliedSimSec =
+        timeline[playbackAppliedIndexRef.current]?.simSec ?? SERVICE_START_SIM_SEC
+      const playbackFrameIntervalMs =
+        1000 /
+        (simSpeedRef.current *
+          (appliedSimSec < SERVICE_START_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1))
       if (playbackFrameRemainderMsRef.current >= playbackFrameIntervalMs) {
         const dueFrameCount = Math.min(
           Math.max(
@@ -3066,9 +3087,14 @@ export default function App() {
       if (!map || index < 0 || index >= timeline.length) {
         return
       }
+      const interpolationSpeed =
+        simSpeedRef.current *
+        ((timeline[index]?.simSec ?? SERVICE_START_SIM_SEC) < SERVICE_START_SIM_SEC
+          ? DRIVE_IN_PACE_FACTOR
+          : 1)
       const t = Math.max(
         0,
-        Math.min(1, playbackFrameRemainderMsRef.current / (1000 / simSpeedRef.current)),
+        Math.min(1, playbackFrameRemainderMsRef.current / (1000 / interpolationSpeed)),
       )
       source(map, "sumo-vehicles")?.setData(
         interpolatedVehicleCollection(timeline[index], timeline[index + 1], t),
@@ -4110,7 +4136,7 @@ export default function App() {
         )}
       </section>
 
-      {serviceReleased ? (
+      {sumoFrame !== null || serviceReleased ? (
       <CybercabExperience
         phase={experiencePhase}
         clock={hudClock}
@@ -4161,7 +4187,9 @@ export default function App() {
           void startPlayback()
         }}
       />
-      ) : (
+      ) : null}
+
+      {!serviceReleased ? (
         <IntroCard
           ready={sumoFrame !== null}
           failed={playbackStatus === "Error"}
@@ -4170,7 +4198,7 @@ export default function App() {
             void startPlayback()
           }}
         />
-      )}
+      ) : null}
 
       {showEngineeringDiagnostics ? (
       <>

@@ -64,6 +64,12 @@ DEFAULT_PLAYBACK_DETAIL = "full"
 PLAYBACK_DETAIL_OPTIONS = {"full", "public"}
 DEFAULT_PLAYBACK_CACHE = "auto"
 PLAYBACK_CACHE_OPTIONS = {"auto", "live", "cache"}
+
+# libsumo runs one simulation per process: live runs are strictly serialized,
+# and a new live connection preempts whatever run came before it (single-viewer
+# product — the newest page load wins; abandoned tabs must not hold the sim).
+LIVE_RUN_LOCK = threading.Lock()
+_latest_live_stop_event: threading.Event | None = None
 PUBLIC_BACKGROUND_VEHICLE_LIMIT = 180
 PUBLIC_REPLAY_STREAM_FRAMES_PER_CHUNK = 25
 # Pace the cached replay to ~2.5 chunks/s. The client consumes ~1.6 chunks/s
@@ -1977,6 +1983,10 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
         command = sumo_command_with_additional(command, selected)
 
     stop_event = threading.Event()
+    global _latest_live_stop_event
+    if _latest_live_stop_event is not None:
+        _latest_live_stop_event.set()
+    _latest_live_stop_event = stop_event
     message_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     event_loop = asyncio.get_running_loop()
     connection_label = f"{selected['key']}-playback-{id(websocket)}"
@@ -2040,24 +2050,32 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
             if dispatch_engine == "taxi"
             else produce_sumo_playback_chunks
         )
-        worker_task = asyncio.create_task(
-            asyncio.to_thread(
-                producer,
-                traci,
-                command,
-                connection_label,
-                selected,
-                playback_rate,
-                replacement_percent,
-                demand_source,
-                playback_detail,
-                frame_step_sec,
-                visual_stride,
-                message_queue,
-                event_loop,
-                stop_event,
-            )
-        )
+        def run_live_producer() -> None:
+            # Serialize on the single libsumo instance; if this connection was
+            # preempted while waiting its turn, don't start the sim at all.
+            with LIVE_RUN_LOCK:
+                if stop_event.is_set():
+                    event_loop.call_soon_threadsafe(
+                        message_queue.put_nowait, {"type": "stopped", "reason": "preempted"}
+                    )
+                    return
+                producer(
+                    traci,
+                    command,
+                    connection_label,
+                    selected,
+                    playback_rate,
+                    replacement_percent,
+                    demand_source,
+                    playback_detail,
+                    frame_step_sec,
+                    visual_stride,
+                    message_queue,
+                    event_loop,
+                    stop_event,
+                )
+
+        worker_task = asyncio.create_task(asyncio.to_thread(run_live_producer))
 
         while True:
             if command_task.done():

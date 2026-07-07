@@ -24,7 +24,7 @@ export function IntroCard({ ready, failed, onStart, onRetry }: IntroCardProps) {
         </button>
       ) : (
         <button type="button" className="intro-button" disabled={!ready} onClick={onStart}>
-          {ready ? "Start simulation" : "Preparing the city…"}
+          {ready ? "Start simulation" : "Loading Berlin…"}
         </button>
       )}
       <p className="intro-hint">

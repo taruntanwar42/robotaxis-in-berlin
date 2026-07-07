@@ -1613,7 +1613,7 @@
 /* ---------- v8: split layout — control-room pane left, city map right ---------- */
 
 :root {
-  --pane-w: clamp(460px, 42vw, 680px);
+  --pane-w: clamp(500px, 50vw, 900px);
 }
 
 .map-stage {
@@ -2284,10 +2284,10 @@
 
 .intro-card {
   position: absolute;
-  top: 18px;
+  bottom: 18px;
   left: 18px;
   z-index: 45;
-  width: min(348px, calc(100vw - 36px));
+  width: min(calc(var(--pane-w) - 36px), calc(100vw - 36px));
   padding: 18px 20px 12px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(16, 20, 24, 0.08);

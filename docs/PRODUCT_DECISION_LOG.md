@@ -1218,3 +1218,29 @@ Extracted decision:
 - Late crash class fixed for good: runtime edge mapping now skips lanes
   without taxi access (a rider on a passenger-only lane killed the SUMO
   reservation add mid-recording).
+
+## 2026-07-07 - v9.1 Mandate + Evening Session
+
+Raw user language:
+
+> please ensure that both the right side map and left side ui panel are correctly interactive, and offer a smooth very smooth user ui experience. feel free to keep adding or removing features, staying true to the goal of building a goblin app ... always ask yourself why is this thing here
+
+> maybe first just disabling the traffic and only having the robotaxis correctly would be helpful for the development process
+
+> i can set a /goal for building the ultimate goblin app you could possibly imagine and keep trying and not rest
+
+Extracted decision:
+
+- Standing goal: smooth, correct interactivity on both panes; every element
+  must answer "why is this thing here"; keep iterating.
+- Delivered in v9.1: fleet-state chart legend (dataviz-validated colors),
+  live demand counts + 18:00 axis tick, fleet-sizing comparison row in the
+  report (localStorage; fills as the user reruns 10/30/50), clean-slate
+  reruns, one-pulse fleet-cell animation on completed rides (reduced-motion
+  safe), og/description tags for application-link previews, depot-return
+  watchdog.
+- Verified E2E: run history persists; fleet chips switch the streamed replay
+  (10 cells for fleet 10); reruns start clean.
+- QA ground truth for future sessions: every observed "freeze"/dead-click was
+  the automation environment (hidden-tab timer throttling; extension click
+  dispatch). The app itself is smooth in a visible window with a real mouse.

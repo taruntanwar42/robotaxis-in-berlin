@@ -4719,6 +4719,17 @@ def update_taxi_drt_dispatch(
                 robotaxi["requestId"] = None
                 robotaxi["chargingSessionActive"] = False
                 robotaxi["stagingTargetEdge"] = None
+                # Return watchdog: depotReturnRouted is a one-shot guard, so a
+                # return leg broken later (teleport, re-park) strands the cab
+                # until the hard cap. Re-issue the depot route every few
+                # minutes until the cab actually stands on a depot edge.
+                if robotaxi.get("depotReturnRouted"):
+                    last_reissue = robotaxi.get("lastDepotReissueSec")
+                    if last_reissue is None:
+                        robotaxi["lastDepotReissueSec"] = sim_sec
+                    elif sim_sec - float(last_reissue) >= 240.0:
+                        robotaxi["depotReturnRouted"] = False
+                        robotaxi["lastDepotReissueSec"] = sim_sec
             elif robotaxi.get("stagingTargetEdge"):
                 if robotaxi.get("isRoaming") and vehicle_edge == str(robotaxi.get("stagingTargetEdge")):
                     # Roam leg finished: cab parks curbside and reads as idle.

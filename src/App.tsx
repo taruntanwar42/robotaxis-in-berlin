@@ -22,6 +22,7 @@ import {
   type RunSummary,
   type ShiftReportCategory,
 } from "./components/CybercabExperience"
+import { EntryPane } from "./components/EntryPane"
 
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_STYLE_URL as string | undefined
 const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL as string | undefined
@@ -42,6 +43,11 @@ const SHIFT_START_SEC = 63_600 // 17:40 — depot drive-in
 const CHASE_SPIKE =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("spike") === "chase"
+// Dev escape hatch while the v10 entry is under construction: ?entry=off
+// exposes the legacy idle pane (and its Start button) underneath.
+const ENTRY_OFF =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("entry") === "off"
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
 // Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
@@ -4090,6 +4096,8 @@ export default function App() {
           void startPlayback()
         }}
       />
+
+      {experiencePhase === "idle" && !ENTRY_OFF ? <EntryPane /> : null}
 
       {showEngineeringDiagnostics ? (
       <>

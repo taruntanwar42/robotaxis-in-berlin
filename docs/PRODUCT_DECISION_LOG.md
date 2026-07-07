@@ -1244,3 +1244,54 @@ Extracted decision:
 - QA ground truth for future sessions: every observed "freeze"/dead-click was
   the automation environment (hidden-tab timer throttling; extension click
   dispatch). The app itself is smooth in a visible window with a real mouse.
+
+## 2026-07-08 - v10 Entry Direction Reset (cards killed, guided left-pane intro)
+
+Raw user language:
+
+> thats... amazingly bad. let's start again. ... the intent is definitely not to add some sort of card or slop text to the app.
+
+> instead of wasting our time on building cool animations or elements we dont actually need, let'S answer the question: what are some candidates for the minimal set of things/concepts we need to refresh the user (assume tesla data science engineer-ish level of intelligence) before they can just start click and would understand everythign
+
+> fuck all this, new idea: no cards. so, just the left white pane, and the berlin map on the right by default. in the middle of the pane, we start with a 3d model of the tesla cybercab. aspirationally interactive. the right side is sort like, dimmed yk ... lets stick to whites and grays
+
+> do you think dark mode would be better for the app than light mode? i think probably, yeah, probably more futuristic and better than an empty white pane (empty white pane does not really feel empty, but gray/dark would feel like that)
+
+> dark mode if for nothing else then bc im working at night and i dont want to get blinded. app opens: very tasteful dark grey, tesla kinda, big left pane, 50% of screen or sth. right side: berlin map, currently grayed out/dimmed. just the golden cybercab(s) in the left pane as the central visual.
+
+> the user sees 6am. not 6pm. the sim data we're using is indeed from 6 to 7pm, but we'll just pretend its from 6am and change it later. (and even if we forget no one will notice)
+
+> so maybe the first card (not card, but first thing on the left ui pane, which is our canvas i guess) is this - and text saying sth like, ..cabs coming berlin, in this sim... cyberfleet. ok, then, user clicks next, the first time. text: the cyberfleet is driving .... duty.. traffic lights, cars, bla bla.. clicks next second time, says: react to demand.. impact bullshit... click to start sim.
+
+> i think they will enjoy the cyberfleet cruising down the highway for 5 seconds or so, right?
+
+> i wanted to say, i watched it, thats amazingly bad — [morning attempt: veil + "Berlin" word + spec card overlay, reverted uncommitted]
+
+Extracted decision:
+
+- Morning's entry attempt (opaque veil, dissolving "Berlin" word, floating
+  spec card) rejected wholesale and reverted. Diagnosis accepted by both:
+  decoration OVER the world, telling instead of showing.
+- Minimal concept set a smart viewer needs before Start (agreed): 1) this is
+  a real live simulation, not a recording; 2) demand = real people (synthetic
+  1% Berlin population); 3) the fleet and its job; 4) time compression.
+  Points 3-4 shown, not told.
+- New entry shape: app opens as the permanent layout — dark left pane (~50%),
+  Berlin map right, dimmed. Left pane = the canvas. Beat 1: golden Cybercab
+  3D model (user-supplied GLB, Sketchfab) with fleet hinted behind + a few
+  words. Next #1: the Cyberfleet departs the depot on the map, enroute text.
+  Next #2: demand/impact text, Start button. Sim holds before 06:00 service
+  until Start; quick users watch the convoy cruise ~5 s.
+- Displayed time is 06:00-07:00 AM (sim data stays 18-19h internally for
+  now; swap later, no user-facing disclaimers).
+- Dark mode committed, dark-only, whites/grays, "tasteful dark grey, tesla
+  kinda". No accent-color quota (constitution holds).
+- Rendering: three.js + GLTFLoader (A), chosen over model-viewer/prerender;
+  seed of the future per-card scenes. Asset: public/assets/cybercab.glb
+  (1.6 MB, gold metallic body, no textures).
+- Step 1 scope approved: revert junk, EntryPane over legacy idle pane
+  (legacy untouched beneath, ?entry=off escape), dimmed map veil, cab scene
+  (turntable + drag), no text/buttons yet. Browser QA by user directly
+  ("cant waste tokens and time on chrome, i'll give quick input").
+- Process reaffirmed: Claude proposes options concretely, user picks, Claude
+  builds ("you imagine, i choose for a feature, then you build it").

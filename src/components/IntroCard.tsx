@@ -15,8 +15,8 @@ export function IntroCard({ ready, failed, onStart, onRetry }: IntroCardProps) {
     <aside className="intro-card" aria-label="Simulation intro">
       <h1>Cybercabs are coming to Berlin</h1>
       <p>
-        A fleet of autonomous Cybercabs is rolling out of its depot to serve an
-        evening of real Berlin trip demand — simulated live, street by street.
+        A fleet of autonomous Cybercabs stands ready across Berlin to serve an
+        evening of real trip demand — simulated live, street by street.
       </p>
       {failed ? (
         <button type="button" className="intro-button" onClick={onRetry}>

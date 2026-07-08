@@ -2814,7 +2814,7 @@ export default function App() {
                 : String(ridesServed ?? "–"),
           },
           { label: "Expired", value: String(expired) },
-          { label: "Median wait", value: fmtDur(medianWaitSec) },
+          { label: "Median wait³", value: fmtDur(medianWaitSec) },
           { label: "P90 wait", value: fmtDur(quantile(0.9)) },
           { label: "Ride time", value: fmtDur(avgRideSec) },
         ],
@@ -4788,7 +4788,27 @@ export default function App() {
       </>
       ) : null}
 
-      {loadError ? <div className="error-banner">{loadError}</div> : null}
+      {loadError ? (
+        <div className="error-banner">
+          {loadError}
+          <button
+            type="button"
+            className="ghost-button error-banner-retry"
+            onClick={() => {
+              setLoadError(null)
+              // A dead stream leaves a half-consumed timeline that blocks the
+              // reconnect guard; clearing it lets startPlayback take its
+              // clean-rerun reset path.
+              playbackDoneRef.current = true
+              playbackTimelineRef.current = []
+              playbackAppliedIndexRef.current = -1
+              void startPlayback()
+            }}
+          >
+            Run again
+          </button>
+        </div>
+      ) : null}
     </main>
   )
 }

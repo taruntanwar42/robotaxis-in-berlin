@@ -121,10 +121,12 @@ ROBOTAXI_ROAM_MIN_EDGE_LENGTH_M = 60.0
 # typical pickup drive of 10-15 min — a tight cap starves the fleet (measured:
 # 9/78 served at 540 s). 12 min keeps hauls bounded without starving.
 ROBOTAXI_MAX_PICKUP_ROUTE_SEC = 900.0
-# Staging cap: at 480 s a periphery drop-off could reach no hotspot, so the
-# cab stranded out there and the nearest IDLE cab to new demand was 5.7 km
-# median (measured, fleet 60). 960 s lets every drop-off walk back toward
-# demand; long pickups cost more than long empty repositioning legs.
+# Staging cap (python staging layer — inactive when a stands file is wired,
+# as in berlin; see stands_mode): at 480 s a periphery drop-off could reach
+# no hotspot and stranded. 960 s lets every drop-off walk back toward demand.
+# The berlin equivalent of this fix is the demand-weighted stands file
+# (scripts/build_berlin_taxi_stands.py) — measured nearest-stand P50 for real
+# demand: 3.5 km (uniform grid) -> 1.6 km (demand-weighted).
 ROBOTAXI_MAX_STAGING_ROUTE_SEC = 960.0
 ROBOTAXI_CHARGE_READY_FRACTION = 0.88
 ROBOTAXI_FINAL_DEPOT_MARGIN_SEC = 180

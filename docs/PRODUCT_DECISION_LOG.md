@@ -1478,3 +1478,23 @@ than best idle cab) documented as the next dispatch lever, not yet changed.
 
 Visual QA of the fleet-60 run pending a visible browser window (tab frozen
 while occluded).
+
+## 2026-07-09 (night) — stranded idle supply: demand-weighted taxi stands
+
+Correction to the 2026-07-08 entry: the staging-cap change was a NO-OP for
+berlin — the stands file is wired ("additional"), which disables the python
+staging layer (stands_mode). Idle-cab placement is owned by SUMO taxistand +
+the stands file. The old stands mirrored the uniform 6x5 spawn grid over
+890 km2 while demand clusters inner-city — THAT is the 5.7 km stranded-idle
+measurement.
+
+New: scripts/build_berlin_taxi_stands.py — stands at the densest 750 m
+pickup cells of the full 7,502-trip pool + coverage stands for populated
+outer slots (47 stands total, taxi-capable service edges, SUMO load-checked,
+rerouter block for the taxistand device included after the first recording
+attempt errored on the missing rerouter id). Offline evaluation vs seed15
+demand: nearest-stand P50 3.49 km (old uniform) -> 1.57 km (demand-weighted).
+Re-recording fleet60 x seed15 with the new stands to A/B the wait numbers.
+
+Also this pass: report footnote 3 (waits = pickup drives), error-banner
+"Run again" retry (dead mid-run stream is no longer a dead end).

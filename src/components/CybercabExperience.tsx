@@ -328,6 +328,8 @@ export function CybercabExperience({
                   <span className="report-footnote">
                     ¹ incl. repositioning and depot legs · 1% population sample, full city
                     <br />² vs 147 g/km petrol car, net of 363 g/kWh German grid electricity
+                    <br />³ waits ≈ pickup drives: the nearest free cab averages ~5 km at city
+                    scale
                   </span>
                   <span className="report-rerun">
                     <button type="button" className="ghost-button" onClick={onReplay}>

@@ -2793,7 +2793,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [opsSampleTick],
   )
-  const shiftReport: ShiftReportCategory[] | null = useMemo(() => {
+  const shiftReportBundle = useMemo(() => {
     if (!finalRunAudit && playbackStatus !== "Ended") {
       return null
     }
@@ -2852,7 +2852,19 @@ export default function App() {
     const fmt = (value: number | undefined, digits = 0, unit = "") =>
       value === undefined || !Number.isFinite(value) ? "–" : `${value.toFixed(digits)}${unit}`
 
-    return [
+    const servedPct =
+      totalDemand && ridesServed !== undefined
+        ? Math.round((ridesServed / totalDemand) * 100)
+        : undefined
+    const topline = [
+      { value: servedPct !== undefined ? `${servedPct}%` : "–", label: "demand served" },
+      { value: String(ridesServed ?? "–"), label: "people moved" },
+      {
+        value: medianWaitSec !== undefined ? `${(medianWaitSec / 60).toFixed(1)} min` : "–",
+        label: "median wait",
+      },
+    ]
+    const categories: ShiftReportCategory[] = [
       {
         title: "Service",
         rows: [
@@ -2916,7 +2928,10 @@ export default function App() {
         ],
       },
     ]
+    return { categories, topline }
   }, [finalRunAudit, playbackStatus, dispatchMetrics, slimTotals, sumoFrame, displayFleetSize])
+  const shiftReport = shiftReportBundle?.categories ?? null
+  const shiftReportTopline = shiftReportBundle?.topline ?? null
 
   const pausePlayback = useCallback(() => {
     setIsPlaybackPlaying(false)
@@ -4219,6 +4234,7 @@ export default function App() {
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}
+        reportTopline={shiftReportTopline}
         onStart={() => {
           void startPlayback()
         }}

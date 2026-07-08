@@ -2283,19 +2283,18 @@
 /* ---------- Intro card (pre-service) ---------- */
 
 .intro-card {
+  /* Sits inside the pane's own grid: same inset as the pane padding, same
+     radius family as its cards — a pane element, not a floating stranger. */
   position: absolute;
-  bottom: 18px;
-  left: 18px;
+  bottom: 20px;
+  left: 22px;
   z-index: 45;
-  width: min(calc(var(--pane-w) - 36px), calc(100vw - 36px));
+  width: min(calc(var(--pane-w) - 44px), calc(100vw - 44px));
   padding: 18px 20px 12px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(16, 20, 24, 0.08);
+  background: #ffffff;
+  border: 1px solid rgba(16, 20, 24, 0.1);
   border-radius: 14px;
-  box-shadow:
-    0 12px 32px -12px rgba(16, 20, 24, 0.28),
-    0 2px 6px -2px rgba(16, 20, 24, 0.08);
-  backdrop-filter: blur(6px);
+  box-shadow: 0 16px 40px -16px rgba(16, 20, 24, 0.32);
   font-family: var(--font-stack);
 }
 
@@ -2348,4 +2347,36 @@
 /* Pre-service: no ops pane yet — the city takes the whole stage. */
 .app-shell.intro-stage .map-stage {
   left: 0;
+}
+
+/* ---------- Report topline: the answer at a glance ---------- */
+
+.report-topline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 2px 0 6px;
+}
+
+.report-topline-stat {
+  padding: 12px 14px;
+  background: rgba(16, 20, 24, 0.03);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.report-topline-stat strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.report-topline-stat span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
 }

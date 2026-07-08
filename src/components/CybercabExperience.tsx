@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 export type ExperiencePhase = "idle" | "running" | "results"
 
@@ -77,6 +77,7 @@ type CybercabExperienceProps = {
   isPreparing: boolean
   isUnavailable: boolean
   report: ShiftReportCategory[] | null
+  reportTopline?: Array<{ value: string; label: string }> | null
   onStart: () => void
   onReplay: () => void
 }
@@ -106,6 +107,7 @@ export function CybercabExperience({
   isPreparing,
   isUnavailable,
   report,
+  reportTopline,
   onStart,
   onReplay,
 }: CybercabExperienceProps) {
@@ -128,6 +130,14 @@ export function CybercabExperience({
   )
   const p50 = percentileOf(sortedWaits, 50)
   const p90 = percentileOf(sortedWaits, 90)
+  // The report is the answer — it presents itself instead of hiding below
+  // the fold of a scrolled pane.
+  const reportRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (phase === "results" && report) {
+      reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [phase, report !== null])
   const progress = Math.max(0, Math.min(1, (simSec - SHIFT_START) / SHIFT_SPAN))
   const serviceTick = (SERVICE_START - SHIFT_START) / SHIFT_SPAN
 
@@ -150,7 +160,7 @@ export function CybercabExperience({
                 {clock}
               </span>
               <span className="ops-phase-chip">
-                {phase === "results" ? "Shift complete" : driveIn ? "Leaving depot" : "In service"}
+                {phase === "results" ? "Shift complete" : driveIn ? "In position" : "In service"}
               </span>
             </div>
           ) : null}
@@ -320,11 +330,21 @@ export function CybercabExperience({
             </section>
 
             {phase === "results" && report ? (
-              <section className="ops-report" aria-label="Shift report">
+              <section className="ops-report" aria-label="Shift report" ref={reportRef}>
                 <div className="block-title">
                   <span>Shift report</span>
                   <span className="block-note">18:00 – 19:00 · {fleetSize} cabs · Berlin</span>
                 </div>
+                {reportTopline ? (
+                  <div className="report-topline" aria-label="Headline results">
+                    {reportTopline.map((stat) => (
+                      <div key={stat.label} className="report-topline-stat">
+                        <strong>{stat.value}</strong>
+                        <span>{stat.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="report-columns">
                   {report.map((category) => (
                     <div key={category.title} className="report-category">
@@ -392,7 +412,7 @@ export function CybercabExperience({
                   <div className="ticker-row tone-open">
                     <span className="ticker-time">{driveIn ? clock : "18:00"}</span>
                     <span className="ticker-text">
-                      {driveIn ? "Fleet leaving the depot" : "Waiting for first request"}
+                      {driveIn ? "Cyberfleet in position across the city" : "Waiting for first request"}
                     </span>
                   </div>
                 ) : null}

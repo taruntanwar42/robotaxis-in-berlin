@@ -41,10 +41,10 @@ SUMO_END_SEC = 75_600
 SUMO_CORRIDOR_END_SEC = 68_400  # 19:00 — v1 one-hour watchable window
 # Berlin city scenario starts 17:40: the fleet leaves the TXL depot and drives
 # into position while the evening background traffic fills the city.
-# One settle minute before the 18:00 service hour: the fleet spawns on the
-# staging grid at 17:59 — the old 17:40 drive-in window was twenty minutes of
-# nothing once the depot convoy story retired.
-SUMO_BERLIN_START_SEC = 64_740
+# 17:40: the fleet leaves the TXL depot in a staggered convoy, fans out to
+# the city stands, serves 18:00-19:00, and comes home. Playback compresses
+# the drive-in (3x pacing); the recording carries the whole story.
+SUMO_BERLIN_START_SEC = 63_600
 ROBOTAXI_REQUEST_EXPIRY_SEC = 600
 SUMO_WINDOW_LABEL = "18:00-21:00"
 DEFAULT_SUMO_DELAY_MS = 0
@@ -177,12 +177,11 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "config": SUMO_BERLIN_SCENARIO_DIR / "berlin.sumocfg",
         "net": SUMO_BERLIN_SCENARIO_DIR / "berlin.net.xml",
         "route": SUMO_BERLIN_SCENARIO_DIR / "berlin-background-1pct.rou.xml",
-        # No stands/additional: taxistand idle routing collapsed the sim to
-        # ~2 sim-s/s at city scale, and idle-algorithm "stop" pins cabs with
-        # a triggered stop TraCI cannot lift. The fleet therefore spawns
-        # directly on the staging grid (spawnAtDepot False) — in position
-        # across the city before service, no depot-sleeper trap at all.
-        "additional": None,
+        # Taxi stands across the city: the taxistand idle algorithm makes the
+        # depot story physically real (convoy out at 17:40, stands during the
+        # hour, home at close). It costs sim speed (~2 sim-s/s worst) — fine
+        # for the recorded default; live viewers pay it knowingly.
+        "additional": SUMO_BERLIN_SCENARIO_DIR / "berlin-taxi-stands.add.xml",
         "boundary": SUMO_BERLIN_SCENARIO_DIR / "berlin.area.geojson",
         "depotEdge": "8036812#2",
         "startSec": SUMO_BERLIN_START_SEC,
@@ -192,9 +191,9 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "includeSignalLinks": True,
         "fleetSize": 30,
         "demandFileDefault": MATSIM_BERLIN_DEMAND_FILE,
-        # The fleet materializes on the staging grid (city-wide demand slots),
-        # ready before the service hour — "in the city by the time we start".
-        "spawnAtDepot": False,
+        # Depot bookends: the fleet leaves the TXL depot as a staggered convoy
+        # and returns at close; the stands file gives idle cabs city homes.
+        "spawnAtDepot": True,
         "includeTrafficLights": False,
         # City-scale: with ~5 km between idle cabs a rider realistically waits
         # longer than the corridor's 10 min before "no cab nearby", and an

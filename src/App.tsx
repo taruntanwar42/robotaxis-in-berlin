@@ -19,10 +19,8 @@ import {
   type DispatchFeedEntry,
   type ExperiencePhase,
   type OpsSample,
-  type RunSummary,
   type ShiftReportCategory,
 } from "./components/CybercabExperience"
-import { IntroCard } from "./components/IntroCard"
 
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_STYLE_URL as string | undefined
 const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL as string | undefined
@@ -37,25 +35,22 @@ const districtScope = "berlin"
 const hasMicroNetworkLayers = districtScope !== "berlin"
 const FLEET_SIZE_CHOICES = [10, 30, 50] as const
 export type FleetChoice = (typeof FLEET_SIZE_CHOICES)[number]
-const SHIFT_START_SEC = 64_740 // 17:59 — fleet settles on the staging grid
+const SHIFT_START_SEC = 63_600 // 17:40 — the convoy leaves the TXL depot
 // DEV spike (?spike=chase): pitched 3D chase view with extruded buildings —
 // evidence run for the Tesla-style in-world driving view. Not a product flag.
 const CHASE_SPIKE =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("spike") === "chase"
-// Real simulation, always: every visit computes its own evening live on the
-// backend. ?cache=auto reverts to the recorded evenings (dev fallback only).
+// Default = the recorded evening (instant, constant 60x): the same real SUMO
+// run, computed once. ?cache=live runs the simulator on the spot — the proof
+// mode for technical viewers, with honest load times.
 const playbackCacheMode = (() => {
   if (typeof window === "undefined") {
-    return "live"
+    return "auto"
   }
   const requested = new URLSearchParams(window.location.search).get("cache")
-  return requested === "auto" || requested === "cache" ? requested : "live"
+  return requested === "live" || requested === "cache" ? requested : "auto"
 })()
-// The stream begins at page load; the sim starts at 17:59 with the fleet
-// already spread across the staging grid, and playback holds seconds before
-// 18:00 — Start drops the viewer straight into the service hour.
-const SERVICE_HOLD_SIM_SEC = 64_790
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
 const SERVICE_START_SIM_SEC = 64_800
@@ -1697,16 +1692,6 @@ export default function App() {
   const [isSumoRunning, setIsSumoRunning] = useState(false)
   const [sumoDelayMs, setSumoDelayMs] = useState(0)
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>("Idle")
-  // Latest finished run per fleet size — the fleet-sizing experiment becomes
-  // visible in the report as the user reruns the same evening with 10/30/50.
-  const [runHistory, setRunHistory] = useState<RunSummary[]>(() => {
-    try {
-      const stored = JSON.parse(window.localStorage.getItem("berlin-run-history") || "[]")
-      return Array.isArray(stored) ? stored : []
-    } catch {
-      return []
-    }
-  })
   const [playbackBufferSize, setPlaybackBufferSize] = useState(0)
   const [isPlaybackPlaying, setIsPlaybackPlaying] = useState(false)
   const [playbackAppliedFrames, setPlaybackAppliedFrames] = useState(0)
@@ -1714,22 +1699,16 @@ export default function App() {
   const [finalRunAudit, setFinalRunAudit] = useState<RobotaxiRunAudit | null>(null)
   const [appTheme, setAppTheme] = useState<AppTheme>("light")
   const [isMapEnabled, setIsMapEnabled] = useState(true)
-  // Pre-service intro: the sim streams from page load but playback holds just
-  // before 18:00 until the viewer starts the service hour.
-  const [serviceReleased, setServiceReleased] = useState(false)
-  const playbackServiceHoldRef = useRef(true)
   const playbackRubberFloorRef = useRef(1)
-  // Honest loading stages for the intro card: what the backend is actually
-  // doing, not a spinner mystery.
-  const [liveLoadStage, setLiveLoadStage] = useState<"connecting" | "simulating" | "ready">(
-    "connecting",
-  )
+  // Camera choreography: the app opens on the depot; when the service hour
+  // begins the view releases to the whole city.
+  const cityCameraArmedRef = useRef(false)
   const [isEngineeringPanelOpen, setIsEngineeringPanelOpen] = useState(false)
   const [isStoryOpen] = useState(false)
   void isStoryOpen
   const [simSpeed, setSimSpeed] = useState<SimSpeed>(DEFAULT_SIM_SPEED)
   const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
-  const [fleetChoice, setFleetChoice] = useState<FleetChoice>(30)
+  // The fleet is fixed at 30 — the knee of the v9 sizing study.
   const fleetChoiceRef = useRef<number>(30)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
@@ -2264,7 +2243,6 @@ export default function App() {
       dataUpdateCountRef.current += 1
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
-      setLiveLoadStage((stage) => (stage === "ready" ? stage : "ready"))
       if (import.meta.env.DEV) {
         const devWindow = window as unknown as Record<string, unknown>
         devWindow.__simSec = frame.simSec
@@ -2395,10 +2373,6 @@ export default function App() {
         }
       }
       const frontendParseMs = performance.now() - parseStartedAt
-      if (payload.type === "hello") {
-        setLiveLoadStage((stage) => (stage === "ready" ? stage : "simulating"))
-        return
-      }
       if (payload.type === "chunk") {
         const appendStartedAt = performance.now()
         handlePlaybackPayload(payload)
@@ -2569,7 +2543,7 @@ export default function App() {
 
     setLoadError(null)
     playbackRubberFloorRef.current = 1
-    setLiveLoadStage((stage) => (stage === "ready" ? stage : "connecting"))
+    cityCameraArmedRef.current = true
     setIsPlaybackPlaying(true)
     isPlaybackPlayingRef.current = true
     playbackLastTickAtRef.current = null
@@ -2582,50 +2556,33 @@ export default function App() {
     void requestPlaybackChunk()
   }, [requestPlaybackChunk])
 
-  // The sim starts computing the moment the page loads — the depot roll-out
-  // is what the viewer watches while deciding to press Start. The cleanup
-  // matters: StrictMode's double-mount (and any real unmount) must close its
-  // socket, or an orphaned live run holds the backend's single-sim lock.
+  // At rest the camera sits on the TXL depot — the story's home base. When
+  // the service hour begins the view releases to the whole city.
   useEffect(() => {
-    void startPlayback()
-    return () => {
-      try {
-        playbackSocketRef.current?.close()
-      } catch {
-        // Stale sockets may already be closed.
-      }
-      playbackSocketRef.current = null
-      playbackFetchInFlightRef.current = false
-    }
-  }, [startPlayback])
-
-  const releaseServiceHold = useCallback(() => {
-    playbackServiceHoldRef.current = false
-    setServiceReleased(true)
-    // Clear the depot framing's persistent padding, then read the run at
-    // city scale (the map owns the right half from here on).
-    baseMapRef.current?.setPadding({ left: 0, top: 0, right: 0, bottom: 0 })
-    selectCabToFollow(null)
-  }, [selectCabToFollow])
-
-  // Pre-service framing: the whole city, offset for the pane — the viewer
-  // watches the convoy leave the depot and fan out across Berlin while the
-  // card is read.
-  useEffect(() => {
-    if (serviceReleased) {
-      return
-    }
     const map = baseMapRef.current
-    if (!map) {
+    if (!map || isPlaybackPlayingRef.current) {
       return
     }
-    const paneWidth = Math.min(Math.max(500, window.innerWidth * 0.5), 900)
-    map.fitBounds(activeScenarioBounds, {
-      padding: { left: paneWidth + 24, top: 32, right: 24, bottom: 32 },
-      maxZoom: 11,
+    map.easeTo({
+      center: [depotCoordinate[0] + 0.02, depotCoordinate[1] - 0.01],
+      zoom: 11.6,
       duration: 1600,
     })
-  }, [baseMapReadyTick, serviceReleased])
+  }, [baseMapReadyTick])
+
+  useEffect(() => {
+    if (!cityCameraArmedRef.current || (sumoFrame?.simSec ?? 0) < SERVICE_START_SIM_SEC) {
+      return
+    }
+    cityCameraArmedRef.current = false
+    if (!followedCabIdRef.current) {
+      baseMapRef.current?.fitBounds(activeScenarioBounds, {
+        padding: { top: 40, bottom: 40, left: 40, right: 40 },
+        maxZoom: 11,
+        duration: 1800,
+      })
+    }
+  }, [sumoFrame])
 
   const canChangePlaybackMode =
     !isPlaybackPlaying &&
@@ -2759,35 +2716,6 @@ export default function App() {
         ? "running"
         : "idle"
   const hudClock = sumoFrame ? formatSimClock(sumoFrame.simSec) : "18:00"
-  // Persist the finished run per fleet size for the report's comparison row.
-  useEffect(() => {
-    if (playbackStatus !== "Ended") {
-      return
-    }
-    const waits = Array.from(completedWaitsRef.current.values()).sort((a, b) => a - b)
-    const served = completedWaitsRef.current.size
-    const total = slimTotals?.totalDemand ?? playbackRequestRegistryRef.current.size
-    if (!total || !displayFleetSize) {
-      return
-    }
-    const p50 = waits.length ? waits[Math.floor((waits.length - 1) / 2)] : 0
-    const entry: RunSummary = {
-      fleet: displayFleetSize,
-      servedPct: Math.round((served / total) * 100),
-      p50Min: Math.round((p50 / 60) * 10) / 10,
-    }
-    setRunHistory((current) => {
-      const next = [...current.filter((run) => run.fleet !== entry.fleet), entry].sort(
-        (a, b) => a.fleet - b.fleet,
-      )
-      try {
-        window.localStorage.setItem("berlin-run-history", JSON.stringify(next))
-      } catch {
-        // Storage may be unavailable (private mode); the row just won't persist.
-      }
-      return next
-    })
-  }, [playbackStatus, slimTotals, displayFleetSize])
   // Snapshot the ops stores at sample cadence (every 30 sim-sec), not per
   // paced frame — at 180x per-frame copies of 30 battery histories melt the
   // main thread.
@@ -3068,24 +2996,6 @@ export default function App() {
           playbackAppliedIndexRef.current + dueFrameCount,
           timeline.length - 1,
         )
-        if (playbackServiceHoldRef.current) {
-          // Hold at the service boundary: frames keep buffering behind the
-          // scenes, the picture waits for the viewer to start the hour.
-          while (
-            targetIndex > playbackAppliedIndexRef.current &&
-            (timeline[targetIndex]?.simSec ?? 0) >= SERVICE_HOLD_SIM_SEC
-          ) {
-            targetIndex -= 1
-          }
-          if (
-            targetIndex === playbackAppliedIndexRef.current &&
-            targetIndex >= 0 &&
-            (timeline[targetIndex + 1]?.simSec ?? 0) >= SERVICE_HOLD_SIM_SEC
-          ) {
-            playbackFrameRemainderMsRef.current = 0
-            return
-          }
-        }
         if (targetIndex === playbackAppliedIndexRef.current && targetIndex >= 0) {
           // Buffer underrun mid-run: don't re-apply the same frame.
           if (playbackDoneRef.current) {
@@ -4174,9 +4084,7 @@ export default function App() {
   }, [])
 
   return (
-    <main
-      className={`app-shell theme-${appTheme}${serviceReleased ? "" : " intro-stage"}`}
-    >
+    <main className={`app-shell theme-${appTheme}`}>
       {showEngineeringDiagnostics ? (
         <aside className="nav-rail" aria-label="Simulation navigation">
           <div className="brand-mark">
@@ -4216,7 +4124,6 @@ export default function App() {
         )}
       </section>
 
-      {sumoFrame !== null || serviceReleased ? (
       <CybercabExperience
         phase={experiencePhase}
         clock={hudClock}
@@ -4226,11 +4133,6 @@ export default function App() {
         fleetRows={sumoFrame?.cabRows}
         feed={dispatchFeed}
         fleetSize={displayFleetSize}
-        fleetChoice={fleetChoice}
-        onFleetChoice={(fleet) => {
-          setFleetChoice(fleet as FleetChoice)
-          fleetChoiceRef.current = fleet
-        }}
         simSpeed={simSpeed}
         onSimSpeed={(speed) => setSimSpeed(speed as SimSpeed)}
         followedCabId={followedCabId}
@@ -4256,7 +4158,6 @@ export default function App() {
         )}
         opsTimeline={opsTimelineSnapshot}
         waits={waitsSnapshot}
-        runHistory={runHistory}
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}
         report={shiftReport}
@@ -4268,19 +4169,6 @@ export default function App() {
           void startPlayback()
         }}
       />
-      ) : null}
-
-      {!serviceReleased ? (
-        <IntroCard
-          ready={sumoFrame !== null}
-          failed={playbackStatus === "Error"}
-          stage={liveLoadStage}
-          onStart={releaseServiceHold}
-          onRetry={() => {
-            void startPlayback()
-          }}
-        />
-      ) : null}
 
       {showEngineeringDiagnostics ? (
       <>

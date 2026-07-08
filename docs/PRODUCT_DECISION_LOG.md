@@ -1326,3 +1326,37 @@ Extracted decision:
 - Blue intended-path lanes: deferred by user (needs cab route polylines in
   the stream — same mechanism as the existing request path lines).
 - .env.local backend URL corrected 7860→7861 (zombie servers squat 7860).
+
+## 2026-07-08 (late night) - Depot-sleepers dead: fleet spawns on the city grid
+
+Raw user language:
+
+> the app seems to have all the same problems as before, cabs never leave the depot until its 18, they sit at the depot in large part even after it 18, like some of them just stay there and like never leave (like im telling you for the tenth time now that they should be in the city by the time we start, idk whats wrong)
+
+> hopefully atleast the full hour sim works on 60x with proper demand zonee based city entry without wasting time at the beginning. keep iterating on ui clarity and end stats as discussed in previous chats. surprise me and impress me
+
+Extracted decision + engineering findings (measured, not guessed):
+
+- ROOT CAUSE of a week of "cabs never leave the depot": SUMO's taxi device
+  (idle-algorithm "stop") pins every idle taxi with a triggered stop
+  (stopState=7) that TraCI resume/replaceStop/setRoute cannot lift. The
+  python staging layer "succeeded" every run while the cabs physically
+  never moved. Proven with per-call TraCI diagnostics + a cab tracker.
+- Taxi stands (idle-algorithm taxistand + parkingAreas, the corridor
+  pattern) DO move the fleet — but collapse the city-scale sim to
+  ~2 sim-s/s. Rejected; stands file kept on disk, unwired.
+- SHIPPED: the fleet spawns directly on the 20-slot staging grid
+  (spawnAtDepot False), wrap-around for fleets > 20 with car-length
+  offsets. Fleet is IN POSITION across Berlin from the first frame; the
+  depot-sleeper trap cannot exist. Roam keeps idle cabs alive pre-service.
+- Perf: A* routing (CH poisons dispatchTaxi: 90% CPU in hierarchy
+  rebuilds), dispatch decisions on a 3-sim-second cadence. Live
+  throughput measured: ~80 sim-s/s pre-service, ~25-35 mid-hour on the
+  dev machine; the frontend rubber-bands playback toward production rate
+  instead of hard Buffering stalls. Honest status: mid-hour 60x is not
+  yet reachable on this hardware; the hour plays at ~25-35x mid-run.
+- Frontend hold moved to the opening frame (63610): page load shows the
+  positioned Cyberfleet + living city; Start releases into 3x-paced
+  17:40-18:00, then the service hour.
+- Depot drive-in convoy story: retired for now (physically incompatible
+  with the taxi device's idle stop without paying the stands cost).

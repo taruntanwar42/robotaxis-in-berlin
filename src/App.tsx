@@ -52,10 +52,10 @@ const playbackCacheMode = (() => {
   const requested = new URLSearchParams(window.location.search).get("cache")
   return requested === "auto" || requested === "cache" ? requested : "live"
 })()
-// The stream begins at page load and the depot roll-out plays by itself while
-// the viewer reads; playback holds just before the service hour, with the
-// fleet already spread across the city, until they press Start.
-const SERVICE_HOLD_SIM_SEC = 64_790
+// The stream begins at page load; the fleet spawns already spread across the
+// city's staging grid, so playback holds on the opening moments — Cyberfleet
+// in position, city alive — until the viewer starts the run.
+const SERVICE_HOLD_SIM_SEC = 63_610
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
 const SERVICE_START_SIM_SEC = 64_800

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <!-- Cybercab taxi stands: idle taxis drive themselves to these city
+         stands (device.taxi idle-algorithm taxistand). Stand edges come
+         from the scenario's staging grid; without stands the taxi
+         device pins idle cabs at the depot with a triggered stop that
+         TraCI cannot lift (the depot-sleeper trap). -->
+    <parkingArea id="cybercab_depot" lane="8036812#2_0" startPos="118.0" endPos="132.0" roadsideCapacity="60" onRoad="false" friendlyPos="true"/>
+    <chargingStation id="cybercab_depot_charging" lane="8036812#2_0" startPos="118.0" endPos="132.0" power="150000" totalPower="9000000" efficiency="0.95" chargeDelay="0" chargeInTransit="false" parkingArea="cybercab_depot"/>
+    <parkingArea id="cybercab_stand_00" lane="-4777913#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_01" lane="-867524721_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_02" lane="24275072_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_03" lane="38415026#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_04" lane="85806303#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_05" lane="22724003#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_06" lane="-4792071_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_07" lane="22721671#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_08" lane="-150916989#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_09" lane="371852685#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_10" lane="38282475_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_11" lane="-69554067_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_12" lane="-62241003#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_13" lane="626979660_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_14" lane="-84121763#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_15" lane="-724418514#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_16" lane="-306426307#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_17" lane="-5046360_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_18" lane="24295532#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <parkingArea id="cybercab_stand_19" lane="42990121_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/>
+    <rerouter id="txl_adac_cybercab_taxi_stands" edges="8036812#2 -4777913#3 -867524721 24275072 38415026#3 85806303#0 22724003#1 -4792071 22721671#1 -150916989#1 371852685#1 38282475 -69554067 -62241003#0 626979660 -84121763#2 -724418514#0 -306426307#0 -5046360 24295532#3 42990121" vTypes="CybercabRobotaxi">
+        <interval begin="0" end="86400">
+            <parkingAreaReroute id="cybercab_stand_00"/>
+            <parkingAreaReroute id="cybercab_stand_01"/>
+            <parkingAreaReroute id="cybercab_stand_02"/>
+            <parkingAreaReroute id="cybercab_stand_03"/>
+            <parkingAreaReroute id="cybercab_stand_04"/>
+            <parkingAreaReroute id="cybercab_stand_05"/>
+            <parkingAreaReroute id="cybercab_stand_06"/>
+            <parkingAreaReroute id="cybercab_stand_07"/>
+            <parkingAreaReroute id="cybercab_stand_08"/>
+            <parkingAreaReroute id="cybercab_stand_09"/>
+            <parkingAreaReroute id="cybercab_stand_10"/>
+            <parkingAreaReroute id="cybercab_stand_11"/>
+            <parkingAreaReroute id="cybercab_stand_12"/>
+            <parkingAreaReroute id="cybercab_stand_13"/>
+            <parkingAreaReroute id="cybercab_stand_14"/>
+            <parkingAreaReroute id="cybercab_stand_15"/>
+            <parkingAreaReroute id="cybercab_stand_16"/>
+            <parkingAreaReroute id="cybercab_stand_17"/>
+            <parkingAreaReroute id="cybercab_stand_18"/>
+            <parkingAreaReroute id="cybercab_stand_19"/>
+        </interval>
+    </rerouter>
+</additional>

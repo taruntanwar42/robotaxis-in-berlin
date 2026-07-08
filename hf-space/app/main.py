@@ -174,6 +174,11 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "config": SUMO_BERLIN_SCENARIO_DIR / "berlin.sumocfg",
         "net": SUMO_BERLIN_SCENARIO_DIR / "berlin.net.xml",
         "route": SUMO_BERLIN_SCENARIO_DIR / "berlin-background-1pct.rou.xml",
+        # No stands/additional: taxistand idle routing collapsed the sim to
+        # ~2 sim-s/s at city scale, and idle-algorithm "stop" pins cabs with
+        # a triggered stop TraCI cannot lift. The fleet therefore spawns
+        # directly on the staging grid (spawnAtDepot False) — in position
+        # across the city before service, no depot-sleeper trap at all.
         "additional": None,
         "boundary": SUMO_BERLIN_SCENARIO_DIR / "berlin.area.geojson",
         "depotEdge": "8036812#2",
@@ -184,7 +189,9 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "includeSignalLinks": True,
         "fleetSize": 30,
         "demandFileDefault": MATSIM_BERLIN_DEMAND_FILE,
-        "spawnAtDepot": True,
+        # The fleet materializes on the staging grid (city-wide demand slots),
+        # ready before the service hour — "in the city by the time we start".
+        "spawnAtDepot": False,
         "includeTrafficLights": False,
         # City-scale: with ~5 km between idle cabs a rider realistically waits
         # longer than the corridor's 10 min before "no cab nearby", and an
@@ -1510,20 +1517,27 @@ def scenario_staging_edges(selected: dict[str, Any]) -> list[dict[str, Any]]:
 
 def scenario_staging_edge_id(selected: dict[str, Any], index: int) -> str:
     staging_edges = scenario_staging_edges(selected)
-    if index < len(staging_edges):
-        return str(staging_edges[index]["edgeId"])
+    if staging_edges:
+        # Fleets larger than the staging grid wrap around it — nobody falls
+        # back to the depot (the depot-sleeper trap).
+        return str(staging_edges[index % len(staging_edges)]["edgeId"])
     return ROBOTAXI_DEPOT_ROUTE_EDGES[0]
 
 
 def scenario_staging_depart_pos(selected: dict[str, Any], index: int) -> str:
     staging_edges = scenario_staging_edges(selected)
-    if index >= len(staging_edges):
+    if not staging_edges:
         return str(82 + (index % 6) * 6)
+    slot = index % len(staging_edges)
     try:
-        length_m = float(staging_edges[index].get("lengthM") or 20.0)
+        length_m = float(staging_edges[slot].get("lengthM") or 20.0)
     except (TypeError, ValueError):
         length_m = 20.0
-    return str(round(max(1.0, min(length_m * 0.5, max(1.0, length_m - 2.0))), 1))
+    # Wrapped fleet mates share an edge: offset them a car-length apart so
+    # simultaneous inserts don't collide.
+    base_pos = max(1.0, min(length_m * 0.5, max(1.0, length_m - 2.0)))
+    offset = (index // len(staging_edges)) * 9.0
+    return str(round(max(1.0, min(base_pos + offset, max(1.0, length_m - 2.0))), 1))
 
 
 def build_taxi_drt_route_file(
@@ -4524,8 +4538,14 @@ def update_taxi_drt_dispatch(
     else:
         dispatch_state["lastFleetDecisionSec"] = sim_sec
     service_is_ending = assignment_closed
+    # With taxi stands loaded, the taxi device's own taxistand idle algorithm
+    # distributes empty cabs across the city — the python staging/roam layer
+    # must stand down or the two fight over routes every few seconds.
+    stands_mode = selected.get("additional") is not None
     staging_target_edges = (
-        [] if assignment_closed else choose_taxi_staging_target_edges(dispatch_state, sim_sec)
+        []
+        if assignment_closed or stands_mode
+        else choose_taxi_staging_target_edges(dispatch_state, sim_sec)
     )
     # Cabs already heading to a hotspot count against it so idle cabs spread
     # across the top hotspots instead of forming a convoy on the single hottest.
@@ -4602,7 +4622,8 @@ def update_taxi_drt_dispatch(
                             staging_load[target_edge] += 1
                     dispatch_state["lastStagingDecisionSecByVehicleId"][vehicle_id] = sim_sec
             elif (
-                robotaxi.get("status") in {"idle", "staged"}
+                not stands_mode
+                and robotaxi.get("status") in {"idle", "staged"}
                 and taxi_robotaxi_ready_for_service(robotaxi)
                 and sim_sec - float(robotaxi.get("phaseSinceSec", sim_sec)) >= ROBOTAXI_ROAM_IDLE_MIN_SEC
                 and sim_sec - last_staging_decision_sec >= ROBOTAXI_ROAM_RECHECK_SEC

@@ -1,4 +1,4 @@
-# Agent Guide
+﻿# Agent Guide
 
 Use this file as the quick-start map for future agents working in this repo.
 
@@ -35,7 +35,7 @@ carry early-prototype assumptions.
 - Public playback streams pre-recorded replays
   (`hf-space/app/data/replays/berlin_taxi_matsim_public.fleet{N}.seed{S}.jsonl.gz`,
   Git LFS). Regenerate:
-  `python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7861 --scope berlin --fleet 30 --seed 1`
+  `python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7861 --scope berlin --fleet 60 --seed 15`
 - Backend transport is **libsumo** (in-process SUMO; ~62x realtime for the
   city). `ROBOTAXI_SUMO_TRANSPORT=traci` reverts to the socket.
 - `charlottenburg-moabit-tiergarten` (corridor) and `reinickendorf-district`
@@ -66,3 +66,4 @@ python scripts\smoke_backend.py --base-url http://127.0.0.1:7861
 Local dev: `python -m uvicorn app.main:app --app-dir hf-space --host 127.0.0.1 --port 7861`
 (7860 is often squatted by stale servers), then a QA build via
 `$env:VITE_SCENARIO_API_URL = "http://127.0.0.1:7861"; npx vite build; npx vite preview`.
+

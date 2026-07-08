@@ -1,4 +1,4 @@
-# robotaxis-in-berlin
+﻿# robotaxis-in-berlin
 
 A Cybercab robotaxi fleet simulation for the whole of Berlin: real synthetic
 demand (MATSim Open Berlin), microscopic street traffic (SUMO on the BeST
@@ -75,9 +75,10 @@ from a local BeST download — github.com/mosaic-addons/best-scenario).
 Regenerate replays from a running local backend:
 
 ```powershell
-python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7861 --scope berlin --fleet 30 --seed 1
+python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7861 --scope berlin --fleet 60 --seed 15
 ```
 
 Read `docs/DATA.md` and `docs/OPERATIONS.md` before changing data generation,
 backend packaging, or deployment. `docs/PRODUCT_DECISION_LOG.md` is the
 highest-trust record of product intent.
+

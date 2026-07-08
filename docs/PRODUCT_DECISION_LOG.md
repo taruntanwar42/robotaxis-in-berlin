@@ -1454,3 +1454,27 @@ User: "ok fix it". Shipped:
 - Not done (next lever, needs a product call): raise demand adoption + fleet
   in a re-record to fix wait/empty-share optics — invalidates the current
   "Why 30 cabs" sizing row.
+
+## 2026-07-08 — "Best app possible" mandate; density re-record shipped
+
+Raw wording (user):
+
+> ok but do you think this will be the best app possible? if not, try to make the best app possible /goal
+
+Then via /goal: "continue until app you're sure that it cannot be made into a
+better app".
+
+Diagnosis: post-reframe the map looked alive but the numbers told the diluted
+story. The MATSim 18-19h pool holds 7,502 trips (shipped seeds sampled at
+0.065 adoption = 76 requests). Sizing matrix recorded live (see commit
+76209ce): fleet 60 x 133 requests = 89% served / 119 moved / P50 15.2 min —
+shipped as the new default replay. Wait-time root cause measured from the
+recordings: assignment is instant (~48 s); the pickup DRIVE is ~13 min
+because the nearest idle cab averages 5.7 km away (stranded idle supply).
+Staging cap raised 480->960 s in main.py (live A/B interrupted — SUMO
+processes kept getting killed on the shared machine; verify next session).
+Assignment matching (vehicle-ordered greedy, ~23% of assignments >1 km worse
+than best idle cab) documented as the next dispatch lever, not yet changed.
+
+Visual QA of the fleet-60 run pending a visible browser window (tab frozen
+while occluded).

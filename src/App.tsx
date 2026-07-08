@@ -32,8 +32,6 @@ const districtScope = "berlin"
 // is 71k edges (a multi-hundred-MB payload) and the basemap already draws the
 // streets. Micro layers remain a corridor-scenario feature.
 const hasMicroNetworkLayers = districtScope !== "berlin"
-const FLEET_SIZE_CHOICES = [10, 30, 50] as const
-export type FleetChoice = (typeof FLEET_SIZE_CHOICES)[number]
 const SHIFT_START_SEC = 63_600 // 17:40 — the convoy leaves the TXL depot
 // DEV spike (?spike=chase): pitched 3D chase view with extruded buildings —
 // evidence run for the Tesla-style in-world driving view. Not a product flag.

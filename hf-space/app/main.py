@@ -2054,6 +2054,10 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
             # Serialize on the single libsumo instance; if this connection was
             # preempted while waiting its turn, don't start the sim at all.
             with LIVE_RUN_LOCK:
+                # Grace beat: connections abandoned within moments of opening
+                # (dev StrictMode remounts, bounced tabs) die here instead of
+                # paying a full, uninterruptible net load.
+                stop_event.wait(0.4)
                 if stop_event.is_set():
                     event_loop.call_soon_threadsafe(
                         message_queue.put_nowait, {"type": "stopped", "reason": "preempted"}
@@ -2083,7 +2087,17 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
                 if command_error and not isinstance(command_error, WebSocketDisconnect):
                     raise command_error
 
-            payload = await message_queue.get()
+            try:
+                payload = await asyncio.wait_for(message_queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                # A crashed producer never posts done/error — surface it
+                # instead of waiting on the queue forever.
+                if worker_task.done() and message_queue.empty():
+                    worker_error = worker_task.exception()
+                    if worker_error:
+                        raise worker_error
+                    break
+                continue
             send_started_at = time.perf_counter()
             if not await send_playback_json(payload):
                 break

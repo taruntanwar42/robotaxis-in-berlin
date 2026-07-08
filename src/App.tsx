@@ -52,9 +52,10 @@ const playbackCacheMode = (() => {
   const requested = new URLSearchParams(window.location.search).get("cache")
   return requested === "auto" || requested === "cache" ? requested : "live"
 })()
-// The stream begins at page load; playback holds on the very first frame —
-// the fleet parked at its depot — until the viewer starts the run.
-const SERVICE_HOLD_SIM_SEC = 63_601
+// The stream begins at page load; playback holds within the first moments —
+// the fleet parked at its depot — until the viewer starts the run. The first
+// live frame lands at 63601, so the line sits a few sim-seconds past it.
+const SERVICE_HOLD_SIM_SEC = 63_610
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
 const SERVICE_START_SIM_SEC = 64_800
@@ -2348,6 +2349,19 @@ export default function App() {
     playbackSocketRef.current = socket
 
     socket.addEventListener("message", (event) => {
+      if (import.meta.env.DEV) {
+        const w = window as unknown as Record<string, number>
+        w.__wsMessages = (w.__wsMessages ?? 0) + 1
+      }
+      if (playbackSocketRef.current !== socket) {
+        // Superseded connection: its buffered messages must not leak frames
+        // into the run that replaced it.
+        if (import.meta.env.DEV) {
+          const w = window as unknown as Record<string, number>
+          w.__wsStale = (w.__wsStale ?? 0) + 1
+        }
+        return
+      }
       const parseStartedAt = performance.now()
       const payload = JSON.parse(event.data) as {
         type?: string
@@ -2433,9 +2447,12 @@ export default function App() {
     })
 
     socket.addEventListener("close", () => {
-      if (playbackSocketRef.current === socket) {
-        playbackSocketRef.current = null
+      // A superseded socket (rerun, StrictMode remount) closing late must not
+      // clobber the state of the connection that replaced it.
+      if (playbackSocketRef.current !== socket) {
+        return
       }
+      playbackSocketRef.current = null
       playbackFetchInFlightRef.current = false
       setPlaybackBufferSize(
         Math.max(0, playbackTimelineRef.current.length - playbackAppliedIndexRef.current - 1),
@@ -2450,9 +2467,10 @@ export default function App() {
     })
 
     socket.addEventListener("error", () => {
-      if (playbackSocketRef.current === socket) {
-        playbackSocketRef.current = null
+      if (playbackSocketRef.current !== socket) {
+        return
       }
+      playbackSocketRef.current = null
       playbackFetchInFlightRef.current = false
       try {
         socket.close()
@@ -2545,14 +2563,20 @@ export default function App() {
   }, [requestPlaybackChunk])
 
   // The sim starts computing the moment the page loads — the depot roll-out
-  // is what the viewer watches while deciding to press Start.
-  const playbackAutoStartedRef = useRef(false)
+  // is what the viewer watches while deciding to press Start. The cleanup
+  // matters: StrictMode's double-mount (and any real unmount) must close its
+  // socket, or an orphaned live run holds the backend's single-sim lock.
   useEffect(() => {
-    if (playbackAutoStartedRef.current) {
-      return
-    }
-    playbackAutoStartedRef.current = true
     void startPlayback()
+    return () => {
+      try {
+        playbackSocketRef.current?.close()
+      } catch {
+        // Stale sockets may already be closed.
+      }
+      playbackSocketRef.current = null
+      playbackFetchInFlightRef.current = false
+    }
   }, [startPlayback])
 
   const releaseServiceHold = useCallback(() => {
@@ -2947,6 +2971,20 @@ export default function App() {
       return
     }
 
+    // Live sim may produce slower than the configured watch speed mid-hour.
+    // Rubber-band: with a thin buffer, ease down toward a slower watchable
+    // pace instead of hard Buffering stalls; drive-in plays at triple pace.
+    const effectivePlaybackSpeed = (timeline: SumoFrame[], appliedIndex: number) => {
+      const simSec = timeline[appliedIndex]?.simSec ?? SERVICE_START_SIM_SEC
+      const paceFactor = simSec < SERVICE_START_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1
+      const framesAhead = timeline.length - 1 - appliedIndex
+      const rubber =
+        playbackDoneRef.current || framesAhead >= 90
+          ? 1
+          : Math.max(0.25, framesAhead / 90)
+      return simSpeedRef.current * paceFactor * rubber
+    }
+
     const advancePlayback = (now: number) => {
       if (!isPlaybackPlayingRef.current) {
         return
@@ -2966,12 +3004,8 @@ export default function App() {
       const isVisible =
         typeof document === "undefined" || document.visibilityState === "visible"
 
-      const appliedSimSec =
-        timeline[playbackAppliedIndexRef.current]?.simSec ?? SERVICE_START_SIM_SEC
       const playbackFrameIntervalMs =
-        1000 /
-        (simSpeedRef.current *
-          (appliedSimSec < SERVICE_START_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1))
+        1000 / effectivePlaybackSpeed(timeline, playbackAppliedIndexRef.current)
       if (playbackFrameRemainderMsRef.current >= playbackFrameIntervalMs) {
         const dueFrameCount = Math.min(
           Math.max(
@@ -3087,14 +3121,12 @@ export default function App() {
       if (!map || index < 0 || index >= timeline.length) {
         return
       }
-      const interpolationSpeed =
-        simSpeedRef.current *
-        ((timeline[index]?.simSec ?? SERVICE_START_SIM_SEC) < SERVICE_START_SIM_SEC
-          ? DRIVE_IN_PACE_FACTOR
-          : 1)
       const t = Math.max(
         0,
-        Math.min(1, playbackFrameRemainderMsRef.current / (1000 / interpolationSpeed)),
+        Math.min(
+          1,
+          playbackFrameRemainderMsRef.current / (1000 / effectivePlaybackSpeed(timeline, index)),
+        ),
       )
       source(map, "sumo-vehicles")?.setData(
         interpolatedVehicleCollection(timeline[index], timeline[index + 1], t),

@@ -1843,6 +1843,13 @@
   gap: 5px;
 }
 
+/* Fleets past 40 cabs: denser columns keep the grid a glanceable block
+   instead of a wall. */
+.fleet-grid.is-many {
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+
 .fleet-cell {
   position: relative;
   aspect-ratio: 1.35;

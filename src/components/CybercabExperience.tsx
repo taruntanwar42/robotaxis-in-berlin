@@ -162,7 +162,7 @@ export function CybercabExperience({
           <section className="ops-setup" aria-label="Shift setup">
             <div className="setup-line">
               <span className="setup-label">Fleet</span>
-              <span className="setup-value">30 Cybercabs · one TXL depot</span>
+              <span className="setup-value">60 Cybercabs · one TXL depot</span>
             </div>
             <div className="setup-line">
               <span className="setup-label">Window</span>
@@ -231,7 +231,7 @@ export function CybercabExperience({
                 <span>Fleet</span>
                 <span className="block-note">{fleetSize} cabs · click to ride along</span>
               </div>
-              <div className="fleet-grid">
+              <div className={(fleetRows ?? []).length > 40 ? "fleet-grid is-many" : "fleet-grid"}>
                 {(fleetRows ?? []).map((row) => (
                   <button
                     key={`${row.id}:${cabRides[row.id] ?? 0}`}
@@ -319,9 +319,9 @@ export function CybercabExperience({
                   ))}
                 </div>
                 <div className="report-compare">
-                  <span className="report-compare-label">Why 30 cabs</span>
+                  <span className="report-compare-label">Why 60 cabs</span>
                   <span className="report-compare-item">
-                    10 serve ~38% · 30 is the knee · 50 add nothing
+                    same evening, 40 cabs serve 70% · 60 serve ~90%
                   </span>
                 </div>
                 <div className="report-footer">

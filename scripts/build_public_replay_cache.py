@@ -54,9 +54,9 @@ async def build_cache(
     chunk_count = 0
     frame_count = 0
     with gzip.open(tmp_path, "wt", encoding="utf-8") as cache_file:
-        async with websockets.connect(uri, open_timeout=30, max_size=16 * 1024 * 1024) as websocket:
+        async with websockets.connect(uri, open_timeout=30, max_size=16 * 1024 * 1024, ping_interval=None, ping_timeout=None) as websocket:
             while True:
-                message = json.loads(await asyncio.wait_for(websocket.recv(), timeout=90))
+                message = json.loads(await asyncio.wait_for(websocket.recv(), timeout=600))
                 message_type = message.get("type")
                 if message_type == "hello":
                     continue

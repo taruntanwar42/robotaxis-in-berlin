@@ -1703,8 +1703,9 @@ export default function App() {
   void isStoryOpen
   const [simSpeed, setSimSpeed] = useState<SimSpeed>(DEFAULT_SIM_SPEED)
   const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
-  // The fleet is fixed at 30 — the knee of the v9 sizing study.
-  const fleetChoiceRef = useRef<number>(30)
+  // Fleet fixed at 60 — the 2026-07-08 sizing matrix at 133 requests/hour:
+  // 40 cabs serve 70%, 60 serve 89%.
+  const fleetChoiceRef = useRef<number>(60)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
   // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,

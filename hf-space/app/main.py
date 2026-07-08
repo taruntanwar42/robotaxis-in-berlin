@@ -35,7 +35,9 @@ MATSIM_CORRIDOR_DEMAND_FILE = (
 )
 MATSIM_DEFAULT_DEMAND_FILE = MATSIM_CORRIDOR_DEMAND_FILE
 SUMO_BERLIN_SCENARIO_DIR = APP_DIR / "sumo" / "berlin"
-MATSIM_BERLIN_DEMAND_FILE = MATSIM_DEMAND_DIR / "berlin_person_trips_1pct_180000_190000_seed1.json"
+# seed15 = 0.15 adoption scale over the 7,502-trip evening pool (133 requests)
+# — the demand level the fleet-60 sizing matrix was run at.
+MATSIM_BERLIN_DEMAND_FILE = MATSIM_DEMAND_DIR / "berlin_person_trips_1pct_180000_190000_seed15.json"
 SUMO_START_SEC = 64_800
 SUMO_END_SEC = 75_600
 SUMO_CORRIDOR_END_SEC = 68_400  # 19:00 — v1 one-hour watchable window
@@ -52,7 +54,7 @@ MAX_SUMO_DELAY_MS = 1000
 FAST_SIM_BURST_STEPS = 500
 PLAYBACK_SCOPE = "charlottenburg-moabit-tiergarten"
 PLAYBACK_SCOPES = {"charlottenburg-moabit-tiergarten", "berlin"}
-FLEET_SIZE_OPTIONS = {10, 30, 50}
+FLEET_SIZE_OPTIONS = {10, 20, 30, 40, 50, 60}
 PLAYBACK_DATA_FPS = 50
 PLAYBACK_DEFAULT_RATE = 10
 PLAYBACK_SPEEDS = {5, 10, 25, 50, 100, 250, 500, 1000}
@@ -117,10 +119,13 @@ ROBOTAXI_ROAM_RECHECK_SEC = 150
 ROBOTAXI_ROAM_MIN_EDGE_LENGTH_M = 60.0
 # City-scale sanity caps. 30 cabs over 800 km2 means ~5 km spacing, i.e. a
 # typical pickup drive of 10-15 min — a tight cap starves the fleet (measured:
-# 9/78 served at 540 s). 12 min keeps hauls bounded without starving; the
-# staging cap keeps empty repositioning regional.
+# 9/78 served at 540 s). 12 min keeps hauls bounded without starving.
 ROBOTAXI_MAX_PICKUP_ROUTE_SEC = 900.0
-ROBOTAXI_MAX_STAGING_ROUTE_SEC = 480.0
+# Staging cap: at 480 s a periphery drop-off could reach no hotspot, so the
+# cab stranded out there and the nearest IDLE cab to new demand was 5.7 km
+# median (measured, fleet 60). 960 s lets every drop-off walk back toward
+# demand; long pickups cost more than long empty repositioning legs.
+ROBOTAXI_MAX_STAGING_ROUTE_SEC = 960.0
 ROBOTAXI_CHARGE_READY_FRACTION = 0.88
 ROBOTAXI_FINAL_DEPOT_MARGIN_SEC = 180
 ROBOTAXI_TAXI_DRT_WINDDOWN_SEC = 600
@@ -189,7 +194,9 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "networkMaxLanes": None,
         "includeInternalLanes": True,
         "includeSignalLinks": True,
-        "fleetSize": 30,
+        # Sized by the 2026-07-08 matrix at 133 requests: 40 cabs serve 70%,
+        # 60 serve 89%; waits are pickup-drive-bound (~15 min) at every size.
+        "fleetSize": 60,
         "demandFileDefault": MATSIM_BERLIN_DEMAND_FILE,
         # Depot bookends: the fleet leaves the TXL depot as a staggered convoy
         # and returns at close; the stands file gives idle cabs city homes.

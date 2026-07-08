@@ -1384,3 +1384,20 @@ Shipped this sprint:
   "active".
 - Report "Energy & impact": CO2 avoided (147 g/km petrol reference net
   of 363 g/kWh German grid, footnoted) + car trips avoided.
+
+## 2026-07-08 — First-principles reset requested (fresh-eyes session)
+
+Raw wording (user):
+
+> ok so i want you work on this project with a fresh set of eyes, it would be nice if we could treat this almost like a fresh project we just got, full of experiments and questionable decisions haha. i want the person viewing this to be delighted upon opening this. should feel so easy and natural to understand it.
+
+Audience confirmed: recruiter opens the app (repo invisible).
+
+Then, when offered opening-arc options:
+
+> forget about improvements, let's think from first principles. what is the best app we can make, given the starting data we have from the matsim open berlin scenario
+
+Status: concept exploration in progress this session. Fresh-eyes run findings
+(recorded for context): mid-run map + report already strong; dead pre-service
+opening (~15s at 60x, replay starts 17:46), half-empty idle pane, wait-optics
+mid-run, MapLibre resize-while-occluded bug, minor label inconsistencies.

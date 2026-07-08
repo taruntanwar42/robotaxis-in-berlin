@@ -1360,3 +1360,27 @@ Extracted decision + engineering findings (measured, not guessed):
   17:40-18:00, then the service hour.
 - Depot drive-in convoy story: retired for now (physically incompatible
   with the taxi device's idle stop without paying the stands cost).
+
+## 2026-07-08 (pre-dawn) - Sprint: dead window killed at the root + honest loading + impact stats
+
+Raw user language:
+
+> an app that expects the recruiter to wait for 15 seconds without any indication of the actual loading percentage (and optimal loading time is 0 ofc), has a depot on the map but places the cabs into a sort of grid ... doesnt say anything of value like battery or efficiency or environmental ... and fucking stutters all the time, instead of running at constant 60x ... it STILL makes the user wait ... on a screen from 17:40 to 18:00 WHILE NOTHING HAPPENS. i thought we were really gonna try for one last hard sprint tonight.
+
+Shipped this sprint:
+
+- Sim now STARTS at 17:59 (SUMO_BERLIN_START_SEC 64740): the 17:40-18:00
+  window is gone from existence, not skipped. Start drops straight into
+  the service hour. Progress bar/charts re-anchored to 18:00-19:00.
+- Loading states name what the backend is doing (Contacting the
+  simulator / Starting Berlin — live SUMO run) + an indeterminate load
+  bar. No fake percentages: SUMO's net load has no honest progress
+  signal. True load-time cut (keep SUMO warm between runs, saveState)
+  is the known next architecture step.
+- Rubber-band pacing got hysteresis: once eased, the pace stays eased
+  until the buffer truly recovers (240 frames) — steady slightly-slower
+  beats oscillating stutter.
+- KPI strip: live fleet battery average replaces P90; "on ride" renamed
+  "active".
+- Report "Energy & impact": CO2 avoided (147 g/km petrol reference net
+  of 363 g/kWh German grid, footnoted) + car trips avoided.

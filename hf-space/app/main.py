@@ -41,7 +41,10 @@ SUMO_END_SEC = 75_600
 SUMO_CORRIDOR_END_SEC = 68_400  # 19:00 — v1 one-hour watchable window
 # Berlin city scenario starts 17:40: the fleet leaves the TXL depot and drives
 # into position while the evening background traffic fills the city.
-SUMO_BERLIN_START_SEC = 63_600
+# One settle minute before the 18:00 service hour: the fleet spawns on the
+# staging grid at 17:59 — the old 17:40 drive-in window was twenty minutes of
+# nothing once the depot convoy story retired.
+SUMO_BERLIN_START_SEC = 64_740
 ROBOTAXI_REQUEST_EXPIRY_SEC = 600
 SUMO_WINDOW_LABEL = "18:00-21:00"
 DEFAULT_SUMO_DELAY_MS = 0

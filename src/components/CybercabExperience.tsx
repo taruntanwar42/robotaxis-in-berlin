@@ -47,10 +47,9 @@ export type RunSummary = {
 const SIM_SPEED_CHOICES = [20, 60, 180]
 const FLEET_CHOICES = [10, 30, 50]
 
-const SHIFT_START = 63_600
 const SERVICE_START = 64_800
 const SERVICE_END = 68_400
-const SHIFT_SPAN = SERVICE_END - SHIFT_START
+const SERVICE_SPAN = SERVICE_END - SERVICE_START
 
 type CybercabExperienceProps = {
   phase: ExperiencePhase
@@ -129,7 +128,6 @@ export function CybercabExperience({
     [opsTimeline.length, sortedWaits, fleetSize],
   )
   const p50 = percentileOf(sortedWaits, 50)
-  const p90 = percentileOf(sortedWaits, 90)
   // The report is the answer — it presents itself instead of hiding below
   // the fold of a scrolled pane.
   const reportRef = useRef<HTMLElement | null>(null)
@@ -138,8 +136,13 @@ export function CybercabExperience({
       reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     }
   }, [phase, report !== null])
-  const progress = Math.max(0, Math.min(1, (simSec - SHIFT_START) / SHIFT_SPAN))
-  const serviceTick = (SERVICE_START - SHIFT_START) / SHIFT_SPAN
+  const progress = Math.max(0, Math.min(1, (simSec - SERVICE_START) / SERVICE_SPAN))
+  const batteries = (fleetRows ?? [])
+    .map((row) => row.battery)
+    .filter((value): value is number => typeof value === "number")
+  const avgBattery = batteries.length
+    ? Math.round(batteries.reduce((sum, value) => sum + value, 0) / batteries.length)
+    : undefined
 
   return (
     <div className="experience-layer">
@@ -234,21 +237,19 @@ export function CybercabExperience({
                 <span>P50 wait</span>
               </div>
               <div className="kpi">
-                <strong>{sortedWaits.length ? formatMinutes(p90) : "–"}</strong>
-                <span>P90 wait</span>
+                <strong>{avgBattery !== undefined ? `${avgBattery}%` : "–"}</strong>
+                <span>battery</span>
               </div>
               <div className="kpi">
                 <strong>{fleetSize ? `${Math.round((active / fleetSize) * 100)}%` : "–"}</strong>
-                <span>on ride</span>
+                <span>active</span>
               </div>
             </section>
 
             <div className="ops-progress" aria-hidden="true">
-              <span className="ops-progress-tick" style={{ left: `${serviceTick * 100}%` }} />
               <i style={{ width: `${progress * 100}%` }} />
               <span className="ops-progress-labels">
-                <em>17:40</em>
-                <em style={{ left: `${serviceTick * 100}%` }}>18:00</em>
+                <em>18:00</em>
                 <em className="is-end">19:00</em>
               </span>
             </div>
@@ -380,6 +381,7 @@ export function CybercabExperience({
                 <div className="report-footer">
                   <span className="report-footnote">
                     ¹ incl. repositioning and depot legs · 1% population sample, full city
+                    <br />² vs 147 g/km petrol car, net of 363 g/kWh German grid electricity
                   </span>
                   <span className="report-rerun">
                     <span className="setup-chips">
@@ -543,7 +545,7 @@ function DemandChart({ timeline }: { timeline: OpsSample[] }) {
     return <div className="chart-empty">builds as the hour runs</div>
   }
   const maxY = Math.max(4, ...timeline.map((sample) => sample.requested))
-  const x = (t: number) => ((t - SHIFT_START) / SHIFT_SPAN) * width
+  const x = (t: number) => ((t - SERVICE_START) / SERVICE_SPAN) * width
   const y = (value: number) => height - (value / maxY) * (height - 6)
   const line = (pick: (sample: OpsSample) => number) =>
     timeline.map((sample) => `${x(sample.t).toFixed(1)},${y(pick(sample)).toFixed(1)}`).join(" ")
@@ -553,22 +555,11 @@ function DemandChart({ timeline }: { timeline: OpsSample[] }) {
   return (
     <div className="demand-chart-wrap">
       <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Requested versus served rides over the hour">
-        <line
-          x1={x(SERVICE_START)}
-          y1="0"
-          x2={x(SERVICE_START)}
-          y2={height}
-          stroke="rgba(20,30,40,0.15)"
-          strokeDasharray="3 3"
-        />
         <polygon points={servedArea} fill="rgba(201,151,0,0.14)" />
         <polyline points={line((s) => s.requested)} fill="none" stroke="rgba(44,56,64,0.55)" strokeWidth="1.6" />
         <polyline points={line((s) => s.served)} fill="none" stroke="#c99700" strokeWidth="2" />
       </svg>
-      <span
-        className="demand-service-tick"
-        style={{ left: `${((SERVICE_START - SHIFT_START) / SHIFT_SPAN) * 100}%` }}
-      >
+      <span className="demand-service-tick" style={{ left: "0%" }}>
         18:00
       </span>
     </div>
@@ -631,7 +622,7 @@ function StateTimeline({ timeline, fleetSize }: { timeline: OpsSample[]; fleetSi
   if (timeline.length < 2 || fleetSize === 0) {
     return <div className="chart-empty">builds as the hour runs</div>
   }
-  const x = (t: number) => ((t - SHIFT_START) / SHIFT_SPAN) * width
+  const x = (t: number) => ((t - SERVICE_START) / SERVICE_SPAN) * width
   const bandPolygons: Array<{ color: string; points: string }> = []
   const base = timeline.map(() => 0)
   for (const band of STATE_BANDS) {

@@ -37,7 +37,7 @@ const districtScope = "berlin"
 const hasMicroNetworkLayers = districtScope !== "berlin"
 const FLEET_SIZE_CHOICES = [10, 30, 50] as const
 export type FleetChoice = (typeof FLEET_SIZE_CHOICES)[number]
-const SHIFT_START_SEC = 63_600 // 17:40 — depot drive-in
+const SHIFT_START_SEC = 64_740 // 17:59 — fleet settles on the staging grid
 // DEV spike (?spike=chase): pitched 3D chase view with extruded buildings —
 // evidence run for the Tesla-style in-world driving view. Not a product flag.
 const CHASE_SPIKE =
@@ -52,10 +52,10 @@ const playbackCacheMode = (() => {
   const requested = new URLSearchParams(window.location.search).get("cache")
   return requested === "auto" || requested === "cache" ? requested : "live"
 })()
-// The stream begins at page load; the fleet spawns already spread across the
-// city's staging grid, so playback holds on the opening moments — Cyberfleet
-// in position, city alive — until the viewer starts the run.
-const SERVICE_HOLD_SIM_SEC = 63_610
+// The stream begins at page load; the sim starts at 17:59 with the fleet
+// already spread across the staging grid, and playback holds seconds before
+// 18:00 — Start drops the viewer straight into the service hour.
+const SERVICE_HOLD_SIM_SEC = 64_790
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
 const SERVICE_START_SIM_SEC = 64_800
@@ -1718,6 +1718,12 @@ export default function App() {
   // before 18:00 until the viewer starts the service hour.
   const [serviceReleased, setServiceReleased] = useState(false)
   const playbackServiceHoldRef = useRef(true)
+  const playbackRubberFloorRef = useRef(1)
+  // Honest loading stages for the intro card: what the backend is actually
+  // doing, not a spinner mystery.
+  const [liveLoadStage, setLiveLoadStage] = useState<"connecting" | "simulating" | "ready">(
+    "connecting",
+  )
   const [isEngineeringPanelOpen, setIsEngineeringPanelOpen] = useState(false)
   const [isStoryOpen] = useState(false)
   void isStoryOpen
@@ -2258,6 +2264,7 @@ export default function App() {
       dataUpdateCountRef.current += 1
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
+      setLiveLoadStage((stage) => (stage === "ready" ? stage : "ready"))
       if (import.meta.env.DEV) {
         const devWindow = window as unknown as Record<string, unknown>
         devWindow.__simSec = frame.simSec
@@ -2388,6 +2395,10 @@ export default function App() {
         }
       }
       const frontendParseMs = performance.now() - parseStartedAt
+      if (payload.type === "hello") {
+        setLiveLoadStage((stage) => (stage === "ready" ? stage : "simulating"))
+        return
+      }
       if (payload.type === "chunk") {
         const appendStartedAt = performance.now()
         handlePlaybackPayload(payload)
@@ -2557,6 +2568,8 @@ export default function App() {
     }
 
     setLoadError(null)
+    playbackRubberFloorRef.current = 1
+    setLiveLoadStage((stage) => (stage === "ready" ? stage : "connecting"))
     setIsPlaybackPlaying(true)
     isPlaybackPlayingRef.current = true
     playbackLastTickAtRef.current = null
@@ -2835,10 +2848,6 @@ export default function App() {
     const batteries = lastRows
       .map((row) => row.battery)
       .filter((value): value is number => typeof value === "number")
-    const avgBattery =
-      batteries.length > 0
-        ? batteries.reduce((sum, value) => sum + value, 0) / batteries.length
-        : undefined
     const minBattery = batteries.length > 0 ? Math.min(...batteries) : undefined
     const modeCounts = new Map<string, number>()
     for (const request of completed) {
@@ -2900,7 +2909,7 @@ export default function App() {
         ],
       },
       {
-        title: "Energy",
+        title: "Energy & impact",
         rows: [
           { label: "Used", value: fmt(energyKwh, 1, " kWh") },
           {
@@ -2913,7 +2922,14 @@ export default function App() {
             value:
               energyKwh !== undefined && ridesServed ? fmt(energyKwh / ridesServed, 2, " kWh") : "–",
           },
-          { label: "Avg battery", value: fmt(avgBattery, 0, " %") },
+          {
+            label: "CO₂ avoided²",
+            value:
+              passengerKm !== undefined && energyKwh !== undefined
+                ? fmt(Math.max(0, passengerKm * 0.147 - energyKwh * 0.363), 1, " kg")
+                : "–",
+          },
+          { label: "Car trips avoided", value: String(modeCount(["car", "ride"])) },
           { label: "Min battery", value: fmt(minBattery, 0, " %") },
         ],
       },
@@ -2994,16 +3010,26 @@ export default function App() {
     }
 
     // Live sim may produce slower than the configured watch speed mid-hour.
-    // Rubber-band: with a thin buffer, ease down toward a slower watchable
-    // pace instead of hard Buffering stalls; drive-in plays at triple pace.
+    // Rubber-band with hysteresis: a thin buffer eases the pace down, and it
+    // STAYS eased until the buffer genuinely recovers — oscillating between
+    // fast and slow reads as stutter, a steady lower pace reads as calm.
     const effectivePlaybackSpeed = (timeline: SumoFrame[], appliedIndex: number) => {
       const simSec = timeline[appliedIndex]?.simSec ?? SERVICE_START_SIM_SEC
       const paceFactor = simSec < SERVICE_START_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1
       const framesAhead = timeline.length - 1 - appliedIndex
-      const rubber =
+      const instantRubber =
         playbackDoneRef.current || framesAhead >= 90
           ? 1
           : Math.max(0.25, framesAhead / 90)
+      if (instantRubber < 1) {
+        playbackRubberFloorRef.current = Math.min(playbackRubberFloorRef.current, instantRubber)
+      } else if (playbackDoneRef.current || framesAhead >= 240) {
+        playbackRubberFloorRef.current = 1
+      }
+      const rubber =
+        playbackRubberFloorRef.current < 1
+          ? Math.min(instantRubber, Math.max(playbackRubberFloorRef.current, 0.3))
+          : 1
       return simSpeedRef.current * paceFactor * rubber
     }
 
@@ -4248,6 +4274,7 @@ export default function App() {
         <IntroCard
           ready={sumoFrame !== null}
           failed={playbackStatus === "Error"}
+          stage={liveLoadStage}
           onStart={releaseServiceHold}
           onRetry={() => {
             void startPlayback()

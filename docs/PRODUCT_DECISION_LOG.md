@@ -1431,3 +1431,26 @@ One full watch-through done (playback default, fleet 30). Shipped this pass:
   already said median; recruiter shouldn't need P-notation).
 - Map container background set to the basemap land tone (pre-tile blank read
   as a broken page for ~4 s on first load).
+
+## 2026-07-08 — Declutter + inner-city camera (post-polish direction check)
+
+Raw wording (user), after the polish pass:
+
+> nice. so, thank you so much, looks way better. but i think the ui is still very cluttered and maybe making the app over all of berlin instead of a smaller region wasnt such a great idea. what do you think?
+
+Assessment agreed on clutter (fleet grid + fleet-state chart redundant, waits
+histogram = permanent worst-optics report fact, 6 KPIs where 4 carry it).
+On Berlin: scope is not the mistake, experienced density is — fix by camera
+framing + (optionally) demand density, not by retreating to a corridor.
+User: "ok fix it". Shipped:
+
+- Live pane cut to: 4 KPIs (served/waiting/aboard/median wait), progress,
+  fleet grid + legend, demand chart (taller, 96px), ticker. Waits histogram
+  and fleet-state timeline deleted from live view (report keeps the numbers);
+  avg-battery and active KPIs deleted.
+- Running camera now frames the inner city (S-Bahn ring + margin,
+  innerCityBounds, maxZoom 12.4) at 18:00 release and on chase release; the
+  end-of-run report keeps the full-Berlin zoom-out as the scale statement.
+- Not done (next lever, needs a product call): raise demand adoption + fleet
+  in a re-record to fix wait/empty-share optics — invalidates the current
+  "Why 30 cabs" sizing row.

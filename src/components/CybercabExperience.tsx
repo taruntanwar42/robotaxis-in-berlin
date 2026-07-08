@@ -108,19 +108,12 @@ export function CybercabExperience({
   const driveIn = running && simSec < SERVICE_START
   const windDown = phase === "running" && simSec >= SERVICE_END
   const aboard = (fleetRows ?? []).filter((row) => row.state === "with_passenger").length
-  const active = (fleetRows ?? []).filter(
-    (row) => row.state === "with_passenger" || row.state === "en_route_pickup",
-  ).length
   // Charts redraw only when a new 30-sim-sec sample or completed ride lands,
   // not on every paced frame (at 180x that is ~180 renders/sec).
   const sortedWaits = useMemo(() => [...waits].sort((a, b) => a - b), [waits.length])
-  const chartNodes = useMemo(
-    () => ({
-      demand: <DemandChart timeline={opsTimeline} />,
-      waits: <WaitHistogram waits={sortedWaits} />,
-      states: <StateTimeline timeline={opsTimeline} fleetSize={fleetSize} />,
-    }),
-    [opsTimeline.length, sortedWaits, fleetSize],
+  const demandChart = useMemo(
+    () => <DemandChart timeline={opsTimeline} />,
+    [opsTimeline.length],
   )
   const p50 = percentileOf(sortedWaits, 50)
   // The report is the answer — it presents itself instead of hiding below
@@ -133,12 +126,6 @@ export function CybercabExperience({
   }, [phase, report !== null])
   const progress = Math.max(0, Math.min(1, (simSec - SHIFT_START) / SHIFT_SPAN))
   const serviceTick = (SERVICE_START - SHIFT_START) / SHIFT_SPAN
-  const batteries = (fleetRows ?? [])
-    .map((row) => row.battery)
-    .filter((value): value is number => typeof value === "number")
-  const avgBattery = batteries.length
-    ? Math.round(batteries.reduce((sum, value) => sum + value, 0) / batteries.length)
-    : undefined
 
   return (
     <div className="experience-layer">
@@ -227,14 +214,6 @@ export function CybercabExperience({
                 <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
                 <span>median wait</span>
               </div>
-              <div className="kpi">
-                <strong>{avgBattery !== undefined ? `${avgBattery}%` : "–"}</strong>
-                <span>avg battery</span>
-              </div>
-              <div className="kpi">
-                <strong>{fleetSize ? `${Math.round((active / fleetSize) * 100)}%` : "–"}</strong>
-                <span>active</span>
-              </div>
             </section>
 
             <div className="ops-progress" aria-hidden="true">
@@ -304,22 +283,7 @@ export function CybercabExperience({
                     {opsTimeline.length ? opsTimeline[opsTimeline.length - 1].served : 0}
                   </span>
                 </div>
-                {chartNodes.demand}
-              </div>
-              <div className="chart-row">
-                <div className="chart-block">
-                  <div className="block-title">
-                    <span>Waits</span>
-                    <span className="block-note">minutes</span>
-                  </div>
-                  {chartNodes.waits}
-                </div>
-                <div className="chart-block">
-                  <div className="block-title">
-                    <span>Fleet state</span>
-                  </div>
-                  {chartNodes.states}
-                </div>
+                {demandChart}
               </div>
             </section>
 
@@ -544,102 +508,6 @@ function DemandChart({ timeline }: { timeline: OpsSample[] }) {
         18:00
       </span>
     </div>
-  )
-}
-
-function WaitHistogram({ waits }: { waits: number[] }) {
-  const width = 150
-  const height = 64
-  const bins = [0, 0, 0, 0, 0, 0]
-  for (const wait of waits) {
-    const minutes = wait / 60
-    bins[Math.min(5, Math.floor(minutes / 2))] += 1
-  }
-  const maxBin = Math.max(1, ...bins)
-  const barWidth = width / bins.length
-  if (waits.length === 0) {
-    return <div className="chart-empty">no completed rides yet</div>
-  }
-  return (
-    <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Wait time distribution">
-      {bins.map((count, index) => {
-        const barHeight = (count / maxBin) * (height - 16)
-        return (
-          <g key={index}>
-            <rect
-              x={index * barWidth + 2}
-              y={height - 12 - barHeight}
-              width={barWidth - 4}
-              height={Math.max(count > 0 ? 2 : 0, barHeight)}
-              rx="1.5"
-              fill="#c99700"
-              opacity={0.35 + 0.65 * (count / maxBin)}
-            />
-            <text x={index * barWidth + barWidth / 2} y={height - 2} textAnchor="middle" className="chart-tick">
-              {index === 5 ? "10+" : index * 2}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
-
-const STATE_BANDS: Array<{ key: string; states: string[]; color: string }> = [
-  { key: "riding", states: ["with_passenger"], color: "#c99700" },
-  { key: "pickup", states: ["en_route_pickup"], color: "#5b7c99" },
-  { key: "moving", states: ["staged", "roaming"], color: "#b9c2c9" },
-  { key: "parked", states: ["idle", "parking_local"], color: "#e4e8eb" },
-  {
-    key: "depot",
-    states: ["idle_at_depot", "returning_to_depot", "charging", "offline"],
-    color: "#2c3840",
-  },
-]
-
-function StateTimeline({ timeline, fleetSize }: { timeline: OpsSample[]; fleetSize: number }) {
-  const width = 150
-  const height = 64
-  if (timeline.length < 2 || fleetSize === 0) {
-    return <div className="chart-empty">builds as the hour runs</div>
-  }
-  const x = (t: number) => ((t - SHIFT_START) / SHIFT_SPAN) * width
-  const bandPolygons: Array<{ color: string; points: string }> = []
-  const base = timeline.map(() => 0)
-  for (const band of STATE_BANDS) {
-    const tops = timeline.map((sample, index) => {
-      const value = band.states.reduce((sum, state) => sum + (sample.states[state] ?? 0), 0)
-      return base[index] + value
-    })
-    const forward = timeline
-      .map((sample, index) => `${x(sample.t).toFixed(1)},${(height - (base[index] / fleetSize) * height).toFixed(1)}`)
-      .join(" ")
-    const backward = [...timeline]
-      .reverse()
-      .map((sample, revIndex) => {
-        const index = timeline.length - 1 - revIndex
-        return `${x(sample.t).toFixed(1)},${(height - (tops[index] / fleetSize) * height).toFixed(1)}`
-      })
-      .join(" ")
-    bandPolygons.push({ color: band.color, points: `${forward} ${backward}` })
-    for (let index = 0; index < base.length; index += 1) {
-      base[index] = tops[index]
-    }
-  }
-  return (
-    <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Fleet state over the hour">
-      {bandPolygons.map((band, index) => (
-        <polygon key={index} points={band.points} fill={band.color} />
-      ))}
-      <line
-        x1={x(SERVICE_START)}
-        y1="0"
-        x2={x(SERVICE_START)}
-        y2={height}
-        stroke="rgba(255,255,255,0.45)"
-        strokeDasharray="3 3"
-      />
-    </svg>
   )
 }
 

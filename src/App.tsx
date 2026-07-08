@@ -80,6 +80,14 @@ const activeScenarioBounds: [Coordinate, Coordinate] = [
   [13.0884, 52.3382],
   [13.7611, 52.6755],
 ]
+// Default running view: the S-Bahn ring plus a margin. Demand concentrates
+// here, so this is where cabs are visible as cabs instead of 2px dots. The
+// sim still covers all 890 km² — the report's end-of-run zoom-out owns the
+// scale statement.
+const innerCityBounds: [Coordinate, Coordinate] = [
+  [13.22, 52.44],
+  [13.56, 52.585],
+]
 // Fixed TXL-area depot (edge 8036812#2). The backend ships no depot geometry
 // for this scenario, so the marker location is a frontend constant.
 const depotCoordinate: Coordinate = [13.303, 52.557]
@@ -2500,11 +2508,11 @@ export default function App() {
         })
       }
     } else {
-      // Release returns to the city overview — the whole point of the map at
-      // city scale; staying parked on a street corner orphans the report too.
-      map.fitBounds(activeScenarioBounds, {
+      // Release returns to the inner-city running view; the full-city zoom-out
+      // is reserved for the end-of-run report.
+      map.fitBounds(innerCityBounds, {
         padding: { top: 40, bottom: 40, left: 40, right: 40 },
-        maxZoom: 11,
+        maxZoom: 12.4,
         duration: 1100,
       })
     }
@@ -2569,9 +2577,9 @@ export default function App() {
     }
     cityCameraArmedRef.current = false
     if (!followedCabIdRef.current) {
-      baseMapRef.current?.fitBounds(activeScenarioBounds, {
+      baseMapRef.current?.fitBounds(innerCityBounds, {
         padding: { top: 40, bottom: 40, left: 40, right: 40 },
-        maxZoom: 11,
+        maxZoom: 12.4,
         duration: 1800,
       })
     }

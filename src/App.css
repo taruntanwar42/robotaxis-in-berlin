@@ -37,7 +37,9 @@
 .map-canvas {
   position: absolute;
   inset: 0;
-  background: var(--paper);
+  /* The basemap's land tone, so the moment before tiles arrive reads as the
+     map warming up rather than a blank page. */
+  background: #f0efeb;
 }
 
 .map-fallback {
@@ -1760,6 +1762,9 @@
 /* Progress with service tick */
 .ops-progress {
   position: relative;
+  /* flex: none — as a fixed-height empty flex child it is the first thing a
+     short pane crushes to 0px, silently deleting the shift progress bar. */
+  flex: none;
   height: 4px;
   border-radius: 2px;
   background: var(--hairline);
@@ -2171,13 +2176,68 @@
   margin-right: 2px;
 }
 
-/* v9 polish */
+/* Idle cover: brand and setup read as one composed hero group, optically
+   centered a touch above the pane's middle. Same elements as the running
+   header — they only move, nothing is thrown away. */
+.ops-pane.is-idle {
+  gap: 30px;
+  padding-bottom: 9vh;
+}
+
+.ops-pane.is-idle .ops-brand,
 .ops-pane.is-idle .ops-setup {
-  margin: auto 0;
+  width: min(420px, 100%);
+  margin: 0 auto;
 }
 
 .ops-pane.is-idle .ops-brand {
-  margin-top: 4vh;
+  /* Auto margins (not justify-content) center the hero: they collapse to 0
+     when the pane is short, so the content scrolls instead of clipping. */
+  margin-top: auto;
+  padding: 0;
+  border-bottom: none;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.ops-pane.is-idle .ops-setup {
+  margin-bottom: auto;
+}
+
+.ops-pane.is-idle .ops-brand-mark {
+  width: 22px;
+  height: 42px;
+  border-radius: 10px 10px 8px 8px;
+  margin-top: 5px;
+}
+
+.ops-pane.is-idle .ops-brand h1 {
+  font-size: 30px;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+}
+
+.ops-pane.is-idle .ops-brand p {
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.ops-pane.is-idle .ops-setup {
+  max-width: none;
+  margin-top: 0;
+  gap: 16px;
+}
+
+.ops-pane.is-idle .setup-line {
+  font-size: 14px;
+}
+
+.ops-pane.is-idle .setup-label {
+  width: 76px;
+}
+
+.ops-pane.is-idle .gold-button {
+  margin-top: 10px;
 }
 
 .map-legend {

@@ -29,7 +29,7 @@ hf-space/app/sumo/berlin/output/
 # Tooling scaffolding, not project docs
 docs/superpowers/
 
-# Asset exploration output (regenerable; only cybercab-depot-marker.png ships)
+# Asset exploration output (regenerable)
 public/assets/fonts/
 public/assets/depot-marker-options/
 public/assets/source/

@@ -1401,3 +1401,33 @@ Status: concept exploration in progress this session. Fresh-eyes run findings
 (recorded for context): mid-run map + report already strong; dead pre-service
 opening (~15s at 60x, replay starts 17:46), half-empty idle pane, wait-optics
 mid-run, MapLibre resize-while-occluded bug, minor label inconsistencies.
+
+## 2026-07-08 — "Epic presentation" polish pass (autonomous session)
+
+Raw wording (user):
+
+> let's figure out how we can take this project from experimental to an epic presentation when an engineer opens the link. /goal explore the app explore ways to improve the app experience for the 1-2 minutes it will be used for by the engineer/recruiter, then polish polish polish, make something beautiful, the goal is to make the UI and overall experience clearer and more intentional. do not waste time on watching full recordings, maybe one run at first, max. but then work with screenshots.
+
+One full watch-through done (playback default, fleet 30). Shipped this pass:
+
+- Winddown compression: past 19:00 playback returns to triple pace (shared
+  DRIVE_IN_PACE_FACTOR) — the 19:00→19:52 epilogue was ~40 wall-seconds of a
+  pegged progress bar; now ~15 s.
+- Honest phases: chip now Rolling out → In service → Winding down → Shift
+  complete ("In position" lied — the fleet visibly streams out of TXL).
+  Drive-in ticker copy matched ("Cyberfleet rolling out across the city").
+- Idle cover recomposed: brand + facts + Start as one optically-centered hero
+  group (was: brand pinned top, setup floating in a half-empty pane).
+- Depot map label: scratchy script PNG replaced by a gold dot + map-typeset
+  caption (Metropolis Semi Bold, halo) — reads as part of the basemap. PNG +
+  generator script deleted.
+- Fleet-grid state legend: the riding/pickup/moving/parked/depot swatch row
+  moved from under the Fleet-state chart to under the fleet grid, where the
+  colors first appear.
+- Demand-chart "requested" now counts declined-at-creation requests (deduped
+  by id), so the live chart total converges to the report's "Requests" (was
+  65 vs 76 mismatch).
+- KPI labels: "P50 wait" → "median wait", "battery" → "avg battery" (report
+  already said median; recruiter shouldn't need P-notation).
+- Map container background set to the basemap land tone (pre-tile blank read
+  as a broken page for ~4 s on first load).

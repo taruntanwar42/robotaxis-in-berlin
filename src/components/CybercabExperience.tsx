@@ -106,6 +106,7 @@ export function CybercabExperience({
 }: CybercabExperienceProps) {
   const running = phase !== "idle"
   const driveIn = running && simSec < SERVICE_START
+  const windDown = phase === "running" && simSec >= SERVICE_END
   const aboard = (fleetRows ?? []).filter((row) => row.state === "with_passenger").length
   const active = (fleetRows ?? []).filter(
     (row) => row.state === "with_passenger" || row.state === "en_route_pickup",
@@ -158,7 +159,13 @@ export function CybercabExperience({
                 {clock}
               </span>
               <span className="ops-phase-chip">
-                {phase === "results" ? "Shift complete" : driveIn ? "In position" : "In service"}
+                {phase === "results"
+                  ? "Shift complete"
+                  : driveIn
+                    ? "Rolling out"
+                    : windDown
+                      ? "Winding down"
+                      : "In service"}
               </span>
             </div>
           ) : null}
@@ -218,11 +225,11 @@ export function CybercabExperience({
               </div>
               <div className="kpi">
                 <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
-                <span>P50 wait</span>
+                <span>median wait</span>
               </div>
               <div className="kpi">
                 <strong>{avgBattery !== undefined ? `${avgBattery}%` : "–"}</strong>
-                <span>battery</span>
+                <span>avg battery</span>
               </div>
               <div className="kpi">
                 <strong>{fleetSize ? `${Math.round((active / fleetSize) * 100)}%` : "–"}</strong>
@@ -266,6 +273,13 @@ export function CybercabExperience({
                   </button>
                 ))}
               </div>
+              <div className="state-legend" aria-hidden="true">
+                <i style={{ background: "#c99700" }} /> riding
+                <i style={{ background: "#5b7c99" }} /> pickup
+                <i style={{ background: "#b9c2c9" }} /> moving
+                <i style={{ background: "#e4e8eb" }} /> parked
+                <i style={{ background: "#2c3840" }} /> depot
+              </div>
               {followedCabId ? (
                 <CabCard
                   cabId={followedCabId}
@@ -305,13 +319,6 @@ export function CybercabExperience({
                     <span>Fleet state</span>
                   </div>
                   {chartNodes.states}
-                  <div className="state-legend" aria-hidden="true">
-                    <i style={{ background: "#c99700" }} /> riding
-                    <i style={{ background: "#5b7c99" }} /> pickup
-                    <i style={{ background: "#b9c2c9" }} /> moving
-                    <i style={{ background: "#e4e8eb" }} /> parked
-                    <i style={{ background: "#2c3840" }} /> depot
-                  </div>
                 </div>
               </div>
             </section>
@@ -377,7 +384,7 @@ export function CybercabExperience({
                   <div className="ticker-row tone-open">
                     <span className="ticker-time">{driveIn ? clock : "18:00"}</span>
                     <span className="ticker-text">
-                      {driveIn ? "Cyberfleet in position across the city" : "Waiting for first request"}
+                      {driveIn ? "Cyberfleet rolling out across the city" : "Waiting for first request"}
                     </span>
                   </div>
                 ) : null}

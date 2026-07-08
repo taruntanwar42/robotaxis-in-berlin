@@ -27,7 +27,6 @@ const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL a
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
-const cybercabDepotMarkerUrl = `${import.meta.env.BASE_URL}assets/cybercab-depot-marker.png?v=9`
 const districtScope = "berlin"
 // The city-scale scenario skips the SUMO lane/TL geometry fetch: the full net
 // is 71k edges (a multi-hundred-MB payload) and the basemap already draws the
@@ -53,7 +52,10 @@ const playbackCacheMode = (() => {
 })()
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
+// Past 19:00 the same triple pace returns — the last drop-offs and the drive
+// home are an epilogue, not a third of the viewer's attention.
 const SERVICE_START_SIM_SEC = 64_800
+const SERVICE_END_SIM_SEC = 68_400
 const DRIVE_IN_PACE_FACTOR = 3
 // 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
 // so the 18:00-19:00 window plays in ~90 real seconds.
@@ -426,7 +428,7 @@ const sumoLayerIds: Record<SumoLayerKey, string[]> = {
   vehicles: ["sumo-cybercab-glow", "sumo-cybercabs"],
   background: ["sumo-vehicles"],
   trafficLights: ["sumo-traffic-lights"],
-  boundary: ["service-area-halo", "sumo-depot-label", "base-service-area-line"],
+  boundary: ["service-area-halo", "sumo-depot-dot", "sumo-depot-label", "base-service-area-line"],
   requests: ["request-pulses", "robotaxi-request-markers", "request-riders", "request-destinations"],
   paths: ["robotaxi-request-paths", "robotaxi-ride-paths", "robotaxi-ride-paths-flow"],
 }
@@ -1617,21 +1619,6 @@ function createDestinationMarkerImage() {
   }
 }
 
-function ensureCybercabDepotMarkerImage(map: maplibregl.Map) {
-  if (map.hasImage("cybercab-depot-marker")) {
-    return
-  }
-
-  const image = new Image()
-  image.onload = () => {
-    if (!map.hasImage("cybercab-depot-marker")) {
-      map.addImage("cybercab-depot-marker", image, { pixelRatio: 2 })
-      map.triggerRepaint()
-    }
-  }
-  image.src = cybercabDepotMarkerUrl
-}
-
 function setSumoLayerVisibility(
   map: maplibregl.Map,
   visibility: Record<SumoLayerKey, boolean>,
@@ -1778,6 +1765,7 @@ export default function App() {
   // demand curve and the fleet-state timeline in the left pane.
   const opsTimelineRef = useRef<OpsSample[]>([])
   const requestedCumRef = useRef(0)
+  const requestedIdsRef = useRef<Set<string>>(new Set())
   const expiredCumRef = useRef(0)
   const sumoSocketRef = useRef<WebSocket | null>(null)
   const sumoDelayMsRef = useRef(0)
@@ -2125,6 +2113,7 @@ export default function App() {
     cabBatteryHistoryRef.current = new Map()
     opsTimelineRef.current = []
     requestedCumRef.current = 0
+    requestedIdsRef.current = new Set()
     expiredCumRef.current = 0
     latestRobotaxiRequestsRef.current = undefined
     setDispatchFeed([])
@@ -2185,7 +2174,11 @@ export default function App() {
         }
       }
       for (const event of frame.requestEvents ?? []) {
-        if (event.status === "waiting") {
+        // A request is "requested" the moment its first event appears — some
+        // skip "waiting" entirely (instantly assigned when a cab is adjacent),
+        // so counting waiting-only undercounted the report's request total.
+        if (!requestedIdsRef.current.has(event.id)) {
+          requestedIdsRef.current.add(event.id)
           requestedCumRef.current += 1
         }
         if (event.status === "expired") {
@@ -2851,11 +2844,12 @@ export default function App() {
               energyKwh !== undefined && ridesServed ? fmt(energyKwh / ridesServed, 2, " kWh") : "–",
           },
           {
-            label: "CO₂ avoided²",
-            value:
-              passengerKm !== undefined && energyKwh !== undefined
-                ? fmt(Math.max(0, passengerKm * 0.147 - energyKwh * 0.363), 1, " kg")
-                : "–",
+            label: "Grid CO₂²",
+            value: energyKwh !== undefined ? fmt(energyKwh * 0.363, 1, " kg") : "–",
+          },
+          {
+            label: "Tailpipe CO₂",
+            value: "0 kg",
           },
           { label: "Car trips avoided", value: String(modeCount(["car", "ride"])) },
           { label: "Min battery", value: fmt(minBattery, 0, " %") },
@@ -2943,7 +2937,8 @@ export default function App() {
     // fast and slow reads as stutter, a steady lower pace reads as calm.
     const effectivePlaybackSpeed = (timeline: SumoFrame[], appliedIndex: number) => {
       const simSec = timeline[appliedIndex]?.simSec ?? SERVICE_START_SIM_SEC
-      const paceFactor = simSec < SERVICE_START_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1
+      const paceFactor =
+        simSec < SERVICE_START_SIM_SEC || simSec >= SERVICE_END_SIM_SEC ? DRIVE_IN_PACE_FACTOR : 1
       const framesAhead = timeline.length - 1 - appliedIndex
       const instantRubber =
         playbackDoneRef.current || framesAhead >= 90
@@ -3341,7 +3336,6 @@ export default function App() {
           pixelRatio: destinationMarker.pixelRatio,
         })
       }
-      ensureCybercabDepotMarkerImage(map)
       map.addLayer({
         id: "service-area-halo",
         type: "fill",
@@ -3352,29 +3346,38 @@ export default function App() {
           "fill-antialias": true,
         },
       })
+      // The depot mark: a quiet gold point with a set-in-the-basemap caption,
+      // typeset in the map's own face so it reads as part of the city.
+      map.addLayer({
+        id: "sumo-depot-dot",
+        type: "circle",
+        source: "sumo-depot-label",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 13, 5],
+          "circle-color": "#c99700",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.5,
+        },
+      })
       map.addLayer({
         id: "sumo-depot-label",
         type: "symbol",
         source: "sumo-depot-label",
         layout: {
-          "icon-image": "cybercab-depot-marker",
-          "icon-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10,
-            0.35,
-            12,
-            0.56,
-            14,
-            0.76,
-            16,
-            0.95,
-          ],
-          "icon-anchor": "left",
-          "icon-offset": [3, -2],
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
+          "text-field": ["get", "label"],
+          "text-font": ["Metropolis Semi Bold", "Noto Sans Semi Bold"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 12.5],
+          "text-letter-spacing": 0.12,
+          "text-transform": "uppercase",
+          "text-anchor": "top",
+          "text-offset": [0, 0.55],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#8a6a10",
+          "text-halo-color": "rgba(255,255,255,0.9)",
+          "text-halo-width": 1.2,
         },
       })
       map.addLayer({

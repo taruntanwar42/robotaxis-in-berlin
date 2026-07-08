@@ -4515,11 +4515,17 @@ def update_taxi_drt_dispatch(
 
     profile_started_at = time.perf_counter()
     empty_fleet = list(empty_set)
+    # Matching, staging and depot-return decisions run on a 3-sim-second
+    # cadence, not every step: routing queries dominated live-run CPU, and a
+    # sub-3-sim-second reaction is invisible at 60x.
+    last_fleet_decision_sec = float(dispatch_state.get("lastFleetDecisionSec", -1e9))
+    if sim_sec - last_fleet_decision_sec < 3.0:
+        empty_fleet = []
+    else:
+        dispatch_state["lastFleetDecisionSec"] = sim_sec
     service_is_ending = assignment_closed
     staging_target_edges = (
-        []
-        if pending_reservation_ids or assignment_closed
-        else choose_taxi_staging_target_edges(dispatch_state, sim_sec)
+        [] if assignment_closed else choose_taxi_staging_target_edges(dispatch_state, sim_sec)
     )
     # Cabs already heading to a hotspot count against it so idle cabs spread
     # across the top hotspots instead of forming a convoy on the single hottest.
@@ -4689,6 +4695,29 @@ def update_taxi_drt_dispatch(
                         reason="low_battery",
                         sim_sec=sim_sec,
                     )
+                elif not service_is_ending and staging_target_edges:
+                    # A healthy cab parked at the depot serves nobody: it was
+                    # too far for every pending request, and with requests
+                    # pending it never used to get a staging leg either — the
+                    # depot-sleeper trap. Push it into the city.
+                    depot_edges = {
+                        str(selected.get("depotEdge") or ""),
+                        *ROBOTAXI_DEPOT_ROUTE_EDGES,
+                    }
+                    if current_edge in depot_edges:
+                        target_edge = min(
+                            staging_target_edges, key=lambda edge: staging_load[edge]
+                        )
+                        route_empty_taxi_to_staging(
+                            connection,
+                            dispatch_state,
+                            vehicle_id,
+                            target_edge,
+                            sim_sec,
+                        )
+                        if robotaxi.get("stagingTargetEdge") == target_edge:
+                            staging_load[target_edge] += 1
+                        dispatch_state["lastStagingDecisionSecByVehicleId"][vehicle_id] = sim_sec
             except Exception:
                 pass
             continue
@@ -4965,6 +4994,11 @@ def produce_sumo_taxi_drt_playback_chunks(
         "traci",
         "--device.taxi.dispatch-period",
         "1",
+        # A*: goal-directed routing without precomputation. Dijkstra made
+        # dispatch findRoute ~29% of live-run CPU; CH was worse (its
+        # hierarchy rebuilds turned dispatchTaxi into 90% of the run).
+        "--routing-algorithm",
+        "astar",
     ]
     if selected.get("additional") is not None:
         taxi_command.extend(["--device.taxi.idle-algorithm", "taxistand"])

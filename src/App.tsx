@@ -52,10 +52,10 @@ const playbackCacheMode = (() => {
   const requested = new URLSearchParams(window.location.search).get("cache")
   return requested === "auto" || requested === "cache" ? requested : "live"
 })()
-// The stream begins at page load; playback holds within the first moments —
-// the fleet parked at its depot — until the viewer starts the run. The first
-// live frame lands at 63601, so the line sits a few sim-seconds past it.
-const SERVICE_HOLD_SIM_SEC = 63_610
+// The stream begins at page load and the depot roll-out plays by itself while
+// the viewer reads; playback holds just before the service hour, with the
+// fleet already spread across the city, until they press Start.
+const SERVICE_HOLD_SIM_SEC = 64_790
 // After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
 // convoy is drama, not twenty minutes of commuting. Service runs at 1x.
 const SERVICE_START_SIM_SEC = 64_800
@@ -2259,7 +2259,14 @@ export default function App() {
       setPlaybackAppliedFrames((count) => count + 1)
       setSumoFrame(frame)
       if (import.meta.env.DEV) {
-        ;(window as unknown as Record<string, unknown>).__simSec = frame.simSec
+        const devWindow = window as unknown as Record<string, unknown>
+        devWindow.__simSec = frame.simSec
+        const stateCounts: Record<string, number> = {}
+        for (const row of frame.cabRows ?? []) {
+          const state = String(row.state ?? "unknown")
+          stateCounts[state] = (stateCounts[state] ?? 0) + 1
+        }
+        devWindow.__cabStates = stateCounts
       }
     },
     [absorbPlaybackFrame, syncPlaybackFrameSources],
@@ -2588,8 +2595,9 @@ export default function App() {
     selectCabToFollow(null)
   }, [selectCabToFollow])
 
-  // Pre-service framing: the story starts at the depot, where the parked
-  // convoy is waiting — not on an anonymous stretch of empty city.
+  // Pre-service framing: the whole city, offset for the pane — the viewer
+  // watches the convoy leave the depot and fan out across Berlin while the
+  // card is read.
   useEffect(() => {
     if (serviceReleased) {
       return
@@ -2599,11 +2607,10 @@ export default function App() {
       return
     }
     const paneWidth = Math.min(Math.max(500, window.innerWidth * 0.5), 900)
-    map.easeTo({
-      center: [depotCoordinate[0] + 0.012, depotCoordinate[1] - 0.004],
-      zoom: 12.4,
-      padding: { left: paneWidth, top: 0, right: 0, bottom: 0 },
-      duration: 2200,
+    map.fitBounds(activeScenarioBounds, {
+      padding: { left: paneWidth + 24, top: 32, right: 24, bottom: 32 },
+      maxZoom: 11,
+      duration: 1600,
     })
   }, [baseMapReadyTick, serviceReleased])
 

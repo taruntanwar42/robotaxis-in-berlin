@@ -44,9 +44,9 @@ export type RunSummary = {
   p50Min: number
 }
 
-const SIM_SPEED_CHOICES = [20, 60, 180]
+const SIM_SPEED_CHOICES = [10, 20, 60]
 
-const SHIFT_START = 63_600
+const SHIFT_START = 63_900
 const SERVICE_START = 64_800
 const SERVICE_END = 68_400
 const SHIFT_SPAN = SERVICE_END - SHIFT_START
@@ -162,7 +162,7 @@ export function CybercabExperience({
           <section className="ops-setup" aria-label="Shift setup">
             <div className="setup-line">
               <span className="setup-label">Fleet</span>
-              <span className="setup-value">60 Cybercabs · one TXL depot</span>
+              <span className="setup-value">{fleetSize} Cybercabs · one TXL depot</span>
             </div>
             <div className="setup-line">
               <span className="setup-label">Window</span>
@@ -220,7 +220,7 @@ export function CybercabExperience({
               <span className="ops-progress-tick" style={{ left: `${serviceTick * 100}%` }} />
               <i style={{ width: `${progress * 100}%` }} />
               <span className="ops-progress-labels">
-                <em>17:40</em>
+                <em>17:45</em>
                 <em style={{ left: `${serviceTick * 100}%` }}>18:00</em>
                 <em className="is-end">19:00</em>
               </span>

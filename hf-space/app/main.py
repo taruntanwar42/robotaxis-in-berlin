@@ -54,7 +54,8 @@ MAX_SUMO_DELAY_MS = 1000
 FAST_SIM_BURST_STEPS = 500
 PLAYBACK_SCOPE = "charlottenburg-moabit-tiergarten"
 PLAYBACK_SCOPES = {"charlottenburg-moabit-tiergarten", "berlin"}
-FLEET_SIZE_OPTIONS = {10, 20, 30, 40, 50, 60}
+# Small sizes are corridor-scale fleets; the tens are the berlin sizing matrix.
+FLEET_SIZE_OPTIONS = {3, 4, 5, 6, 7, 8, 10, 20, 30, 40, 50, 60}
 PLAYBACK_DATA_FPS = 50
 PLAYBACK_DEFAULT_RATE = 10
 PLAYBACK_SPEEDS = {5, 10, 25, 50, 100, 250, 500, 1000}
@@ -168,14 +169,41 @@ SUMO_SCENARIOS: dict[str, dict[str, Any]] = {
         "config": SUMO_CORRIDOR_SCENARIO_DIR / "charlottenburg-moabit-tiergarten.sumocfg",
         "net": SUMO_CORRIDOR_SCENARIO_DIR / "charlottenburg-moabit-tiergarten.net.xml",
         "route": SUMO_CORRIDOR_SCENARIO_DIR / "charlottenburg-moabit-tiergarten-contained.rou.xml",
-        "additional": None,
+        # Demand-weighted stands (8): idle cabs park at real bays where riders
+        # appear instead of stopping in-lane — the berlin stands lesson at
+        # corridor scale. Wiring this also hands idle placement to SUMO's
+        # taxistand algorithm (stands_mode) like berlin.
+        "additional": SUMO_CORRIDOR_SCENARIO_DIR
+        / "charlottenburg-moabit-tiergarten-taxi-stands.add.xml",
         "boundary": SUMO_CORRIDOR_SCENARIO_DIR / "charlottenburg-moabit-tiergarten.geojson",
         "depotEdge": "8036812#2",
-        "startSec": SUMO_START_SEC,
+        # 17:45: the depot-to-zone drive is 12-16 min at rush speeds, so the
+        # convoy needs a real head start to be staged when the first rider
+        # appears (17:54 was measured short — cabs arrived ~18:08 and the
+        # first six requests each ate a 4-8 km pickup drive from the convoy).
+        "startSec": 63_900,
         "endSec": SUMO_CORRIDOR_END_SEC,
         "networkMaxLanes": None,
         "includeInternalLanes": True,
         "includeSignalLinks": True,
+        # Small-fleet corridor: the story is 5 cabs serving a village-sized
+        # area live — calibrated against the corridor seeds so the shift ends
+        # a success, not a triage log.
+        "fleetSize": 5,
+        # seed11 = 0.5 adoption scale over the 451-trip corridor evening pool
+        # (21 requests): measured at fleet 5 — every rider served, P50 wait
+        # ~6 min. The shift ends a success and the cabs still visibly rest
+        # at their stands between rides.
+        "demandFileDefault": MATSIM_DEMAND_DIR
+        / "charlottenburg-moabit-tiergarten_person_trips_1pct_180000_190000_seed11.json",
+        # The fleet leaves the depot at 18:00 sharp and rolls into the zone
+        # while the evening traffic builds — the depot story at street zoom.
+        "spawnAtDepot": True,
+        # Accept requests until the window ends (no 18:50 cutoff): an accepted
+        # 18:58 rider still gets driven home inside the recovery cushion —
+        # the last ten minutes of the shift must not read as "rider gave up".
+        "assignmentWinddownSec": 0,
+        "postServiceRecoverySec": 900,
     },
     "berlin": {
         "key": "berlin",
@@ -280,6 +308,17 @@ def parse_playback_detail(websocket: WebSocket) -> str:
 def parse_playback_cache(websocket: WebSocket) -> str:
     raw_cache = str(websocket.query_params.get("cache") or DEFAULT_PLAYBACK_CACHE).lower()
     return raw_cache if raw_cache in PLAYBACK_CACHE_OPTIONS else DEFAULT_PLAYBACK_CACHE
+
+
+def parse_sumo_seed(websocket: WebSocket) -> int | None:
+    """Pin the SUMO RNG for reproducible recordings; live visits stay random."""
+    raw = str(websocket.query_params.get("sumoseed") or "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
 
 
 def parse_fleet_size(websocket: WebSocket) -> int | None:
@@ -1933,6 +1972,9 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
     fleet_override = parse_fleet_size(websocket)
     if fleet_override:
         selected["fleetSize"] = fleet_override
+    sumo_seed_override = parse_sumo_seed(websocket)
+    if sumo_seed_override is not None:
+        selected["sumoSeed"] = sumo_seed_override
     frame_step_sec, visual_stride = playback_step_and_stride(playback_rate)
     runtime_end_sec = float(selected["endSec"])
     if dispatch_engine == "taxi":
@@ -5054,6 +5096,11 @@ def produce_sumo_taxi_drt_playback_chunks(
     if selected.get("additional") is not None:
         taxi_command.extend(["--device.taxi.idle-algorithm", "taxistand"])
     taxi_command = sumo_command_with_additional(taxi_command, selected)
+    # Live visits get a fresh SUMO seed: every run is a genuinely different
+    # evening (car-following draws, insertion jitter), not a replayed one.
+    # Recordings pin the seed via ?sumoseed= for reproducible replays.
+    sumo_seed = selected.get("sumoSeed")
+    taxi_command.extend(["--seed", str(sumo_seed if sumo_seed is not None else random.randint(1, 2**31 - 1))])
 
     try:
         traci.start(taxi_command, label=connection_label)

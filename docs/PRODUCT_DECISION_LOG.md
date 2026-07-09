@@ -1568,3 +1568,32 @@ Extracted decision:
 - Rationale: a village-sized area gives a followable story (depot -> pickup
   -> ride) inside the viewer's 1-2 minute budget; realism cues (lights,
   lanes, background cars) are what make an engineer believe the sim.
+
+## 2026-07-09 — corridor live config calibrated: 5 cabs, 21 riders, 100% served
+
+Live corridor validated end-to-end same day as the pivot decision: 53 sim-s/s
+with background traffic + 309 live signals, 6 s to first frame. Calibration
+findings (all measured on full live runs, ~2 min each):
+
+- parse_fleet_size silently rejected sizes outside {10..60} — the first
+  "fleet 5" smoke actually ran 10 cabs. Options now include 3-8.
+- Rush-hour corridor physics: ~1 km pickup ≈ 3-4 min, ride cycle ≈ 15 min,
+  so 5 cabs ≈ 20 rides/hour ceiling.
+- 18:00 depot spawn poisoned act one: first requests were assigned instantly
+  to convoy cabs still 4-8 km out (10-17 min waits). Depot-to-zone is
+  12-16 min in traffic — convoy now leaves at 17:45 and is staged by 18:00.
+- Stand capacity 8 let the whole fleet pile onto one rank; capacity 2 x 8
+  demand-weighted stands spreads idle cabs (measured spread across 6+ cells).
+- SUMO seed randomized per live visit (pinned via ?sumoseed= for
+  recordings): every visit is a genuinely different evening.
+
+SHIP CONFIG: fleet 5 x seed11 (0.5 adoption, 21 requests), 17:45 convoy,
+winddown 0, recovery 900. Three replicates with random SUMO seeds:
+**100% / 100% / 100% served, P50 wait 5.5-5.8 min, P90 9.2-9.8 min.**
+(For contrast: 26 requests -> 81%, 28 -> 86% at fleet 5; 6 cabs x 28 -> 96%.)
+
+Frontend switched: corridor scope (micro layers auto-on: 6,246 lanes, 378
+signals), cache default LIVE (?cache=cache = recorded fallback), speeds
+10/20/60 default 20 (street-zoom watchability), corridor camera bounds,
+fleet 5. Stale corridor replays (old code) deleted — fresh fallback
+recording pending under final config.

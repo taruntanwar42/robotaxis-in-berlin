@@ -27,40 +27,40 @@ const configuredDarkMapStyleUrl = import.meta.env.VITE_MAPTILER_DARK_STYLE_URL a
 const darkMapStyleUrl = configuredDarkMapStyleUrl ?? maptilerDarkStyleUrl(mapStyleUrl)
 const scenarioApiUrl = import.meta.env.VITE_SCENARIO_API_URL as string | undefined
 const serviceAreaUrl = `${import.meta.env.BASE_URL}data/service-area.geojson`
-const districtScope = "berlin"
+const districtScope: string = "charlottenburg-moabit-tiergarten"
 // The city-scale scenario skips the SUMO lane/TL geometry fetch: the full net
 // is 71k edges (a multi-hundred-MB payload) and the basemap already draws the
 // streets. Micro layers remain a corridor-scenario feature.
 const hasMicroNetworkLayers = districtScope !== "berlin"
-const SHIFT_START_SEC = 63_600 // 17:40 — the convoy leaves the TXL depot
+const SHIFT_START_SEC = 63_900 // 17:45 — the convoy leaves the TXL depot
 // DEV spike (?spike=chase): pitched 3D chase view with extruded buildings —
 // evidence run for the Tesla-style in-world driving view. Not a product flag.
 const CHASE_SPIKE =
   typeof window !== "undefined" &&
   new URLSearchParams(window.location.search).get("spike") === "chase"
-// Default = the recorded evening (instant, constant 60x): the same real SUMO
-// run, computed once. ?cache=live runs the simulator on the spot — the proof
-// mode for technical viewers, with honest load times.
+// Default = LIVE: every visit runs the real simulator — background traffic,
+// signal phases, dispatch all computed on the spot (the corridor net makes
+// this fast). ?cache=cache serves the recorded fallback evening instead.
 const playbackCacheMode = (() => {
   if (typeof window === "undefined") {
-    return "auto"
+    return "live"
   }
   const requested = new URLSearchParams(window.location.search).get("cache")
-  return requested === "live" || requested === "cache" ? requested : "auto"
+  return requested === "cache" || requested === "auto" ? requested : "live"
 })()
-// After Start, the 17:40→18:00 depot roll-out plays at triple pace: the
-// convoy is drama, not twenty minutes of commuting. Service runs at 1x.
-// Past 19:00 the same triple pace returns — the last drop-offs and the drive
-// home are an epilogue, not a third of the viewer's attention.
+// After Start, the 17:45→18:00 depot roll-out plays at triple pace: the
+// convoy fanning out to the stands is an opening beat, not a commute.
+// Past 19:00 triple pace returns — the last drop-offs and the drive home
+// are an epilogue, not a third of the viewer's attention.
 const SERVICE_START_SIM_SEC = 64_800
 const SERVICE_END_SIM_SEC = 68_400
 const DRIVE_IN_PACE_FACTOR = 3
-// 1 replay frame = 1 sim-second; 25 ms per frame = 40x visual speed,
-// so the 18:00-19:00 window plays in ~90 real seconds.
-// Watch speeds: recording is 1 frame/sim-second; pacing sets the multiplier.
-const SIM_SPEED_OPTIONS = [20, 60, 180] as const
+// 1 frame = 1 sim-second; pacing sets the multiplier. At street zoom the
+// point is watching cabs move through real traffic, so the corridor runs
+// slow enough that a car crossing an intersection is an event, not a blink.
+const SIM_SPEED_OPTIONS = [10, 20, 60] as const
 type SimSpeed = (typeof SIM_SPEED_OPTIONS)[number]
-const DEFAULT_SIM_SPEED: SimSpeed = 60
+const DEFAULT_SIM_SPEED: SimSpeed = 20
 const playbackLowWatermarkFrames = 250
 const playbackRetainedPastFrames = 20
 // When the tab is visible, cap catch-up to a few frames per tick so a buffer
@@ -73,18 +73,17 @@ type PlaybackMode = (typeof playbackModes)[number]
 const defaultPlaybackMode: PlaybackMode = 1000
 const demandSource = "matsim"
 const dispatchEngine = "taxi"
-// Full-Berlin BeST network bbox (city-wide scenario).
+// Corridor stage: the Charlottenburg–Moabit–Tiergarten service zone plus a
+// margin north to keep the TXL depot on stage during the roll-out.
 const activeScenarioBounds: [Coordinate, Coordinate] = [
-  [13.0884, 52.3382],
-  [13.7611, 52.6755],
+  [13.262, 52.487],
+  [13.396, 52.565],
 ]
-// Default running view: the S-Bahn ring plus a margin. Demand concentrates
-// here, so this is where cabs are visible as cabs instead of 2px dots. The
-// sim still covers all 890 km² — the report's end-of-run zoom-out owns the
-// scale statement.
+// Default running view: the service zone itself — close enough that cabs,
+// background cars, and signal states read as street life, not map dots.
 const innerCityBounds: [Coordinate, Coordinate] = [
-  [13.22, 52.44],
-  [13.56, 52.585],
+  [13.271, 52.492],
+  [13.387, 52.549],
 ]
 // Fixed TXL-area depot (edge 8036812#2). The backend ships no depot geometry
 // for this scenario, so the marker location is a frontend constant.
@@ -1701,9 +1700,9 @@ export default function App() {
   void isStoryOpen
   const [simSpeed, setSimSpeed] = useState<SimSpeed>(DEFAULT_SIM_SPEED)
   const simSpeedRef = useRef<number>(DEFAULT_SIM_SPEED)
-  // Fleet fixed at 60 — the 2026-07-08 sizing matrix at 133 requests/hour:
-  // 40 cabs serve 70%, 60 serve 89%.
-  const fleetChoiceRef = useRef<number>(60)
+  // Small corridor fleet: the story is a handful of cabs a viewer can follow
+  // individually. Calibrated against the corridor demand seeds.
+  const fleetChoiceRef = useRef<number>(5)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
   // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,
@@ -2287,10 +2286,10 @@ export default function App() {
     followedCabIdRef.current = null
     setFollowedCabId(null)
     setMapTooltip(null)
-    // The report reads over the whole city, not the last chase-cam corner.
+    // The report reads over the whole corridor, not the last chase-cam corner.
     baseMapRef.current?.fitBounds(activeScenarioBounds, {
       padding: { top: 40, bottom: 40, left: 40, right: 40 },
-      maxZoom: 11,
+      maxZoom: 13,
       duration: 1400,
     })
     setPlaybackStatus("Ended")
@@ -2507,11 +2506,11 @@ export default function App() {
         })
       }
     } else {
-      // Release returns to the inner-city running view; the full-city zoom-out
-      // is reserved for the end-of-run report.
+      // Release returns to the service-zone running view; the full-stage
+      // zoom-out is reserved for the end-of-run report.
       map.fitBounds(innerCityBounds, {
         padding: { top: 40, bottom: 40, left: 40, right: 40 },
-        maxZoom: 12.4,
+        maxZoom: 13.5,
         duration: 1100,
       })
     }
@@ -2564,8 +2563,8 @@ export default function App() {
       return
     }
     map.easeTo({
-      center: [depotCoordinate[0] + 0.02, depotCoordinate[1] - 0.01],
-      zoom: 11.6,
+      center: [depotCoordinate[0] + 0.015, depotCoordinate[1] - 0.022],
+      zoom: 12.1,
       duration: 1600,
     })
   }, [baseMapReadyTick])
@@ -2578,7 +2577,7 @@ export default function App() {
     if (!followedCabIdRef.current) {
       baseMapRef.current?.fitBounds(innerCityBounds, {
         padding: { top: 40, bottom: 40, left: 40, right: 40 },
-        maxZoom: 12.4,
+        maxZoom: 13.5,
         duration: 1800,
       })
     }
@@ -3263,11 +3262,11 @@ export default function App() {
       window.innerWidth < 720
         ? {
             padding: { top: 48, bottom: 24, left: 16, right: 16 },
-            maxZoom: 11,
+            maxZoom: 12.8,
           }
         : {
             padding: { top: 40, bottom: 40, left: 40, right: 40 },
-            maxZoom: 11,
+            maxZoom: 12.8,
           }
     const map = new maplibregl.Map({
       container: baseMapContainerRef.current,

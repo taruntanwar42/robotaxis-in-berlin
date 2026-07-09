@@ -55,12 +55,13 @@ const playbackCacheMode = (() => {
 const SERVICE_START_SIM_SEC = 64_800
 const SERVICE_END_SIM_SEC = 68_400
 const DRIVE_IN_PACE_FACTOR = 3
-// 1 frame = 1 sim-second; pacing sets the multiplier. At street zoom the
-// point is watching cabs move through real traffic, so the corridor runs
-// slow enough that a car crossing an intersection is an event, not a blink.
-const SIM_SPEED_OPTIONS = [10, 20, 60] as const
+// 1 frame = 1 sim-second; pacing sets the multiplier. 30x balances the two
+// budgets: slow enough that a cab crossing an intersection reads as motion
+// at street zoom, fast enough that the whole shift plays in ~2.5 minutes —
+// a first-time visitor meets the report before their attention runs out.
+const SIM_SPEED_OPTIONS = [15, 30, 90] as const
 type SimSpeed = (typeof SIM_SPEED_OPTIONS)[number]
-const DEFAULT_SIM_SPEED: SimSpeed = 20
+const DEFAULT_SIM_SPEED: SimSpeed = 30
 const playbackLowWatermarkFrames = 250
 const playbackRetainedPastFrames = 20
 // When the tab is visible, cap catch-up to a few frames per tick so a buffer
@@ -2139,10 +2140,17 @@ export default function App() {
     }
   }, [])
 
+  const fallbackKeepFrameRef = useRef(false)
   const resetPlaybackHydrationState = useCallback(() => {
     // Clean slate on every new run: a rerun must not flash the previous run's
     // final KPIs/grid while the fresh stream buffers.
-    setSumoFrame(null)
+    if (fallbackKeepFrameRef.current) {
+      // Silent live-to-cache fallback: keep the last frame on screen so the
+      // viewer sees a brief rewind, not a jarring flash back to the cover.
+      fallbackKeepFrameRef.current = false
+    } else {
+      setSumoFrame(null)
+    }
     playbackTlStateRef.current = {}
     playbackRequestRegistryRef.current = new Map()
     playbackCabRoutesRef.current = new Map()
@@ -2367,6 +2375,7 @@ export default function App() {
       playbackDoneRef.current = true
       playbackTimelineRef.current = []
       playbackAppliedIndexRef.current = -1
+      fallbackKeepFrameRef.current = true
       setLoadError(null)
       window.setTimeout(() => startPlaybackRef.current?.(), 60)
       return true
@@ -4237,7 +4246,14 @@ export default function App() {
       <section className="map-stage" aria-label="SUMO traffic map">
         {mapStyleUrl && isMapEnabled ? (
           <>
-            <div ref={baseMapContainerRef} className="map-canvas base-map-canvas" />
+            <div
+              ref={baseMapContainerRef}
+              className={
+                baseMapReadyTick > 0
+                  ? "map-canvas base-map-canvas"
+                  : "map-canvas base-map-canvas is-warming"
+              }
+            />
             {mapTooltip ? (
               <div
                 className="map-tooltip"

@@ -1670,3 +1670,22 @@ Actions: zone tilt fixed properly this time — the UTM-aligned rectangle is
 cannot work on a full-bleed basemap). Cold-eyes red-team agent launched to
 experience the app with zero context and rank UX improvements. Favicon
 replaced (template purple bolt -> gold cab pill).
+
+Red-team review (cold-eyes agent, no project context, full experience):
+verdict "genuinely memorable link... a staged one-act play"; copy grade A;
+auto-ride-along named the standout choice; visible traffic lights make the
+intro's claim verifiable. Two substantive findings, both shipped:
+
+1. Default runtime 5.5 min lost the 1-2 minute visitor -> speeds now
+   15/30/90x default 30x; full arc measured at ~2:20 to the report.
+2. Raw MATSim labels leaked ("New rider · driver") -> outcome framing
+   ("would have driven" / "instead of transit"), which also sets up the
+   report's "Left the car at home" stat.
+
+Plus: rollout copy contradiction fixed ("Convoy left the depot — fanning
+out to the stands", pinned to 17:45), chase chip no longer truncates,
+cover map shows a warm-up sheen until first tile paint (dead-beige first
+frame killed), silent live-to-cache fallback keeps the last frame instead
+of flashing the cover. The reviewer's "silent reset to intro" was traced
+to vite full reloads from our own public/-asset writes during their run —
+not a product bug (lesson: never touch the tree while someone watches).

@@ -2040,3 +2040,32 @@
     display: none;
   }
 }
+
+/* Before the first map paint the stage shows a deliberate warm-up sheen
+   instead of dead beige — the cover must look intentional on any network. */
+.base-map-canvas.is-warming::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 70% 40%, rgba(255, 255, 255, 0.65), transparent 60%),
+    linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 48%, transparent 66%);
+  background-size: 100% 100%, 240% 100%;
+  animation: stage-warmup 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes stage-warmup {
+  from {
+    background-position: 0 0, -70% 0;
+  }
+  to {
+    background-position: 0 0, 170% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .base-map-canvas.is-warming::after {
+    animation: none;
+  }
+}

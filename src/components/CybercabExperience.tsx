@@ -38,7 +38,7 @@ export type OpsSample = {
   states: Record<string, number>
 }
 
-const SIM_SPEED_CHOICES = [10, 20, 60]
+const SIM_SPEED_CHOICES = [15, 30, 90]
 
 const SHIFT_START = 63_900
 const SERVICE_START = 64_800
@@ -247,7 +247,7 @@ export function CybercabExperience({
                           Riding along
                         </span>
                         <span className="chase-detail">
-                          {`${cabRides[row.id] ?? 0} ${(cabRides[row.id] ?? 0) === 1 ? "ride" : "rides"} tonight`}
+                          {`${cabRides[row.id] ?? 0} ${(cabRides[row.id] ?? 0) === 1 ? "ride" : "rides"}`}
                           {typeof row.battery === "number" ? ` · ${row.battery}%` : ""}
                         </span>
                         <span className="chase-controls">
@@ -330,9 +330,11 @@ export function CybercabExperience({
                 ))}
                 {(feed ?? []).length === 0 ? (
                   <div className="ticker-row tone-open">
-                    <span className="ticker-time">{driveIn ? clock : "18:00"}</span>
+                    <span className="ticker-time">{driveIn ? "17:45" : "18:00"}</span>
                     <span className="ticker-text">
-                      {driveIn ? "Convoy leaving the Cybercab depot" : "Waiting for the first rider"}
+                      {driveIn
+                        ? "Convoy left the depot — fanning out to the stands"
+                        : "Waiting for the first rider"}
                     </span>
                   </div>
                 ) : null}
@@ -506,7 +508,7 @@ function feedText(entry: DispatchFeedEntry) {
   const cab = entry.cab ? cabLabel(entry.cab) : null
   switch (entry.status) {
     case "waiting":
-      return entry.mode ? `New rider · ${riderNoun(entry.mode)}` : "New rider"
+      return entry.mode ? `New rider · ${riderSwitch(entry.mode)}` : "New rider"
     case "assigned":
       return cab ? `${cab} assigned` : "Cab assigned"
     case "onboard":
@@ -524,18 +526,20 @@ function feedText(entry: DispatchFeedEntry) {
   }
 }
 
-function riderNoun(mode: string) {
+// What this trip replaces — the rider is a real MATSim Berliner who would
+// otherwise have traveled this leg by the stated mode.
+function riderSwitch(mode: string) {
   switch (mode) {
     case "car":
-      return "driver"
+      return "would have driven"
     case "ride":
-      return "passenger"
+      return "would have gotten a lift"
     case "pt":
-      return "transit rider"
+      return "instead of transit"
     case "bike":
-      return "cyclist"
+      return "instead of cycling"
     case "walk":
-      return "walker"
+      return "instead of walking"
     default:
       return mode
   }

@@ -1652,3 +1652,21 @@ is watch area. Camera compensates for the card stack: fitBounds pads left
 per-frame jumpTo shifts center by px-to-lon since it has no offset
 option). Verified live in-browser: director ride-along renders the
 followed cab centered in the free area, cards float over the running map.
+
+## 2026-07-09 — v11.2 final pass (user: "make the user experience awesome")
+
+Raw user language:
+
+> the rectangle is a bit tilted, isnt it? like i think you can figure all
+> this stuff out yourself, pls. maybe with a new redteam thread yk, like
+> who doesnt know about the project and just watches and tries to give u
+> suggestions or stuff like this, idk.
+> /goal please make the user experience awesome, one last pass, let's use
+> all our resources
+
+Actions: zone tilt fixed properly this time — the UTM-aligned rectangle is
+1.33 deg off screen axes, so every stage fit now carries map bearing
+-1.35 (STAGE_BEARING; the successor of the old canvas-rotate hack, which
+cannot work on a full-bleed basemap). Cold-eyes red-team agent launched to
+experience the app with zero context and rank UX improvements. Favicon
+replaced (template purple bolt -> gold cab pill).

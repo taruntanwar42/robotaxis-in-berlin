@@ -92,6 +92,10 @@ const depotCoordinate: Coordinate = [13.303, 52.557]
 // The floating card stack covers the left ~390px of the stage. Camera fits
 // pad it away; camera follows shift their target into the free area.
 const STAGE_OVERLAY_PX = 390
+// The service zone is a UTM-aligned rectangle, ~1.35 deg off screen axes.
+// The stage fits carry a matching bearing so the zone reads as a clean
+// rectangle instead of a slightly tilted one (the fabled corridor tilt).
+const STAGE_BEARING = -1.35
 function stagePadding(margin = 40) {
   const overlay =
     typeof window !== "undefined" && window.innerWidth >= 720 ? STAGE_OVERLAY_PX : 0
@@ -2319,6 +2323,7 @@ export default function App() {
     baseMapRef.current?.fitBounds(activeScenarioBounds, {
       padding: stagePadding(),
       maxZoom: 13,
+      bearing: STAGE_BEARING,
       duration: 1400,
     })
     setPlaybackStatus("Ended")
@@ -2580,6 +2585,7 @@ export default function App() {
       map.fitBounds(innerCityBounds, {
         padding: stagePadding(),
         maxZoom: 13.5,
+        bearing: STAGE_BEARING,
         duration: 1100,
       })
     }
@@ -2662,6 +2668,7 @@ export default function App() {
     map.fitBounds(activeScenarioBounds, {
       padding: stagePadding(48),
       maxZoom: 12.4,
+      bearing: STAGE_BEARING,
       duration: 1600,
     })
   }, [baseMapReadyTick])
@@ -2675,6 +2682,7 @@ export default function App() {
       baseMapRef.current?.fitBounds(innerCityBounds, {
         padding: stagePadding(),
         maxZoom: 13.5,
+        bearing: STAGE_BEARING,
         duration: 1800,
       })
     }
@@ -3213,6 +3221,7 @@ export default function App() {
             map.fitBounds(innerCityBounds, {
               padding: stagePadding(),
               maxZoom: 13.5,
+              bearing: STAGE_BEARING,
               duration: 1200,
             })
           }
@@ -3404,7 +3413,7 @@ export default function App() {
             fitBoundsOptions: defaultFitBoundsOptions,
           }),
       pitch: restoredCamera?.pitch ?? 0,
-      bearing: restoredCamera?.bearing ?? 0,
+      bearing: restoredCamera?.bearing ?? STAGE_BEARING,
       attributionControl: false,
     })
 

@@ -19,30 +19,32 @@ code/cache behavior outrank older docs (`ROBOTAXI_HANDOFF.md`,
 `ROBOTAXI_DRT_ARCHITECTURE.md`, `AGENTS.md` sections that drift), which may
 carry early-prototype assumptions.
 
-## Current Product (v9 — Berlin city control room, 2026-07-07)
+## Current Product (v11 — Cybercab · Berlin, corridor live, 2026-07-09)
 
-- Single user-facing page, split layout: LEFT control-room pane (KPI strip,
-  fleet grid with chase-cam cab card, demand/wait/fleet-state charts, event
-  ticker, in-pane shift report), RIGHT full-Berlin map with a floating
-  sim-speed strip (20/60/180x, default 60x).
-- Active scenario: `berlin` — full BeST net (162 MB, git-ignored; rebuild
-  inputs via `scripts/build_berlin_routes.py` + copy of the BeST net), 1pct
-  background traffic sample, city-wide MATSim 1pct demand
-  (~66–78 requests/seed), fleet selectable 10/30/50 (default 30).
-- Story arc: 17:40 the fleet leaves the TXL depot in a staggered convoy
-  (depot drive-in), 18:00–19:00 service window (assignment open to 19:00),
-  accepted riders are driven home in a hidden recovery window to ~19:30.
-- Public playback streams pre-recorded replays
-  (`hf-space/app/data/replays/berlin_taxi_matsim_public.fleet{N}.seed{S}.jsonl.gz`,
-  Git LFS). Regenerate:
-  `python scripts\build_public_replay_cache.py --base-url http://127.0.0.1:7861 --scope berlin --fleet 60 --seed 15`
-- Backend transport is **libsumo** (in-process SUMO; ~62x realtime for the
-  city). `ROBOTAXI_SUMO_TRANSPORT=traci` reverts to the socket.
-- `charlottenburg-moabit-tiergarten` (corridor) and `reinickendorf-district`
-  remain registered as legacy scenarios; do not present them as the product.
-- City-scale dispatch tuning lives in `hf-space/app/main.py` constants
-  (pickup cap 900 s, staging leg cap 480 s, expiry 900 s via scenario entry)
-  — see the 2026-07-07 decision-log entries for the physics behind them.
+- Single user-facing page, split layout: LEFT control-room pane (topline
+  served/median-wait, five living cab rows with inline ride-along controls,
+  "Tonight" event feed, in-pane shift report), RIGHT corridor map with lane
+  and signal micro-layers, an auto-director chase camera (default on), an
+  Overview chip and a sim-speed strip (10/20/60x, default 20x).
+- Active scenario: `charlottenburg-moabit-tiergarten` — corridor net with
+  full background traffic + 378 live traffic lights, **fleet 5**, demand
+  seed11 (21 corridor requests, 0.5 adoption over the 451-trip pool).
+- Default playback is LIVE: every visit runs SUMO on the spot with a random
+  seed (`?sumoseed=` pins it; `?cache=cache` streams the recorded fallback
+  `charlottenburg-moabit-tiergarten_taxi_matsim_public.seed11.jsonl.gz`).
+- Story arc: 17:45 the fleet leaves the TXL depot in a staggered convoy and
+  stages at 8 demand-weighted stands (capacity 2) before the first 18:00
+  rider; 18:00–19:00 service (no assignment cutoff); accepted riders are
+  driven home inside a 900 s recovery window. Measured ship numbers:
+  100% served, P50 wait ~5.5–6 min across random seeds.
+- Backend transport is **libsumo** (in-process SUMO; corridor runs ~50x
+  realtime). `ROBOTAXI_SUMO_TRANSPORT=traci` reverts to the socket.
+- `berlin` (full BeST city, fleet 60, replay-first) and
+  `reinickendorf-district` remain registered as secondary/legacy scenarios;
+  do not present them as the product.
+- Dispatch tuning lives in `hf-space/app/main.py` scenario entries and
+  constants — see the 2026-07-09 decision-log entries for the measured
+  physics (convoy lead time, stand capacity, fleet-vs-demand cliff).
 
 ## Non-Negotiables
 

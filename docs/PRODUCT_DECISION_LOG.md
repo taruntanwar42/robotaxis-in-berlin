@@ -1597,3 +1597,33 @@ signals), cache default LIVE (?cache=cache = recorded fallback), speeds
 10/20/60 default 20 (street-zoom watchability), corridor camera bounds,
 fleet 5. Stale corridor replays (old code) deleted — fresh fallback
 recording pending under final config.
+
+## 2026-07-09 — v11: the redesign ships (living cab rows + auto-director)
+
+Executed under the session goal "built the smaller, clearer, live version.
+then, completely redesign the app ui from scratch, this way we can get much
+clarity and ease of use as possible."
+
+Design thesis: with 5 cabs, the fleet IS the interface. Shipped:
+
+- Pane rebuilt: topline (riders served + median wait + "N waiting now"
+  whisper), five living cab rows ("Cab 02 · On the way to a rider ·
+  45 km/h") that expand into ride-along controls, "Tonight" feed. KPI card
+  grid, demand chart, 60-cell fleet grid, waits histogram all retired.
+- Auto-director camera, DEFAULT ON: follows the cab with the best story
+  (rider aboard > pickup drive) at street zoom, 5 s dwell before cuts,
+  eases between cabs, releases to zone overview in quiet minutes. Map chip
+  toggles Overview / Follow the action. Rationale: the corridor's whole
+  point is street-level realism and nobody knows to click.
+- New cover: one lede ("Five Cybercabs. One Berlin district. Tonight's
+  evening rush — simulated live, down to every traffic light."), one
+  button, two quiet fact lines. Brand: "Cybercab · Berlin /
+  Charlottenburg pilot district" (page title + OG updated).
+- Report: topline (100% served · 21 moved · 6.0 min median in the verified
+  live run) + two tight columns (Service, Fleet & energy), "Gave up
+  waiting" row only when nonzero, "Run a new evening" rerun.
+- ~88 dead CSS rules from retired layouts pruned (App.css -10 KB).
+
+Verified E2E in-browser on live runs: cover -> convoy -> director cut to
+street zoom -> report -> rerun. Occluded-tab limits mean sprite/signal
+motion at chase zoom still needs the user's eyes.

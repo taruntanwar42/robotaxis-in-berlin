@@ -109,38 +109,6 @@
   color: var(--gold);
 }
 
-.cover-card,
-.report-card {
-  background: var(--card);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  backdrop-filter: blur(10px);
-  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-.cover-card {
-  width: min(430px, 100%);
-  padding: 34px 36px 26px;
-  text-align: center;
-}
-
-.cover-card h1 {
-  margin: 10px 0 12px;
-  font-size: 30px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-}
-
-.cover-card p {
-  margin: 0 auto 24px;
-  max-width: 34ch;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
 .gold-button {
   display: inline-flex;
   align-items: center;
@@ -180,13 +148,6 @@
   border: 2px solid rgba(43, 32, 5, 0.25);
   border-top-color: var(--gold-ink);
   animation: spin 800ms linear infinite;
-}
-
-.cover-microline {
-  display: block;
-  margin-top: 14px;
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .cover-unavailable {
@@ -381,13 +342,6 @@
 }
 
 @media (max-width: 720px) {
-  .cover-card {
-    padding: 28px 24px 22px;
-  }
-
-  .cover-card h1 {
-    font-size: 25px;
-  }
 
   .report-card {
     padding: 26px 22px 22px;
@@ -468,40 +422,6 @@
 .engineering-panel button,
 .fleet-panel button {
   margin: 2px;
-}
-
-/* ---------- Intro card extras ---------- */
-
-.cover-media {
-  width: calc(100% + 56px);
-  margin: -28px -28px 16px;
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-  display: block;
-  max-height: 220px;
-  object-fit: cover;
-}
-
-.cover-dots {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 18px;
-}
-
-.cover-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: var(--hairline);
-  cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
-}
-
-.cover-dot.is-active {
-  background: var(--gold);
-  transform: scale(1.2);
 }
 
 .gold-button-glow {
@@ -675,15 +595,6 @@
   }
 }
 
-.cover-card-advance {
-  cursor: pointer;
-}
-
-.cover-dot {
-  width: 12px;
-  height: 12px;
-}
-
 /* The corridor rectangle is UTM-axis-aligned, ~1.3deg off web-mercator screen
    axes. Rotating the map canvas itself (not the maplibre camera) squares the
    zone permanently — camera-based fixes drift with interaction. UI overlays
@@ -691,61 +602,6 @@
 .base-map-canvas {
   transform: rotate(1.33deg) scale(1.05);
   transform-origin: center;
-}
-
-/* ---------- One-window cover panel ---------- */
-
-.cover-panel {
-  background: var(--card);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  backdrop-filter: blur(10px);
-  animation: card-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  padding: 32px 36px 24px;
-  max-width: 1040px;
-  width: min(1040px, calc(100vw - 48px));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  text-align: center;
-}
-
-.cover-panel-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px 36px;
-  align-items: start;
-}
-
-.cover-panel-card h1 {
-  font-size: 21px;
-  line-height: 1.25;
-  margin: 8px 0 10px;
-}
-
-.cover-panel-card p {
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--muted);
-  margin: 0;
-}
-
-.cover-start {
-  min-width: 260px;
-}
-
-@media (max-width: 860px) {
-  .cover-panel-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .cover-panel {
-    max-height: calc(100svh - 48px);
-    overflow-y: auto;
-  }
 }
 
 /* ---------- Map legend ---------- */
@@ -1390,12 +1246,6 @@
   filter: saturate(0.55);
 }
 
-.mini-cab-large {
-  width: 16px;
-  height: 27px;
-  border-radius: 6px 6px 5px 5px;
-}
-
 .cab-detail {
   display: flex;
   flex-direction: column;
@@ -1476,27 +1326,6 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.cab-spark {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cab-spark-label {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.cab-spark-svg {
-  width: 100%;
-  height: 44px;
-  background: rgba(16, 20, 24, 0.035);
-  border-radius: 8px;
 }
 
 .cab-rider {
@@ -1678,34 +1507,6 @@
   letter-spacing: 0.08em;
 }
 
-/* Idle setup */
-.ops-setup {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 6px;
-  max-width: 360px;
-}
-
-.setup-line {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-}
-
-.setup-label {
-  width: 64px;
-  color: var(--ink-soft);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.setup-value {
-  color: var(--ink);
-}
-
 .setup-chips,
 .ops-speed-inline {
   display: inline-flex;
@@ -1726,95 +1527,6 @@
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
-}
-
-/* KPI strip */
-.ops-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-.kpi {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 10px 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 70%, var(--paper));
-  min-width: 0;
-}
-
-.kpi strong {
-  font-size: 20px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.kpi span {
-  font-size: 10px;
-  color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  white-space: nowrap;
-}
-
-/* Progress with service tick */
-.ops-progress {
-  position: relative;
-  /* flex: none — as a fixed-height empty flex child it is the first thing a
-     short pane crushes to 0px, silently deleting the shift progress bar. */
-  flex: none;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--hairline);
-  margin: 6px 2px 14px;
-}
-
-.ops-progress i {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #8d7017, #c99700);
-}
-
-.ops-progress-tick {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 1.5px;
-  background: var(--ink-soft);
-  opacity: 0.55;
-}
-
-.ops-progress-labels {
-  position: absolute;
-  top: 7px;
-  left: 0;
-  right: 0;
-  height: 12px;
-  font-size: 10px;
-  color: var(--ink-soft);
-}
-
-.ops-progress-labels em {
-  position: absolute;
-  font-style: normal;
-  transform: translateX(-50%);
-}
-
-.ops-progress-labels em:first-child {
-  left: 0;
-  transform: none;
-}
-
-.ops-progress-labels em.is-end {
-  right: 0;
-  left: auto;
-  transform: none;
 }
 
 /* Section titles */
@@ -1839,233 +1551,9 @@
   font-size: 11px;
 }
 
-/* Fleet grid */
-.fleet-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 5px;
-}
-
-/* Fleets past 40 cabs: denser columns keep the grid a glanceable block
-   instead of a wall. */
-.fleet-grid.is-many {
-  grid-template-columns: repeat(12, 1fr);
-  gap: 4px;
-}
-
-.fleet-cell {
-  position: relative;
-  aspect-ratio: 1.35;
-  border: 1px solid var(--hairline);
-  border-radius: 7px;
-  background: var(--paper);
-  cursor: pointer;
-  padding: 0;
-  overflow: hidden;
-}
-
-.fleet-cell-num {
-  position: absolute;
-  top: 3px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-.fleet-cell-batt {
-  position: absolute;
-  left: 3px;
-  bottom: 3px;
-  height: 2.5px;
-  border-radius: 2px;
-  background: rgba(20, 30, 40, 0.35);
-}
-
-.fleet-cell.tone-riding {
-  background: #c99700;
-  border-color: #a87e00;
-}
-
-.fleet-cell.tone-riding .fleet-cell-num {
-  color: #fff;
-}
-
-.fleet-cell.tone-riding .fleet-cell-batt {
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.fleet-cell.tone-pickup {
-  background: #5b7c99;
-  border-color: #4a6883;
-}
-
-.fleet-cell.tone-pickup .fleet-cell-num {
-  color: #fff;
-}
-
-.fleet-cell.tone-pickup .fleet-cell-batt {
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.fleet-cell.tone-moving {
-  background: #dfe5e9;
-}
-
-.fleet-cell.tone-depot {
-  background: #2c3840;
-  border-color: #222c33;
-}
-
-.fleet-cell.tone-depot .fleet-cell-num {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.fleet-cell.tone-depot .fleet-cell-batt {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.fleet-cell.is-followed {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-/* Cab card */
-.cab-card {
-  margin-top: 10px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: color-mix(in srgb, var(--card) 70%, var(--paper));
-}
-
-.cab-card-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cab-card-title {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.cab-card-title span {
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.cab-card-cam {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.cab-card-cam button {
-  border: 1px solid var(--hairline);
-  background: var(--paper);
-  border-radius: 6px;
-  width: 22px;
-  height: 22px;
-  line-height: 1;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.cab-card-cam .cab-camera-release {
-  width: auto;
-  padding: 0 8px;
-  font-size: 11px;
-}
-
-.cab-card-stats {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 12px;
-  color: var(--ink-soft);
-  flex-wrap: wrap;
-}
-
-.cab-card-stats strong {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.cab-card-rider {
-  margin-left: auto;
-}
-
-/* Charts */
-.ops-charts {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.chart-block {
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  padding: 10px 12px 8px;
-  background: color-mix(in srgb, var(--card) 70%, var(--paper));
-  min-width: 0;
-}
-
-.chart-svg {
-  display: block;
-  width: 100%;
-  height: 96px;
-}
-
 .chart-tick {
   font-size: 8px;
   fill: var(--ink-soft);
-}
-
-.chart-empty {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.chart-legend {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.chart-legend i {
-  width: 14px;
-  height: 2.5px;
-  border-radius: 2px;
-  display: inline-block;
-}
-
-.chart-legend .swatch-requested {
-  background: rgba(44, 56, 64, 0.55);
-}
-
-.chart-legend .swatch-served {
-  background: #c99700;
-  margin-left: 8px;
 }
 
 /* Ticker */
@@ -2143,14 +1631,6 @@
     left: 0;
     top: 60vh;
   }
-
-  .ops-kpis {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .fleet-grid {
-    grid-template-columns: repeat(6, 1fr);
-  }
 }
 
 .map-controls {
@@ -2223,7 +1703,6 @@
 }
 
 
-
 .map-legend {
   bottom: 44px;
 }
@@ -2240,87 +1719,12 @@
   flex: none;
 }
 
-/* v9.1: chart clarity + micro-interactions */
-.state-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px 6px;
-  flex-wrap: wrap;
-  font-size: 10px;
-  color: var(--ink-soft);
-  margin-top: 6px;
-}
-
-.state-legend i {
-  width: 10px;
-  height: 6px;
-  border-radius: 2px;
-  display: inline-block;
-  margin-left: 6px;
-  border: 0.5px solid rgba(20, 30, 40, 0.12);
-}
-
-.state-legend i:first-child {
-  margin-left: 0;
-}
-
-.demand-chart-wrap {
-  position: relative;
-  padding-bottom: 12px;
-}
-
-.demand-service-tick {
-  position: absolute;
-  bottom: -2px;
-  transform: translateX(-50%);
-  font-size: 10px;
-  color: var(--ink-soft);
-}
-
-.report-compare {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--hairline);
-  font-size: 12px;
-}
-
-.report-compare-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
-}
-
-.report-compare-item {
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.report-compare-item.is-current {
-  color: var(--ink);
-  font-weight: 600;
-}
-
 @keyframes cell-pop {
   0% {
     box-shadow: 0 0 0 0 rgba(201, 151, 0, 0.55);
   }
   100% {
     box-shadow: 0 0 0 7px rgba(201, 151, 0, 0);
-  }
-}
-
-.fleet-cell {
-  animation: cell-pop 700ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fleet-cell {
-    animation: none;
   }
 }
 

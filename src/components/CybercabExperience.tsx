@@ -321,15 +321,15 @@ export function CybercabExperience({
                 <div className="report-compare">
                   <span className="report-compare-label">Why 60 cabs</span>
                   <span className="report-compare-item">
-                    same evening, 40 cabs serve 70% · 60 serve ~90%
+                    same evening, 40 cabs serve 79% · 60 serve 94%
                   </span>
                 </div>
                 <div className="report-footer">
                   <span className="report-footnote">
                     ¹ incl. repositioning and depot legs · 1% population sample, full city
                     <br />² vs 147 g/km petrol car, net of 363 g/kWh German grid electricity
-                    <br />³ waits ≈ pickup drives: the nearest free cab averages ~5 km at city
-                    scale
+                    <br />³ waits are mostly the pickup drive — one fleet covering 890 km² of
+                    city
                   </span>
                   <span className="report-rerun">
                     <button type="button" className="ghost-button" onClick={onReplay}>

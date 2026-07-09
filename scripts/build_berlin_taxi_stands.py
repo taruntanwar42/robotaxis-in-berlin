@@ -59,9 +59,13 @@ def main() -> None:
     parser.add_argument(
         "--output", type=Path, default=BERLIN_DIR / "berlin-taxi-stands.add.xml"
     )
-    parser.add_argument("--demand-stands", type=int, default=32)
+    # ~24 stands total: the taxistand rerouter's cost scales with
+    # (trigger edges x alternatives) — 47 stands measured ~3-4 sim-s/s vs
+    # ~15-20 at 24, and live mode needs the speed. 24 demand-weighted stands
+    # still cut nearest-stand P50 from 3.49 km (uniform 20) to 2.09 km.
+    parser.add_argument("--demand-stands", type=int, default=14)
     parser.add_argument("--cell-m", type=float, default=750.0)
-    parser.add_argument("--coverage-km", type=float, default=4.0)
+    parser.add_argument("--coverage-km", type=float, default=6.0)
     parser.add_argument("--capacity", type=int, default=8)
     args = parser.parse_args()
 

@@ -22,40 +22,17 @@
     <parkingArea id="cybercab_stand_11" lane="72678523_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (32 pickups) -->
     <parkingArea id="cybercab_stand_12" lane="840229277_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (32 pickups) -->
     <parkingArea id="cybercab_stand_13" lane="4613295#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (31 pickups) -->
-    <parkingArea id="cybercab_stand_14" lane="-172219122_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (31 pickups) -->
-    <parkingArea id="cybercab_stand_15" lane="-155594966_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (30 pickups) -->
-    <parkingArea id="cybercab_stand_16" lane="-32977014_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (30 pickups) -->
-    <parkingArea id="cybercab_stand_17" lane="35559332#6_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (30 pickups) -->
-    <parkingArea id="cybercab_stand_18" lane="692480564#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (30 pickups) -->
-    <parkingArea id="cybercab_stand_19" lane="-65706693#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (29 pickups) -->
-    <parkingArea id="cybercab_stand_20" lane="413336601#5_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (29 pickups) -->
-    <parkingArea id="cybercab_stand_21" lane="25121296#5_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (29 pickups) -->
-    <parkingArea id="cybercab_stand_22" lane="4610354_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (29 pickups) -->
-    <parkingArea id="cybercab_stand_23" lane="-163209201_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (28 pickups) -->
-    <parkingArea id="cybercab_stand_24" lane="-328426240#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (27 pickups) -->
-    <parkingArea id="cybercab_stand_25" lane="545634695#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (27 pickups) -->
-    <parkingArea id="cybercab_stand_26" lane="4638315#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (27 pickups) -->
-    <parkingArea id="cybercab_stand_27" lane="66071387#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (27 pickups) -->
-    <parkingArea id="cybercab_stand_28" lane="-28016312#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (27 pickups) -->
-    <parkingArea id="cybercab_stand_29" lane="5108203_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (26 pickups) -->
-    <parkingArea id="cybercab_stand_30" lane="-4603346#4_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (26 pickups) -->
-    <parkingArea id="cybercab_stand_31" lane="141233527#11_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- demand cell (26 pickups) -->
-    <parkingArea id="cybercab_stand_32" lane="4783339#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r3c3 (383 pickups) -->
-    <parkingArea id="cybercab_stand_33" lane="36125241#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r2c4 (287 pickups) -->
-    <parkingArea id="cybercab_stand_34" lane="687203594#4_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c1 (247 pickups) -->
-    <parkingArea id="cybercab_stand_35" lane="-161677833_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r3c1 (217 pickups) -->
-    <parkingArea id="cybercab_stand_36" lane="93704162_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c4 (203 pickups) -->
-    <parkingArea id="cybercab_stand_37" lane="24028197#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r2c0 (151 pickups) -->
-    <parkingArea id="cybercab_stand_38" lane="-320823303#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c2 (141 pickups) -->
-    <parkingArea id="cybercab_stand_39" lane="151742519_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c3 (80 pickups) -->
-    <parkingArea id="cybercab_stand_40" lane="281631710#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r4c2 (77 pickups) -->
-    <parkingArea id="cybercab_stand_41" lane="5786832_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r4c1 (74 pickups) -->
-    <parkingArea id="cybercab_stand_42" lane="-151627032#8_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c4 (73 pickups) -->
-    <parkingArea id="cybercab_stand_43" lane="241824026#4_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r4c3 (67 pickups) -->
-    <parkingArea id="cybercab_stand_44" lane="25094709#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c0 (57 pickups) -->
-    <parkingArea id="cybercab_stand_45" lane="587849768#1_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c5 (22 pickups) -->
-    <parkingArea id="cybercab_stand_46" lane="10612703_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c0 (20 pickups) -->
-    <rerouter id="txl_adac_cybercab_taxi_stands" edges="8036812#2 -664627929 22972195 380162915#0 151525565#1 36738526#1 4436919#1 71282501#1 169717723#2 -22773266#1 51511951#0 310172795#0 72678523 840229277 4613295#2 -172219122 -155594966 -32977014 35559332#6 692480564#0 -65706693#0 413336601#5 25121296#5 4610354 -163209201 -328426240#0 545634695#1 4638315#3 66071387#0 -28016312#0 5108203 -4603346#4 141233527#11 4783339#1 36125241#0 687203594#4 -161677833 93704162 24028197#3 -320823303#2 151742519 281631710#2 5786832 -151627032#8 241824026#4 25094709#2 587849768#1 10612703" vTypes="CybercabRobotaxi">
+    <parkingArea id="cybercab_stand_14" lane="19875855#4_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c3 (584 pickups) -->
+    <parkingArea id="cybercab_stand_15" lane="36125241#0_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r2c4 (287 pickups) -->
+    <parkingArea id="cybercab_stand_16" lane="-161677833_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r3c1 (217 pickups) -->
+    <parkingArea id="cybercab_stand_17" lane="93704162_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c4 (203 pickups) -->
+    <parkingArea id="cybercab_stand_18" lane="24028197#3_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r2c0 (151 pickups) -->
+    <parkingArea id="cybercab_stand_19" lane="-320823303#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c2 (141 pickups) -->
+    <parkingArea id="cybercab_stand_20" lane="281631710#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r4c2 (77 pickups) -->
+    <parkingArea id="cybercab_stand_21" lane="241824026#4_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r4c3 (67 pickups) -->
+    <parkingArea id="cybercab_stand_22" lane="25094709#2_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r1c0 (57 pickups) -->
+    <parkingArea id="cybercab_stand_23" lane="-90966907_0" startPos="15.0" endPos="60.0" roadsideCapacity="8" onRoad="false" friendlyPos="true"/> <!-- coverage slot r0c1 (37 pickups) -->
+    <rerouter id="txl_adac_cybercab_taxi_stands" edges="8036812#2 -664627929 22972195 380162915#0 151525565#1 36738526#1 4436919#1 71282501#1 169717723#2 -22773266#1 51511951#0 310172795#0 72678523 840229277 4613295#2 19875855#4 36125241#0 -161677833 93704162 24028197#3 -320823303#2 281631710#2 241824026#4 25094709#2 -90966907" vTypes="CybercabRobotaxi">
         <interval begin="0" end="86400">
             <parkingAreaReroute id="cybercab_stand_00"/>
             <parkingAreaReroute id="cybercab_stand_01"/>
@@ -81,29 +58,6 @@
             <parkingAreaReroute id="cybercab_stand_21"/>
             <parkingAreaReroute id="cybercab_stand_22"/>
             <parkingAreaReroute id="cybercab_stand_23"/>
-            <parkingAreaReroute id="cybercab_stand_24"/>
-            <parkingAreaReroute id="cybercab_stand_25"/>
-            <parkingAreaReroute id="cybercab_stand_26"/>
-            <parkingAreaReroute id="cybercab_stand_27"/>
-            <parkingAreaReroute id="cybercab_stand_28"/>
-            <parkingAreaReroute id="cybercab_stand_29"/>
-            <parkingAreaReroute id="cybercab_stand_30"/>
-            <parkingAreaReroute id="cybercab_stand_31"/>
-            <parkingAreaReroute id="cybercab_stand_32"/>
-            <parkingAreaReroute id="cybercab_stand_33"/>
-            <parkingAreaReroute id="cybercab_stand_34"/>
-            <parkingAreaReroute id="cybercab_stand_35"/>
-            <parkingAreaReroute id="cybercab_stand_36"/>
-            <parkingAreaReroute id="cybercab_stand_37"/>
-            <parkingAreaReroute id="cybercab_stand_38"/>
-            <parkingAreaReroute id="cybercab_stand_39"/>
-            <parkingAreaReroute id="cybercab_stand_40"/>
-            <parkingAreaReroute id="cybercab_stand_41"/>
-            <parkingAreaReroute id="cybercab_stand_42"/>
-            <parkingAreaReroute id="cybercab_stand_43"/>
-            <parkingAreaReroute id="cybercab_stand_44"/>
-            <parkingAreaReroute id="cybercab_stand_45"/>
-            <parkingAreaReroute id="cybercab_stand_46"/>
         </interval>
     </rerouter>
 </additional>

@@ -1498,3 +1498,20 @@ Re-recording fleet60 x seed15 with the new stands to A/B the wait numbers.
 
 Also this pass: report footnote 3 (waits = pickup drives), error-banner
 "Run again" retry (dead mid-run stream is no longer a dead end).
+
+## 2026-07-09 — stands verified live; recording unblocked via detached process
+
+The 47-stand file collapsed sim speed ~5x (taxistand rerouter cost scales
+with trigger-edges x alternatives); regenerated at 24 stands (14 demand cells
++ coverage, nearest-stand P50 2.09 km vs 3.49 uniform) — old sim speed back.
+
+Recording finally completed by detaching the recorder from the session
+(Start-Process fire-and-forget; 7 prior attempts as session tasks were all
+swept externally mid-run). Fleet 60 x seed15 with demand-weighted stands,
+full run: **94% served (125/133), median wait 14.3 min, P90 19.9 (was 24.8),
+expired 8 (was 13), fleet km 3540 (was 3959), energy 363 kWh (was 406)** —
+every metric improves over the old uniform stands.
+
+Fleet-40-with-new-stands recording in flight to get the "Why N cabs" line
+honest (its old 70% figure was measured under the bad stands; if 40 now
+serves ~90%+, 40 cabs at higher utilization may be the better ship).

@@ -1705,6 +1705,10 @@ export default function App() {
   const fleetChoiceRef = useRef<number>(5)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
+  // Live-to-cache fallback state: set once when a live run dies, read by the
+  // playback URL builder; startPlaybackRef breaks the definition-order cycle.
+  const playbackCacheOverrideRef = useRef<string | null>(null)
+  const startPlaybackRef = useRef<(() => void) | null>(null)
   // Auto-director: the corridor's whole point is street-level realism — cabs
   // queuing at red lights among real traffic — and it only reads at chase
   // zoom. Nobody knows to click, so by default the camera rides along with
@@ -2321,7 +2325,7 @@ export default function App() {
     // interpolation assume that cadence. Higher values make the backend skip
     // frames (stride = speed/50) — only useful for bulk recording.
     const playbackUrl = backendWebSocketUrl(
-      `/ws/sumo/${districtScope}/playback?speed=50&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=${playbackCacheMode}&fleet=${fleetChoiceRef.current}`,
+      `/ws/sumo/${districtScope}/playback?speed=50&demand=${demandSource}&engine=${dispatchEngine}&detail=public&cache=${playbackCacheOverrideRef.current ?? playbackCacheMode}&fleet=${fleetChoiceRef.current}`,
     )
     if (!playbackUrl) {
       setPlaybackStatus("Error")
@@ -2332,6 +2336,22 @@ export default function App() {
     playbackFetchInFlightRef.current = true
     resetPlaybackHydrationState()
     setPlaybackStatus((status) => (status === "Idle" || status === "Paused" ? "Buffering" : status))
+
+    // A dead live run must not strand the viewer on an error banner when a
+    // recorded evening exists: fall back to the cache once, silently, and
+    // stay there for the session (a reload tries live again).
+    const attemptCacheFallback = () => {
+      if (playbackCacheMode !== "live" || playbackCacheOverrideRef.current) {
+        return false
+      }
+      playbackCacheOverrideRef.current = "auto"
+      playbackDoneRef.current = true
+      playbackTimelineRef.current = []
+      playbackAppliedIndexRef.current = -1
+      setLoadError(null)
+      window.setTimeout(() => startPlaybackRef.current?.(), 60)
+      return true
+    }
 
     const handlePlaybackPayload = (payload: unknown) => {
       const frames = playbackFramesFromPayload(payload)
@@ -2429,6 +2449,12 @@ export default function App() {
       }
 
       if (payload.type === "stopped") {
+        // Another connection preempted the single live simulator (someone
+        // else opened the link). This viewer glides onto the recorded
+        // evening instead of stalling on a paused half-run.
+        if (attemptCacheFallback()) {
+          return
+        }
         playbackDoneRef.current = true
         if (payload.audit) {
           setFinalRunAudit(payload.audit)
@@ -2438,6 +2464,9 @@ export default function App() {
       }
 
       if (payload.type === "error") {
+        if (attemptCacheFallback()) {
+          return
+        }
         setPlaybackStatus("Error")
         setLoadError(payload.message ?? "Playback unavailable.")
       }
@@ -2461,6 +2490,9 @@ export default function App() {
       )
       if (!playbackDoneRef.current && isPlaybackPlayingRef.current) {
         // Stream died before "done"; without it the run can never finish.
+        if (attemptCacheFallback()) {
+          return
+        }
         setIsPlaybackPlaying(false)
         isPlaybackPlayingRef.current = false
         setPlaybackStatus("Error")
@@ -2478,6 +2510,9 @@ export default function App() {
         socket.close()
       } catch {
         // Ignore close errors from already-failed sockets.
+      }
+      if (attemptCacheFallback()) {
+        return
       }
       setIsPlaybackPlaying(false)
       isPlaybackPlayingRef.current = false
@@ -2594,6 +2629,10 @@ export default function App() {
     )
     void requestPlaybackChunk()
   }, [requestPlaybackChunk])
+
+  useEffect(() => {
+    startPlaybackRef.current = startPlayback
+  }, [startPlayback])
 
   // At rest the camera sits on the TXL depot — the story's home base. When
   // the service hour begins the view releases to the whole city.

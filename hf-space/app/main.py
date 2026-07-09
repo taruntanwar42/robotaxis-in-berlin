@@ -2051,9 +2051,14 @@ async def sumo_scope_playback(websocket: WebSocket, scope: str) -> None:
 
     stop_event = threading.Event()
     global _latest_live_stop_event
-    if _latest_live_stop_event is not None:
-        _latest_live_stop_event.set()
-    _latest_live_stop_event = stop_event
+    if not use_cache:
+        # Newest live connection wins the single simulator — but a cached
+        # stream must never displace someone's live run (the frontend's
+        # preemption fallback reconnects via cache, which used to boomerang
+        # and kill the very run that displaced it).
+        if _latest_live_stop_event is not None:
+            _latest_live_stop_event.set()
+        _latest_live_stop_event = stop_event
     message_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     event_loop = asyncio.get_running_loop()
     connection_label = f"{selected['key']}-playback-{id(websocket)}"

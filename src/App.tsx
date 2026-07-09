@@ -2656,10 +2656,12 @@ export default function App() {
     if (!map || isPlaybackPlayingRef.current) {
       return
     }
-    map.easeTo({
-      center: [depotCoordinate[0] + 0.015, depotCoordinate[1] - 0.022],
-      zoom: 12.1,
-      offset: [stageOffsetX(), 0],
+    // Whole stage at rest — depot and service zone both on screen. A bounds
+    // fit adapts to the viewport; a fixed zoom cut the zone off on taller
+    // windows.
+    map.fitBounds(activeScenarioBounds, {
+      padding: stagePadding(48),
+      maxZoom: 12.4,
       duration: 1600,
     })
   }, [baseMapReadyTick])

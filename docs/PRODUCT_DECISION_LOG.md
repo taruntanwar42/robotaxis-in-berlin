@@ -1515,3 +1515,19 @@ every metric improves over the old uniform stands.
 Fleet-40-with-new-stands recording in flight to get the "Why N cabs" line
 honest (its old 70% figure was measured under the bad stands; if 40 now
 serves ~90%+, 40 cabs at higher utilization may be the better ship).
+
+## 2026-07-09 — global-greedy matching: median wait 11.3 min ships
+
+The stands replay still showed 43% of assignments >1 km worse than the best
+idle cab (vehicle-ordered greedy: whichever idle cab iterates first grabs a
+request). Replaced with a global plan: score all feasible vehicle x request
+pairs (same routing-call count), sort, assign cheapest pairs first.
+
+Full live A/B (fleet 60 x seed15, demand-weighted stands, same code
+otherwise): **median wait 14.3 -> 11.3 min (-21%), avg 834 -> 696 s, served
+126/133 (95%), expired 7, suboptimal assignments 43% -> 12%.** Promoted as
+the shipped replay.
+
+Night total on the same 133-request evening: served 89% -> 95%, median wait
+15.2 -> 11.3 min (morning baseline: 76 requests, 83%, 16.2 min).
+Fleet-40 re-record under identical code in flight for the "Why 60 cabs" row.

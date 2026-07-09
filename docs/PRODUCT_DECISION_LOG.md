@@ -1536,3 +1536,35 @@ Fleet-40 under the final code (stands + matching): 104/133 served (78%),
 P50 12.5 / P90 22.4 — "Why 60 cabs" row updated to the same-config numbers:
 40 serve 78% / 60 serve 95%. Every figure in the shipped report is now
 measured under the shipped code.
+
+## 2026-07-09 — pivot back to the corridor: small area, truly live
+
+Raw user language:
+
+> now i think we should actually like, switch to a smaller area. bc all of
+> berlin is great ,but ultimately switching to a smaller thing will help us
+> get the lanes, traffic lights etc back in the app, which added quite a bit
+> with realism. and also looks great yk. like ultimately, i think it looks a
+> bit better with 5 cabs in 10% of our current region than what we have now.
+> and it wont be a recording anymore yk.
+
+> the main thing is, like, if we have like a small area, it's easier to have
+> a story, like a viewer can very easy see how cabs start from a depot, serve
+> like, the area the size of a small village, and like it feels more real,
+> when you see the robotaxis drive along the normal cars at zoomed in level yk.
+
+> i want it to be live, like for real live, the traffic, the lights,
+> everything. [...] i literally just want this to be actual sumo in the
+> backend updating the cars and lights and stuff yk.
+
+Extracted decision:
+
+- Switch the shipped experience from full Berlin (replay, 60 cabs, 890 km2)
+  back to the Charlottenburg-Moabit-Tiergarten corridor.
+- Must be REAL live SUMO per visit: background traffic, traffic lights,
+  everything simulated in the backend — not a replay recording.
+- Small fleet (~5 cabs scale), zoomed-in camera where cabs visibly drive
+  alongside normal cars and stop at lights.
+- Rationale: a village-sized area gives a followable story (depot -> pickup
+  -> ride) inside the viewer's 1-2 minute budget; realism cues (lights,
+  lanes, background cars) are what make an engineer believe the sim.

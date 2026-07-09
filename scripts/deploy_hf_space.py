@@ -30,14 +30,17 @@ def main() -> None:
     token = os.getenv("HF_TOKEN")
     api = HfApi(token=token)
 
-    create_repo(
-        repo_id=args.repo_id,
-        token=token,
-        repo_type="space",
-        space_sdk="docker",
-        private=args.private,
-        exist_ok=True,
-    )
+    # HF now paywalls the Docker-Space create endpoint (402) even with
+    # exist_ok=True, so only call it when the Space is actually missing.
+    if not api.repo_exists(repo_id=args.repo_id, repo_type="space"):
+        create_repo(
+            repo_id=args.repo_id,
+            token=token,
+            repo_type="space",
+            space_sdk="docker",
+            private=args.private,
+            exist_ok=True,
+        )
 
     api.upload_folder(
         repo_id=args.repo_id,

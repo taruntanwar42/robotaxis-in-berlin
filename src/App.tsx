@@ -89,6 +89,20 @@ const innerCityBounds: [Coordinate, Coordinate] = [
 // for this scenario, so the marker location is a frontend constant.
 const depotCoordinate: Coordinate = [13.303, 52.557]
 
+// The floating card stack covers the left ~390px of the stage. Camera fits
+// pad it away; camera follows shift their target into the free area.
+const STAGE_OVERLAY_PX = 390
+function stagePadding(margin = 40) {
+  const overlay =
+    typeof window !== "undefined" && window.innerWidth >= 720 ? STAGE_OVERLAY_PX : 0
+  return { top: margin, bottom: margin, right: margin, left: margin + overlay }
+}
+function stageOffsetX() {
+  return typeof window !== "undefined" && window.innerWidth >= 720
+    ? STAGE_OVERLAY_PX / 2
+    : 0
+}
+
 type Coordinate = [number, number]
 
 type SumoVehicle = {
@@ -2303,7 +2317,7 @@ export default function App() {
     setMapTooltip(null)
     // The report reads over the whole corridor, not the last chase-cam corner.
     baseMapRef.current?.fitBounds(activeScenarioBounds, {
-      padding: { top: 40, bottom: 40, left: 40, right: 40 },
+      padding: stagePadding(),
       maxZoom: 13,
       duration: 1400,
     })
@@ -2556,6 +2570,7 @@ export default function App() {
         map.easeTo({
           center: [vehicle.lon, vehicle.lat],
           zoom: followZoomRef.current,
+          offset: [stageOffsetX(), 0],
           duration: 900,
         })
       }
@@ -2563,7 +2578,7 @@ export default function App() {
       // Release returns to the service-zone running view; the full-stage
       // zoom-out is reserved for the end-of-run report.
       map.fitBounds(innerCityBounds, {
-        padding: { top: 40, bottom: 40, left: 40, right: 40 },
+        padding: stagePadding(),
         maxZoom: 13.5,
         duration: 1100,
       })
@@ -2644,6 +2659,7 @@ export default function App() {
     map.easeTo({
       center: [depotCoordinate[0] + 0.015, depotCoordinate[1] - 0.022],
       zoom: 12.1,
+      offset: [stageOffsetX(), 0],
       duration: 1600,
     })
   }, [baseMapReadyTick])
@@ -2655,7 +2671,7 @@ export default function App() {
     cityCameraArmedRef.current = false
     if (!followedCabIdRef.current) {
       baseMapRef.current?.fitBounds(innerCityBounds, {
-        padding: { top: 40, bottom: 40, left: 40, right: 40 },
+        padding: stagePadding(),
         maxZoom: 13.5,
         duration: 1800,
       })
@@ -3183,6 +3199,7 @@ export default function App() {
             map.easeTo({
               center: [pick.lon, pick.lat],
               zoom: followZoomRef.current,
+              offset: [stageOffsetX(), 0],
               duration: 1100,
             })
           } else if (!pick && followedCabIdRef.current) {
@@ -3192,7 +3209,7 @@ export default function App() {
             setFollowedCabId(null)
             directorPickAtRef.current = now
             map.fitBounds(innerCityBounds, {
-              padding: { top: 40, bottom: 40, left: 40, right: 40 },
+              padding: stagePadding(),
               maxZoom: 13.5,
               duration: 1200,
             })
@@ -3222,7 +3239,11 @@ export default function App() {
               bearing: chaseBearingRef.current,
             })
           } else {
-            map.jumpTo({ center: [lon, lat], zoom: followZoomRef.current })
+            // jumpTo has no offset option: shift the center west so the cab
+            // renders in the middle of the free stage right of the cards.
+            const lonShift =
+              (stageOffsetX() * 360) / (512 * Math.pow(2, followZoomRef.current))
+            map.jumpTo({ center: [lon - lonShift, lat], zoom: followZoomRef.current })
           }
         }
       }
@@ -3365,7 +3386,7 @@ export default function App() {
             maxZoom: 12.8,
           }
         : {
-            padding: { top: 40, bottom: 40, left: 40, right: 40 },
+            padding: stagePadding(),
             maxZoom: 12.8,
           }
     const map = new maplibregl.Map({

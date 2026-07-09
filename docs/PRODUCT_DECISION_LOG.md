@@ -1627,3 +1627,28 @@ Design thesis: with 5 cabs, the fleet IS the interface. Shipped:
 Verified E2E in-browser on live runs: cover -> convoy -> director cut to
 street zoom -> report -> rerun. Occluded-tab limits mean sprite/signal
 motion at chase zoom still needs the user's eyes.
+
+## 2026-07-09 — v11.1: floating panes over a full-bleed watch area
+
+Raw user language:
+
+> now i think that the left pane is way too big, and like the viewport is
+> wrong, like, it should be such that the info is a pane on the left, or
+> like ideally 2-3 different floating ui panes, and like 70% or so of the
+> right side of the screen is just this big watch area yk.
+
+Extracted decision:
+
+- The map is the stage: full-bleed, ~70%+ of the screen free to watch.
+- Info lives in 2-3 floating cards on the left (status, fleet, feed /
+  report), not a solid full-height column.
+
+Shipped as v11.1: map full-bleed (the v8 "map starts at 50vw" split rule
+removed), info = three floating cards top-left (status w/ shift track +
+topline, fleet, Tonight feed; report replaces the feed card at close;
+cover = one centered floating card), cards ~376px so ~75% of the screen
+is watch area. Camera compensates for the card stack: fitBounds pads left
+(+390px), follows offset the target into the free stage (easeTo offset;
+per-frame jumpTo shifts center by px-to-lon since it has no offset
+option). Verified live in-browser: director ride-along renders the
+followed cab centered in the free area, cards float over the running map.

@@ -121,99 +121,105 @@ export function CybercabExperience({
         className={phase === "idle" ? "ops-pane is-idle" : "ops-pane"}
         aria-label="Fleet control room"
       >
-        <header className="ops-brand">
-          <span className="ops-brand-mark" aria-hidden="true" />
-          <div>
-            <h1>Cybercab · Berlin</h1>
-            <p>Charlottenburg pilot district</p>
-          </div>
-          {running ? (
-            <div className="ops-clock-box">
-              <span className="ops-clock">
-                {phase === "running" ? <span className="hud-live" aria-hidden="true" /> : null}
-                {clock}
-              </span>
-              <span className="ops-phase-chip">
-                {phase === "results"
-                  ? "Shift complete"
-                  : driveIn
-                    ? "Rolling out"
-                    : windDown
-                      ? "Winding down"
-                      : "In service"}
-              </span>
+        <section className="ops-card ops-status" aria-label="Shift status">
+          <header className="ops-brand">
+            <span className="ops-brand-mark" aria-hidden="true" />
+            <div>
+              <h1>Cybercab · Berlin</h1>
+              <p>Charlottenburg pilot district</p>
             </div>
-          ) : null}
-        </header>
-
-        {phase === "idle" ? (
-          <section className="cover-hero" aria-label="Start the shift">
-            <p className="cover-lede">
-              Five Cybercabs. One Berlin district. Tonight&apos;s evening rush —
-              simulated live, down to every traffic light.
-            </p>
-            {isUnavailable ? (
-              <div className="cover-unavailable" role="status">
-                The simulator is waking up — give it a minute, then reload.
+            {running ? (
+              <div className="ops-clock-box">
+                <span className="ops-clock">
+                  {phase === "running" ? <span className="hud-live" aria-hidden="true" /> : null}
+                  {clock}
+                </span>
+                <span className="ops-phase-chip">
+                  {phase === "results"
+                    ? "Shift complete"
+                    : driveIn
+                      ? "Rolling out"
+                      : windDown
+                        ? "Winding down"
+                        : "In service"}
+                </span>
               </div>
-            ) : (
-              <button
-                type="button"
-                className="gold-button gold-button-glow"
-                onClick={onStart}
-                disabled={isPreparing}
-              >
-                {isPreparing ? (
-                  <>
-                    <span className="button-spinner" aria-hidden="true" />
-                    Starting the simulator
-                  </>
-                ) : (
-                  "Start the shift"
-                )}
-              </button>
-            )}
-            <p className="cover-facts">
-              18:00 – 19:00 · Charlottenburg, Moabit &amp; Tiergarten · riders from
-              MATSim&apos;s digital Berlin
-            </p>
-            <p className="cover-note">Runs by itself · every visit is a different evening</p>
-          </section>
-        ) : (
+            ) : null}
+          </header>
+
+          {phase === "idle" ? (
+            <div className="cover-hero" aria-label="Start the shift">
+              <p className="cover-lede">
+                Five Cybercabs. One Berlin district. Tonight&apos;s evening rush —
+                simulated live, down to every traffic light.
+              </p>
+              {isUnavailable ? (
+                <div className="cover-unavailable" role="status">
+                  The simulator is waking up — give it a minute, then reload.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="gold-button gold-button-glow"
+                  onClick={onStart}
+                  disabled={isPreparing}
+                >
+                  {isPreparing ? (
+                    <>
+                      <span className="button-spinner" aria-hidden="true" />
+                      Starting the simulator
+                    </>
+                  ) : (
+                    "Start the shift"
+                  )}
+                </button>
+              )}
+              <p className="cover-facts">
+                18:00 – 19:00 · Charlottenburg, Moabit &amp; Tiergarten · riders from
+                MATSim&apos;s digital Berlin
+              </p>
+              <p className="cover-note">Runs by itself · every visit is a different evening</p>
+            </div>
+          ) : (
+            <>
+              <div className="shift-track" aria-hidden="true">
+                <span className="shift-track-tick" style={{ left: `${serviceTick * 100}%` }} />
+                <i style={{ width: `${progress * 100}%` }} />
+                <span className="shift-track-labels">
+                  <em>17:45</em>
+                  <em style={{ left: `${serviceTick * 100}%` }}>18:00</em>
+                  <em className="is-end">19:00</em>
+                </span>
+              </div>
+
+              <section className="ops-topline" aria-label="Shift key numbers">
+                <div className="topline-stat">
+                  <strong>{ridesServed ?? 0}</strong>
+                  <span>riders served</span>
+                </div>
+                <div className="topline-stat">
+                  <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
+                  <span>median wait</span>
+                </div>
+                <div
+                  className={
+                    (openRequests ?? 0) > 0 ? "topline-waiting is-active" : "topline-waiting"
+                  }
+                >
+                  {(openRequests ?? 0) > 0
+                    ? `${openRequests} waiting now`
+                    : driveIn
+                      ? "service opens 18:00"
+                      : "no one waiting"}
+                </div>
+              </section>
+            </>
+          )}
+        </section>
+
+        {running ? (
           <>
-            <div className="shift-track" aria-hidden="true">
-              <span className="shift-track-tick" style={{ left: `${serviceTick * 100}%` }} />
-              <i style={{ width: `${progress * 100}%` }} />
-              <span className="shift-track-labels">
-                <em>17:45</em>
-                <em style={{ left: `${serviceTick * 100}%` }}>18:00</em>
-                <em className="is-end">19:00</em>
-              </span>
-            </div>
-
-            <section className="ops-topline" aria-label="Shift key numbers">
-              <div className="topline-stat">
-                <strong>{ridesServed ?? 0}</strong>
-                <span>riders served</span>
-              </div>
-              <div className="topline-stat">
-                <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
-                <span>median wait</span>
-              </div>
-              <div
-                className={
-                  (openRequests ?? 0) > 0 ? "topline-waiting is-active" : "topline-waiting"
-                }
-              >
-                {(openRequests ?? 0) > 0
-                  ? `${openRequests} waiting now`
-                  : driveIn
-                    ? "service opens 18:00"
-                    : "no one waiting"}
-              </div>
-            </section>
-
-            <section className="fleet-list" aria-label="Fleet">
+            <section className="ops-card fleet-list" aria-label="Fleet">
               <div className="block-title">
                 <span>Fleet</span>
                 <span className="block-note">click a cab to ride along</span>
@@ -241,8 +247,8 @@ export function CybercabExperience({
                           Riding along
                         </span>
                         <span className="chase-detail">
-                          {cabRides[row.id] ?? 0} rides tonight
-                          {typeof row.battery === "number" ? ` · ${row.battery}% battery` : ""}
+                          {`${cabRides[row.id] ?? 0} ${(cabRides[row.id] ?? 0) === 1 ? "ride" : "rides"} tonight`}
+                          {typeof row.battery === "number" ? ` · ${row.battery}%` : ""}
                         </span>
                         <span className="chase-controls">
                           <button type="button" onClick={() => onFollowZoom(-1)} aria-label="Zoom out">
@@ -267,7 +273,7 @@ export function CybercabExperience({
             </section>
 
             {phase === "results" && report ? (
-              <section className="ops-report" aria-label="Shift report" ref={reportRef}>
+              <section className="ops-card ops-report" aria-label="Shift report" ref={reportRef}>
                 <div className="block-title">
                   <span>Shift report</span>
                   <span className="block-note">
@@ -312,7 +318,7 @@ export function CybercabExperience({
                 </div>
               </section>
             ) : (
-              <section className="ops-ticker" aria-label="Dispatch events">
+              <section className="ops-card ops-ticker" aria-label="Dispatch events">
                 <div className="block-title">
                   <span>Tonight</span>
                 </div>
@@ -333,7 +339,7 @@ export function CybercabExperience({
               </section>
             )}
           </>
-        )}
+        ) : null}
       </aside>
 
       {phase === "running" ? (

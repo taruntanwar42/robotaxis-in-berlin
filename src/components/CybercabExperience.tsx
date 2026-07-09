@@ -321,7 +321,7 @@ export function CybercabExperience({
                 <div className="report-compare">
                   <span className="report-compare-label">Why 60 cabs</span>
                   <span className="report-compare-item">
-                    same evening, 40 cabs serve 79% · 60 serve 94%
+                    same evening, 40 cabs serve 78% · 60 serve 95%
                   </span>
                 </div>
                 <div className="report-footer">

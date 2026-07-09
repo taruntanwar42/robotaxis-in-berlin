@@ -1531,3 +1531,8 @@ the shipped replay.
 Night total on the same 133-request evening: served 89% -> 95%, median wait
 15.2 -> 11.3 min (morning baseline: 76 requests, 83%, 16.2 min).
 Fleet-40 re-record under identical code in flight for the "Why 60 cabs" row.
+
+Fleet-40 under the final code (stands + matching): 104/133 served (78%),
+P50 12.5 / P90 22.4 — "Why 60 cabs" row updated to the same-config numbers:
+40 serve 78% / 60 serve 95%. Every figure in the shipped report is now
+measured under the shipped code.

@@ -1705,6 +1705,17 @@ export default function App() {
   const fleetChoiceRef = useRef<number>(5)
   const [followedCabId, setFollowedCabId] = useState<string | null>(null)
   const followedCabIdRef = useRef<string | null>(null)
+  // Auto-director: the corridor's whole point is street-level realism — cabs
+  // queuing at red lights among real traffic — and it only reads at chase
+  // zoom. Nobody knows to click, so by default the camera rides along with
+  // the most interesting cab and cuts when its story ends.
+  const [isDirectorOn, setIsDirectorOn] = useState(true)
+  const isDirectorOnRef = useRef(true)
+  const manualFollowRef = useRef(false)
+  const directorPickAtRef = useRef(0)
+  // While an easeTo flies to a new cab, the per-frame jumpTo must hold off or
+  // it cancels the transition into a hard cut.
+  const directorEaseUntilRef = useRef(0)
   // Chase-cam zoom is owned by us: the per-frame jumpTo cancels map gestures,
   // so wheel and buttons adjust this instead.
   const followZoomRef = useRef(CHASE_SPIKE ? 17.2 : 15.3)
@@ -2489,6 +2500,13 @@ export default function App() {
   const selectCabToFollow = useCallback((cabId: string | null) => {
     setFollowedCabId(cabId)
     followedCabIdRef.current = cabId
+    // A cab the viewer picked stays picked; releasing hands the camera back
+    // to the overview, not to the director — an explicit "Overview" means it.
+    manualFollowRef.current = cabId !== null
+    if (cabId === null) {
+      isDirectorOnRef.current = false
+      setIsDirectorOn(false)
+    }
     const map = baseMapRef.current
     if (!map) {
       return
@@ -2499,6 +2517,7 @@ export default function App() {
       )
       if (vehicle) {
         followZoomRef.current = Math.max(map.getZoom(), 15.3)
+        directorEaseUntilRef.current = performance.now() + 1000
         map.easeTo({
           center: [vehicle.lon, vehicle.lat],
           zoom: followZoomRef.current,
@@ -2515,6 +2534,21 @@ export default function App() {
       })
     }
   }, [])
+
+  const toggleDirector = useCallback(() => {
+    if (isDirectorOnRef.current || followedCabIdRef.current) {
+      // "Overview": stand the camera down entirely.
+      isDirectorOnRef.current = false
+      setIsDirectorOn(false)
+      selectCabToFollow(null)
+    } else {
+      // "Follow the action": the director picks a cab within a beat.
+      manualFollowRef.current = false
+      directorPickAtRef.current = 0
+      isDirectorOnRef.current = true
+      setIsDirectorOn(true)
+    }
+  }, [selectCabToFollow])
 
   const startPlayback = useCallback(() => {
     if (playbackSocketRef.current) {
@@ -2543,6 +2577,12 @@ export default function App() {
     setLoadError(null)
     playbackRubberFloorRef.current = 1
     cityCameraArmedRef.current = true
+    // Every run starts with the director's camera — a rerun viewer gets the
+    // same street-level opening a first-time viewer does.
+    isDirectorOnRef.current = true
+    setIsDirectorOn(true)
+    manualFollowRef.current = false
+    directorPickAtRef.current = 0
     setIsPlaybackPlaying(true)
     isPlaybackPlayingRef.current = true
     playbackLastTickAtRef.current = null
@@ -2720,19 +2760,9 @@ export default function App() {
   // main thread.
   const opsSampleTick = Math.floor((sumoFrame?.simSec ?? 0) / 30)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const opsTimelineSnapshot = useMemo(() => [...opsTimelineRef.current], [opsSampleTick])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const waitsSnapshot = useMemo(() => Array.from(completedWaitsRef.current.values()), [opsSampleTick])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const cabRidesSnapshot = useMemo(() => Object.fromEntries(cabRideCountsRef.current), [opsSampleTick])
-  const cabBatteryHistorySnapshot = useMemo(
-    () =>
-      Object.fromEntries(
-        Array.from(cabBatteryHistoryRef.current.entries(), ([id, values]) => [id, [...values]]),
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [opsSampleTick],
-  )
   const shiftReportBundle = useMemo(() => {
     if (!finalRunAudit && playbackStatus !== "Ended") {
       return null
@@ -2800,28 +2830,34 @@ export default function App() {
         label: "median wait",
       },
     ]
-    const categories: ShiftReportCategory[] = [
+    // Two tight columns: nobody reads 24 numbers, and the topline already
+    // carries served/moved/wait. Rows that are usually zero appear only when
+    // they have something to say.
+    void ridingShare
+    void minBattery
+    void passengerKm
+    const serviceRows: ShiftReportCategory["rows"] = [
+      { label: "Requests", value: String(totalDemand ?? registry.length) },
       {
-        title: "Service",
-        rows: [
-          { label: "Requests", value: String(totalDemand ?? registry.length) },
-          {
-            label: "Served",
-            value:
-              totalDemand && ridesServed !== undefined
-                ? `${ridesServed} (${Math.round((ridesServed / totalDemand) * 100)}%)`
-                : String(ridesServed ?? "–"),
-          },
-          { label: "Expired", value: String(expired) },
-          { label: "Median wait³", value: fmtDur(medianWaitSec) },
-          { label: "P90 wait", value: fmtDur(quantile(0.9)) },
-          { label: "Ride time", value: fmtDur(avgRideSec) },
-        ],
+        label: "Served",
+        value:
+          totalDemand && ridesServed !== undefined
+            ? `${ridesServed} (${Math.round((ridesServed / totalDemand) * 100)}%)`
+            : String(ridesServed ?? "–"),
       },
+      { label: "P90 wait", value: fmtDur(quantile(0.9)) },
+      { label: "Avg ride", value: fmtDur(avgRideSec) },
+      { label: "Left the car at home", value: String(modeCount(["car", "ride"])) },
+    ]
+    if (expired > 0) {
+      serviceRows.splice(2, 0, { label: "Gave up waiting", value: String(expired) })
+    }
+    const categories: ShiftReportCategory[] = [
+      { title: "Service", rows: serviceRows },
       {
-        title: "Fleet",
+        title: "Fleet & energy",
         rows: [
-          { label: "Distance", value: fmt(fleetKm, 0, " km") },
+          { label: "Fleet distance¹", value: fmt(fleetKm, 0, " km") },
           { label: "Empty share¹", value: fmt(emptyShare, 0, " %") },
           {
             label: "Rides per cab",
@@ -2832,43 +2868,11 @@ export default function App() {
             label: "Busiest",
             value: busiest ? `Cab ${busiest[0].replace("cybercab_", "")} · ${busiest[1]} rides` : "–",
           },
-          { label: "With rider", value: fmt(ridingShare, 0, " %") },
-        ],
-      },
-      {
-        title: "Energy & impact",
-        rows: [
-          { label: "Used", value: fmt(energyKwh, 1, " kWh") },
-          {
-            label: "Per 100 km",
-            value:
-              energyKwh !== undefined && fleetKm ? fmt((energyKwh / fleetKm) * 100, 1, " kWh") : "–",
-          },
-          {
-            label: "Per ride",
-            value:
-              energyKwh !== undefined && ridesServed ? fmt(energyKwh / ridesServed, 2, " kWh") : "–",
-          },
+          { label: "Energy", value: fmt(energyKwh, 1, " kWh") },
           {
             label: "Grid CO₂²",
             value: energyKwh !== undefined ? fmt(energyKwh * 0.363, 1, " kg") : "–",
           },
-          {
-            label: "Tailpipe CO₂",
-            value: "0 kg",
-          },
-          { label: "Car trips avoided", value: String(modeCount(["car", "ride"])) },
-          { label: "Min battery", value: fmt(minBattery, 0, " %") },
-        ],
-      },
-      {
-        title: "People",
-        rows: [
-          { label: "Moved", value: String(ridesServed ?? "–") },
-          { label: "Passenger km", value: fmt(passengerKm, 0, " km") },
-          { label: "Else by car", value: String(modeCount(["car", "ride"])) },
-          { label: "Else transit", value: String(modeCount(["pt"])) },
-          { label: "Else walk/bike", value: String(modeCount(["walk", "bike"])) },
         ],
       },
     ]
@@ -3099,8 +3103,65 @@ export default function App() {
           setFollowedCabId(mover.id)
         }
       }
+      // Auto-director: cut to a cab with a story (rider aboard beats pickup
+      // drive), stay with it until its story ends, then cut to the next one.
+      // A cab the viewer picked is never overridden.
+      if (
+        isDirectorOnRef.current &&
+        !manualFollowRef.current &&
+        !playbackDoneRef.current &&
+        timeline[index].simSec >= SERVICE_START_SIM_SEC &&
+        // Keep directing through the winddown: the last riders are still
+        // being driven home, and when they're done the overview release in
+        // the no-story branch hands the stage to the homecoming convoy.
+        timeline[index].simSec < SERVICE_END_SIM_SEC + 900
+      ) {
+        const now = performance.now()
+        const cabs = timeline[index].vehicles.filter((vehicle) => vehicle.kind === "robotaxi")
+        const currentCab = cabs.find((vehicle) => vehicle.id === followedCabIdRef.current)
+        const currentHasStory =
+          currentCab &&
+          (currentCab.state === "with_passenger" || currentCab.state === "en_route_pickup")
+        // Grace beats: 2 s before the first cut, 5 s lingering on a finished
+        // drop-off before moving on — cuts read as intent, not twitchiness.
+        const dwellMs = followedCabIdRef.current ? 5000 : 2000
+        if (!currentHasStory && now - directorPickAtRef.current > dwellMs) {
+          const pick =
+            cabs
+              .filter((vehicle) => vehicle.state === "with_passenger")
+              .sort((a, b) => (b.speed ?? 0) - (a.speed ?? 0))[0] ??
+            cabs
+              .filter((vehicle) => vehicle.state === "en_route_pickup")
+              .sort((a, b) => (b.speed ?? 0) - (a.speed ?? 0))[0]
+          if (pick && pick.id !== followedCabIdRef.current) {
+            if (!followedCabIdRef.current) {
+              followZoomRef.current = 14.9
+            }
+            followedCabIdRef.current = pick.id
+            setFollowedCabId(pick.id)
+            directorPickAtRef.current = now
+            directorEaseUntilRef.current = now + 1200
+            map.easeTo({
+              center: [pick.lon, pick.lat],
+              zoom: followZoomRef.current,
+              duration: 1100,
+            })
+          } else if (!pick && followedCabIdRef.current) {
+            // Quiet minute: nothing is moving toward a rider, so breathe with
+            // the zone overview until the next request lands.
+            followedCabIdRef.current = null
+            setFollowedCabId(null)
+            directorPickAtRef.current = now
+            map.fitBounds(innerCityBounds, {
+              padding: { top: 40, bottom: 40, left: 40, right: 40 },
+              maxZoom: 13.5,
+              duration: 1200,
+            })
+          }
+        }
+      }
       const followedId = followedCabIdRef.current
-      if (followedId) {
+      if (followedId && performance.now() >= directorEaseUntilRef.current) {
         const frameA = timeline[index]
         const frameB = timeline[index + 1]
         const current = frameA.vehicles.find((vehicle) => vehicle.id === followedId)
@@ -4147,8 +4208,9 @@ export default function App() {
         followedCabId={followedCabId}
         onSelectCab={selectCabToFollow}
         onFollowZoom={nudgeFollowZoom}
+        isDirectorOn={isDirectorOn}
+        onToggleDirector={toggleDirector}
         cabRides={cabRidesSnapshot}
-        cabBatteryHistory={cabBatteryHistorySnapshot}
         riderByCab={Object.fromEntries(
           (latestRobotaxiRequestsRef.current ?? [])
             .filter(
@@ -4165,7 +4227,6 @@ export default function App() {
               },
             ]),
         )}
-        opsTimeline={opsTimelineSnapshot}
         waits={waitsSnapshot}
         isPreparing={experiencePhase === "idle" && playbackStatus !== "Idle" && playbackStatus !== "Error"}
         isUnavailable={playbackStatus === "Error"}

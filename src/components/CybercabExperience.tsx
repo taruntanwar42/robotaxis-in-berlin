@@ -38,12 +38,6 @@ export type OpsSample = {
   states: Record<string, number>
 }
 
-export type RunSummary = {
-  fleet: number
-  servedPct: number
-  p50Min: number
-}
-
 const SIM_SPEED_CHOICES = [10, 20, 60]
 
 const SHIFT_START = 63_900
@@ -65,10 +59,10 @@ type CybercabExperienceProps = {
   followedCabId?: string | null
   onSelectCab: (cabId: string | null) => void
   onFollowZoom: (direction: number) => void
+  isDirectorOn: boolean
+  onToggleDirector: () => void
   cabRides: Record<string, number>
-  cabBatteryHistory: Record<string, number[]>
   riderByCab: Record<string, RiderInfo>
-  opsTimeline: OpsSample[]
   waits: number[]
   isPreparing: boolean
   isUnavailable: boolean
@@ -92,10 +86,10 @@ export function CybercabExperience({
   followedCabId,
   onSelectCab,
   onFollowZoom,
+  isDirectorOn,
+  onToggleDirector,
   cabRides,
-  cabBatteryHistory,
   riderByCab,
-  opsTimeline,
   waits,
   isPreparing,
   isUnavailable,
@@ -107,14 +101,8 @@ export function CybercabExperience({
   const running = phase !== "idle"
   const driveIn = running && simSec < SERVICE_START
   const windDown = phase === "running" && simSec >= SERVICE_END
-  const aboard = (fleetRows ?? []).filter((row) => row.state === "with_passenger").length
-  // Charts redraw only when a new 30-sim-sec sample or completed ride lands,
-  // not on every paced frame (at 180x that is ~180 renders/sec).
+  // Median wait redraws when a ride completes, not on every paced frame.
   const sortedWaits = useMemo(() => [...waits].sort((a, b) => a - b), [waits.length])
-  const demandChart = useMemo(
-    () => <DemandChart timeline={opsTimeline} />,
-    [opsTimeline.length],
-  )
   const p50 = percentileOf(sortedWaits, 50)
   // The report is the answer — it presents itself instead of hiding below
   // the fold of a scrolled pane.
@@ -136,8 +124,8 @@ export function CybercabExperience({
         <header className="ops-brand">
           <span className="ops-brand-mark" aria-hidden="true" />
           <div>
-            <h1>Robotaxis in Berlin</h1>
-            <p>Cybercab fleet · whole city</p>
+            <h1>Cybercab · Berlin</h1>
+            <p>Charlottenburg pilot district</p>
           </div>
           {running ? (
             <div className="ops-clock-box">
@@ -159,22 +147,14 @@ export function CybercabExperience({
         </header>
 
         {phase === "idle" ? (
-          <section className="ops-setup" aria-label="Shift setup">
-            <div className="setup-line">
-              <span className="setup-label">Fleet</span>
-              <span className="setup-value">{fleetSize} Cybercabs · one TXL depot</span>
-            </div>
-            <div className="setup-line">
-              <span className="setup-label">Window</span>
-              <span className="setup-value">18:00 – 19:00 · evening rush</span>
-            </div>
-            <div className="setup-line">
-              <span className="setup-label">Riders</span>
-              <span className="setup-value">real Berliners · MATSim 1%</span>
-            </div>
+          <section className="cover-hero" aria-label="Start the shift">
+            <p className="cover-lede">
+              Five Cybercabs. One Berlin district. Tonight&apos;s evening rush —
+              simulated live, down to every traffic light.
+            </p>
             {isUnavailable ? (
               <div className="cover-unavailable" role="status">
-                Backend waking up — give it a minute, then reload.
+                The simulator is waking up — give it a minute, then reload.
               </div>
             ) : (
               <button
@@ -186,112 +166,113 @@ export function CybercabExperience({
                 {isPreparing ? (
                   <>
                     <span className="button-spinner" aria-hidden="true" />
-                    Preparing
+                    Starting the simulator
                   </>
                 ) : (
                   "Start the shift"
                 )}
               </button>
             )}
-            <p className="ops-hint">Runs by itself · ~90 seconds</p>
+            <p className="cover-facts">
+              18:00 – 19:00 · Charlottenburg, Moabit &amp; Tiergarten · riders from
+              MATSim&apos;s digital Berlin
+            </p>
+            <p className="cover-note">Runs by itself · every visit is a different evening</p>
           </section>
         ) : (
           <>
-            <section className="ops-kpis" aria-label="Shift key numbers">
-              <div className="kpi">
-                <strong>{ridesServed ?? 0}</strong>
-                <span>served</span>
-              </div>
-              <div className="kpi">
-                <strong>{openRequests ?? 0}</strong>
-                <span>waiting</span>
-              </div>
-              <div className="kpi">
-                <strong>{aboard}</strong>
-                <span>aboard</span>
-              </div>
-              <div className="kpi">
-                <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
-                <span>median wait</span>
-              </div>
-            </section>
-
-            <div className="ops-progress" aria-hidden="true">
-              <span className="ops-progress-tick" style={{ left: `${serviceTick * 100}%` }} />
+            <div className="shift-track" aria-hidden="true">
+              <span className="shift-track-tick" style={{ left: `${serviceTick * 100}%` }} />
               <i style={{ width: `${progress * 100}%` }} />
-              <span className="ops-progress-labels">
+              <span className="shift-track-labels">
                 <em>17:45</em>
                 <em style={{ left: `${serviceTick * 100}%` }}>18:00</em>
                 <em className="is-end">19:00</em>
               </span>
             </div>
 
-            <section className="fleet-grid-block" aria-label="Fleet">
-              <div className="block-title">
-                <span>Fleet</span>
-                <span className="block-note">{fleetSize} cabs · click to ride along</span>
+            <section className="ops-topline" aria-label="Shift key numbers">
+              <div className="topline-stat">
+                <strong>{ridesServed ?? 0}</strong>
+                <span>riders served</span>
               </div>
-              <div className={(fleetRows ?? []).length > 40 ? "fleet-grid is-many" : "fleet-grid"}>
-                {(fleetRows ?? []).map((row) => (
-                  <button
-                    key={`${row.id}:${cabRides[row.id] ?? 0}`}
-                    type="button"
-                    className={
-                      row.id === followedCabId
-                        ? `fleet-cell tone-${stateTone(row.state)} is-followed`
-                        : `fleet-cell tone-${stateTone(row.state)}`
-                    }
-                    onClick={() => onSelectCab(row.id === followedCabId ? null : row.id)}
-                    title={`${cabLabel(row.id)} · ${stateLabel(row.state)}`}
-                  >
-                    <span className="fleet-cell-num">{cabNumber(row.id)}</span>
-                    <span
-                      className="fleet-cell-batt"
-                      style={{ width: `${Math.max(6, Math.min(100, row.battery ?? 0))}%` }}
-                    />
-                  </button>
-                ))}
+              <div className="topline-stat">
+                <strong>{sortedWaits.length ? formatMinutes(p50) : "–"}</strong>
+                <span>median wait</span>
               </div>
-              <div className="state-legend" aria-hidden="true">
-                <i style={{ background: "#c99700" }} /> riding
-                <i style={{ background: "#5b7c99" }} /> pickup
-                <i style={{ background: "#b9c2c9" }} /> moving
-                <i style={{ background: "#e4e8eb" }} /> parked
-                <i style={{ background: "#2c3840" }} /> depot
+              <div
+                className={
+                  (openRequests ?? 0) > 0 ? "topline-waiting is-active" : "topline-waiting"
+                }
+              >
+                {(openRequests ?? 0) > 0
+                  ? `${openRequests} waiting now`
+                  : driveIn
+                    ? "service opens 18:00"
+                    : "no one waiting"}
               </div>
-              {followedCabId ? (
-                <CabCard
-                  cabId={followedCabId}
-                  row={(fleetRows ?? []).find((row) => row.id === followedCabId)}
-                  rides={cabRides[followedCabId] ?? 0}
-                  batteryHistory={cabBatteryHistory[followedCabId] ?? []}
-                  rider={riderByCab[followedCabId]}
-                  onRelease={() => onSelectCab(null)}
-                  onZoom={onFollowZoom}
-                />
-              ) : null}
             </section>
 
-            <section className="ops-charts" aria-label="Live analytics">
-              <div className="chart-block">
-                <div className="block-title">
-                  <span>Demand</span>
-                  <span className="chart-legend">
-                    <i className="swatch-requested" /> requested{" "}
-                    {opsTimeline.length ? opsTimeline[opsTimeline.length - 1].requested : 0}
-                    <i className="swatch-served" /> served{" "}
-                    {opsTimeline.length ? opsTimeline[opsTimeline.length - 1].served : 0}
-                  </span>
-                </div>
-                {demandChart}
+            <section className="fleet-list" aria-label="Fleet">
+              <div className="block-title">
+                <span>Fleet</span>
+                <span className="block-note">click a cab to ride along</span>
               </div>
+              {(fleetRows ?? []).map((row) => {
+                const followed = row.id === followedCabId
+                return (
+                  <div key={row.id} className={followed ? "cab-row is-followed" : "cab-row"}>
+                    <button
+                      type="button"
+                      className="cab-row-main"
+                      onClick={() => onSelectCab(followed ? null : row.id)}
+                    >
+                      <MiniCab tone={stateTone(row.state)} />
+                      <span className="cab-row-name">{cabLabel(row.id)}</span>
+                      <span className="cab-row-story">
+                        {cabStory(row, riderByCab[row.id])}
+                      </span>
+                      <span className="cab-row-metric">{cabMetric(row)}</span>
+                    </button>
+                    {followed ? (
+                      <div className="cab-row-chase">
+                        <span className="chase-label">
+                          <span className="hud-live" aria-hidden="true" />
+                          Riding along
+                        </span>
+                        <span className="chase-detail">
+                          {cabRides[row.id] ?? 0} rides tonight
+                          {typeof row.battery === "number" ? ` · ${row.battery}% battery` : ""}
+                        </span>
+                        <span className="chase-controls">
+                          <button type="button" onClick={() => onFollowZoom(-1)} aria-label="Zoom out">
+                            −
+                          </button>
+                          <button type="button" onClick={() => onFollowZoom(1)} aria-label="Zoom in">
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            className="chase-release"
+                            onClick={() => onSelectCab(null)}
+                          >
+                            Overview
+                          </button>
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })}
             </section>
 
             {phase === "results" && report ? (
               <section className="ops-report" aria-label="Shift report" ref={reportRef}>
                 <div className="block-title">
                   <span>Shift report</span>
-                  <span className="block-note">18:00 – 19:00 · {fleetSize} cabs · Berlin</span>
+                  <span className="block-note">
+                    18:00 – 19:00 · {fleetSize} cabs · Charlottenburg
+                  </span>
                 </div>
                 {reportTopline ? (
                   <div className="report-topline" aria-label="Headline results">
@@ -318,29 +299,24 @@ export function CybercabExperience({
                     </div>
                   ))}
                 </div>
-                <div className="report-compare">
-                  <span className="report-compare-label">Why 60 cabs</span>
-                  <span className="report-compare-item">
-                    same evening, 40 cabs serve 78% · 60 serve 95%
-                  </span>
-                </div>
                 <div className="report-footer">
                   <span className="report-footnote">
-                    ¹ incl. repositioning and depot legs · 1% population sample, full city
-                    <br />² vs 147 g/km petrol car, net of 363 g/kWh German grid electricity
-                    <br />³ waits are mostly the pickup drive — one fleet covering 890 km² of
-                    city
+                    ¹ includes stand and depot legs · riders are MATSim&apos;s 1% synthetic Berlin
+                    <br />² vs 147 g/km petrol car, at 363 g/kWh German grid electricity
                   </span>
                   <span className="report-rerun">
                     <button type="button" className="ghost-button" onClick={onReplay}>
-                      Run again
+                      Run a new evening
                     </button>
                   </span>
                 </div>
               </section>
             ) : (
               <section className="ops-ticker" aria-label="Dispatch events">
-                {(feed ?? []).slice(0, 6).map((entry) => (
+                <div className="block-title">
+                  <span>Tonight</span>
+                </div>
+                {(feed ?? []).slice(0, 8).map((entry) => (
                   <div key={entry.key} className={`ticker-row tone-${feedTone(entry.status)}`}>
                     <span className="ticker-time">{formatClock(entry.atSec)}</span>
                     <span className="ticker-text">{feedText(entry)}</span>
@@ -350,7 +326,7 @@ export function CybercabExperience({
                   <div className="ticker-row tone-open">
                     <span className="ticker-time">{driveIn ? clock : "18:00"}</span>
                     <span className="ticker-text">
-                      {driveIn ? "Cyberfleet rolling out across the city" : "Waiting for first request"}
+                      {driveIn ? "Convoy leaving the Cybercab depot" : "Waiting for the first rider"}
                     </span>
                   </div>
                 ) : null}
@@ -361,8 +337,15 @@ export function CybercabExperience({
       </aside>
 
       {phase === "running" ? (
-        <div className="map-controls" aria-label="Simulation speed">
-          <span className="map-controls-label">Speed</span>
+        <div className="map-controls" aria-label="Camera and speed">
+          <button
+            type="button"
+            className={isDirectorOn || followedCabId ? "ops-chip" : "ops-chip is-active"}
+            onClick={onToggleDirector}
+          >
+            {isDirectorOn || followedCabId ? "Overview" : "Follow the action"}
+          </button>
+          <span className="map-controls-divider" aria-hidden="true" />
           {SIM_SPEED_CHOICES.map((choice) => (
             <button
               key={choice}
@@ -403,7 +386,7 @@ export function CybercabExperience({
             </li>
             <li>
               <span className="legend-swatch legend-cab" aria-hidden="true" />
-              Cybercab · click
+              Cybercab
             </li>
           </ul>
         </aside>
@@ -412,139 +395,52 @@ export function CybercabExperience({
   )
 }
 
-function CabCard({
-  cabId,
-  row,
-  rides,
-  batteryHistory,
-  rider,
-  onRelease,
-  onZoom,
-}: {
-  cabId: string
-  row?: FleetBoardRow
-  rides: number
-  batteryHistory: number[]
-  rider?: RiderInfo
-  onRelease: () => void
-  onZoom: (direction: number) => void
-}) {
-  return (
-    <div className="cab-card">
-      <div className="cab-card-head">
-        <MiniCab tone={stateTone(row?.state)} large />
-        <div className="cab-card-title">
-          <strong>{cabLabel(cabId)}</strong>
-          <span>{stateLabel(row?.state)}</span>
-        </div>
-        <span className="cab-card-cam">
-          <span className="hud-live" aria-hidden="true" />
-          Chase cam
-          <button type="button" onClick={() => onZoom(-1)} aria-label="Zoom out">
-            −
-          </button>
-          <button type="button" onClick={() => onZoom(1)} aria-label="Zoom in">
-            +
-          </button>
-          <button type="button" className="cab-camera-release" onClick={onRelease}>
-            Release
-          </button>
-        </span>
-      </div>
-      <div className="cab-card-stats">
-        <span>
-          ⚡ <strong>{typeof row?.battery === "number" ? `${row.battery}%` : "–"}</strong>
-        </span>
-        <span>
-          <strong>{typeof row?.speedKph === "number" ? Math.round(row.speedKph) : 0}</strong> km/h
-        </span>
-        <span>
-          <strong>{rides}</strong> rides
-        </span>
-        <span className="cab-card-rider">
-          {rider
-            ? `${rider.status === "onboard" ? "aboard" : "to rider"} · ${formatClock(rider.requestedAtSec)}${
-                rider.mode ? ` · ${riderNoun(rider.mode)}` : ""
-              }`
-            : "no rider"}
-        </span>
-      </div>
-      {batteryHistory.length > 1 ? <Sparkline values={batteryHistory} /> : null}
-    </div>
-  )
+function MiniCab({ tone }: { tone: string }) {
+  return <span className={`mini-cab tone-${tone}`} aria-hidden="true" />
 }
 
-function DemandChart({ timeline }: { timeline: OpsSample[] }) {
-  const width = 320
-  const height = 74
-  if (timeline.length < 2) {
-    return <div className="chart-empty">builds as the hour runs</div>
+// One live sentence per cab: what it is doing right now, in rider terms.
+function cabStory(row: FleetBoardRow, rider?: RiderInfo) {
+  switch (row.state) {
+    case "with_passenger":
+      return rider?.requestedAtSec
+        ? `Rider aboard · hailed ${formatClock(rider.requestedAtSec)}`
+        : "Rider aboard"
+    case "en_route_pickup":
+      return "On the way to a rider"
+    case "roaming":
+    case "staged":
+      return "Heading to a stand"
+    case "idle":
+      return "Waiting at a stand"
+    case "idle_at_depot":
+      return "At the depot"
+    case "returning_to_depot":
+      return "Heading home"
+    case "charging":
+      return "Charging at the depot"
+    case "offline":
+      return "Off duty"
+    default:
+      return row.state ? row.state.replaceAll("_", " ") : "—"
   }
-  const maxY = Math.max(4, ...timeline.map((sample) => sample.requested))
-  const x = (t: number) => ((t - SHIFT_START) / SHIFT_SPAN) * width
-  const y = (value: number) => height - (value / maxY) * (height - 6)
-  const line = (pick: (sample: OpsSample) => number) =>
-    timeline.map((sample) => `${x(sample.t).toFixed(1)},${y(pick(sample)).toFixed(1)}`).join(" ")
-  const servedArea = `${x(timeline[0].t).toFixed(1)},${height} ${line((s) => s.served)} ${x(
-    timeline[timeline.length - 1].t,
-  ).toFixed(1)},${height}`
-  return (
-    <div className="demand-chart-wrap">
-      <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Requested versus served rides over the hour">
-        <line
-          x1={x(SERVICE_START)}
-          y1="0"
-          x2={x(SERVICE_START)}
-          y2={height}
-          stroke="rgba(20,30,40,0.15)"
-          strokeDasharray="3 3"
-        />
-        <polygon points={servedArea} fill="rgba(201,151,0,0.14)" />
-        <polyline points={line((s) => s.requested)} fill="none" stroke="rgba(44,56,64,0.55)" strokeWidth="1.6" />
-        <polyline points={line((s) => s.served)} fill="none" stroke="#c99700" strokeWidth="2" />
-      </svg>
-      <span
-        className="demand-service-tick"
-        style={{ left: `${((SERVICE_START - SHIFT_START) / SHIFT_SPAN) * 100}%` }}
-      >
-        18:00
-      </span>
-    </div>
-  )
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const width = 240
-  const height = 30
-  const min = Math.min(60, ...values)
-  const max = 100
-  const points = values
-    .map((value, index) => {
-      const x = (index / Math.max(1, values.length - 1)) * width
-      const y = height - ((value - min) / Math.max(1, max - min)) * height
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(" ")
-  return (
-    <svg
-      className="cab-spark-svg"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label="Battery level over the shift"
-    >
-      <polyline points={points} fill="none" stroke="#4f8a54" strokeWidth="2" />
-    </svg>
-  )
-}
-
-function MiniCab({ tone, large }: { tone: string; large?: boolean }) {
-  return (
-    <span
-      className={large ? `mini-cab mini-cab-large tone-${tone}` : `mini-cab tone-${tone}`}
-      aria-hidden="true"
-    />
-  )
+// Right-hand column: speed while moving, battery while parked.
+function cabMetric(row: FleetBoardRow) {
+  const moving =
+    row.state === "with_passenger" ||
+    row.state === "en_route_pickup" ||
+    row.state === "roaming" ||
+    row.state === "staged" ||
+    row.state === "returning_to_depot"
+  if (moving && typeof row.speedKph === "number") {
+    return `${Math.round(row.speedKph)} km/h`
+  }
+  if (typeof row.battery === "number") {
+    return `${row.battery}%`
+  }
+  return ""
 }
 
 function percentileOf(sorted: number[], pct: number) {
@@ -560,36 +456,7 @@ function formatMinutes(seconds: number) {
 }
 
 function cabLabel(id: string) {
-  return `Cab ${cabNumber(id)}`
-}
-
-function cabNumber(id: string) {
-  return id.replace(/^cybercab_/, "")
-}
-
-function stateLabel(state: string | null | undefined) {
-  switch (state) {
-    case "en_route_pickup":
-      return "Driving to pickup"
-    case "with_passenger":
-      return "Rider aboard"
-    case "roaming":
-      return "Roaming"
-    case "staged":
-      return "Repositioning"
-    case "idle":
-      return "Parked"
-    case "idle_at_depot":
-      return "At depot"
-    case "returning_to_depot":
-      return "Returning to depot"
-    case "charging":
-      return "Charging"
-    case "offline":
-      return "Off duty"
-    default:
-      return state ? state.replaceAll("_", " ") : "—"
-  }
+  return `Cab ${id.replace(/^cybercab_/, "")}`
 }
 
 function stateTone(state: string | null | undefined) {
@@ -633,7 +500,7 @@ function feedText(entry: DispatchFeedEntry) {
   const cab = entry.cab ? cabLabel(entry.cab) : null
   switch (entry.status) {
     case "waiting":
-      return entry.mode ? `New request · ${riderNoun(entry.mode)}` : "New request"
+      return entry.mode ? `New rider · ${riderNoun(entry.mode)}` : "New rider"
     case "assigned":
       return cab ? `${cab} assigned` : "Cab assigned"
     case "onboard":
@@ -643,7 +510,7 @@ function feedText(entry: DispatchFeedEntry) {
         ? `Dropped off · ${formatMinutes(entry.waitSec)} wait`
         : "Dropped off"
     case "expired":
-      return "Expired · no cab nearby"
+      return "Rider gave up · no cab free"
     case "rejected":
       return "Declined · shift ending"
     default:

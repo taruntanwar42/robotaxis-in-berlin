@@ -1,6 +1,6 @@
 import type { ReportData, SweepRow } from "../lib/data";
 import { fmtEur, fmtInt, fmtPct } from "../lib/format";
-import { Chip, Section } from "../ui/primitives";
+import { Chip, Section, Stat } from "../ui/primitives";
 import { SweepChart } from "../charts/SweepChart";
 import { FareCurves } from "../charts/FareCurves";
 import { Figure } from "../charts/common";
@@ -116,13 +116,65 @@ export function FindingFare({ report }: { report: ReportData }) {
   );
 }
 
+export function FindingBusiness({ report }: { report: ReportData }) {
+  const { day, consumerSurplus: cs } = report.economics;
+  return (
+    <Section
+      id="business"
+      eyebrow="Finding 03 · The business"
+      title="The fare can halve and Tesla still wins"
+    >
+      <div className="prose">
+        <p>
+          Run the operator's books on the simulated evening: {cs.servedRides}{" "}
+          rides at the Austin tariff earn {fmtEur(cs.cybercabTotalEur)}, while
+          electricity for the whole fleet costs about{" "}
+          {fmtEur(report.economics.perFleet.find((f) => f.fleet === day.fleet)?.energyCostEur ?? 0)}.
+          Energy is ~3% of revenue; there is no driver to pay. Riders
+          simultaneously save <strong>{fmtPct(cs.riderSavingsShare)}</strong>{" "}
+          versus the same trips in a Berlin taxi.{" "}
+          <Chip href="#methods" sim>
+            fleet {day.fleet} economics
+          </Chip>
+        </p>
+        <p>
+          Stretch that evening across a full day — the honest label is
+          <em> estimate</em>: it assumes the fleet stays this busy whenever
+          demand exists — and each cab clears roughly{" "}
+          <strong>{fmtEur(day.marginPerCabEur)} a day</strong>. A $30,000
+          Cybercab would pay for itself in about{" "}
+          <strong>{Math.round(day.paybackDays)} days</strong>. Halve the fare:
+          ~{Math.round(day.sensitivity.fareX05.paybackYears * 365)} days.
+          Overstaff to {day.sensitivity.worstFleet?.fleet ?? 30} cabs: ~
+          {Math.round((day.sensitivity.worstFleet?.paybackYears ?? 0.37) * 365)}{" "}
+          days.
+        </p>
+      </div>
+      <div className="stat-row">
+        <Stat value={`~${Math.round(day.ridesPerCab)}`} label="rides / cab / day (est.)" />
+        <Stat value={fmtEur(day.revenuePerCabEur)} label="revenue / cab / day" gold />
+        <Stat value={fmtEur(day.energyCostPerCabEur)} label="energy / cab / day" />
+        <Stat value={`~${Math.round(day.paybackDays)} days`} label="cab pays for itself" gold />
+      </div>
+      <div className="prose">
+        <p>
+          The binding constraint is not price — it is <strong>utilization</strong>:
+          keeping a two-seater busy outside the evening peak, through charging
+          stops, dead hours and winter. That is why the fare war (Finding 02)
+          is affordable for the operator and existential for the taxi trade.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 export function FindingAccess({ report }: { report: ReportData }) {
   const p = report.demand.persons;
   const bands = ["<18", "18-29", "30-44", "45-64", "65-79", "80+"];
   const max = Math.max(...bands.map((b) => p.byAgeBand[b] ?? 0));
   const cantDrive = p.seniors65 + p.minors;
   return (
-    <Section id="access" eyebrow="Finding 03 · Who gains" title="The passengers a driver's seat excludes">
+    <Section id="access" eyebrow="Finding 04 · Who gains" title="The passengers a driver's seat excludes">
       <div className="prose">
         <p>
           A robotaxi's honest unique selling point is not price — it is that{" "}

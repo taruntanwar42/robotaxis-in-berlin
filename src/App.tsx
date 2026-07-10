@@ -5,7 +5,7 @@ import { LineRail } from "./ui/primitives";
 import { MapStage } from "./map/MapStage";
 import { Hero, Place, Today } from "./brief/ActOne";
 import { Experiment, Vehicle } from "./brief/ActTwo";
-import { FindingAccess, FindingFare, FindingService } from "./brief/ActThree";
+import { FindingAccess, FindingBusiness, FindingFare, FindingService } from "./brief/ActThree";
 import { Catch, Methods, Verdict } from "./brief/ActFour";
 
 const STATIONS = [
@@ -16,7 +16,8 @@ const STATIONS = [
   { id: "experiment", name: "Simulation" },
   { id: "service", name: "Befund 1" },
   { id: "fare", name: "Befund 2" },
-  { id: "access", name: "Befund 3" },
+  { id: "business", name: "Befund 3" },
+  { id: "access", name: "Befund 4" },
   { id: "catch", name: "Der Haken" },
   { id: "verdict", name: "Urteil" },
   { id: "methods", name: "Methode" },
@@ -66,6 +67,7 @@ export default function App() {
         <Experiment report={report} />
         <FindingService report={report} />
         <FindingFare report={report} />
+        <FindingBusiness report={report} />
         <FindingAccess report={report} />
         <Catch report={report} />
         <Verdict report={report} />

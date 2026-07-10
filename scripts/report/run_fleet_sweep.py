@@ -121,7 +121,7 @@ def build_route_file(fleet: int, requests: list[dict], out_path: Path, rng: rand
     ET.ElementTree(root).write(out_path, encoding="utf-8", xml_declaration=True)
 
 
-def sumo_args(taxi_routes: Path, tripinfo: Path, seed: int) -> list[str]:
+def sumo_args(taxi_routes: Path, tripinfo: Path, seed: int, dispatch: str = "greedyClosest") -> list[str]:
     return [
         "-n", str(NET),
         "-r", f"{BACKGROUND},{taxi_routes}",
@@ -129,7 +129,7 @@ def sumo_args(taxi_routes: Path, tripinfo: Path, seed: int) -> list[str]:
         "--begin", str(BEGIN_SEC),
         "--end", str(END_SEC),
         "--seed", str(seed),
-        "--device.taxi.dispatch-algorithm", "greedyClosest",
+        "--device.taxi.dispatch-algorithm", dispatch,
         "--device.taxi.idle-algorithm", "stop",
         # The corridor cut has weakly-connected pockets; a cab that drops off
         # inside one can't route to some next pickup. Without this flag SUMO
@@ -203,24 +203,31 @@ def parse_tripinfo(tripinfo: Path, n_requests: int, fleet: int) -> dict:
     }
 
 
-def run_headless(fleet: int, seed: int) -> dict:
+def run_headless(fleet: int, seed: int, dispatch: str = "greedyClosest") -> dict:
     requests = load_requests()
     rng = random.Random(1000 + fleet)
     with tempfile.TemporaryDirectory(prefix="sweep_") as tmp:
         taxi_routes = Path(tmp) / "taxi.rou.xml"
         tripinfo = Path(tmp) / "tripinfo.xml"
         build_route_file(fleet, requests, taxi_routes, rng)
-        cmd = ["sumo", *sumo_args(taxi_routes, tripinfo, seed)]
+        cmd = ["sumo", *sumo_args(taxi_routes, tripinfo, seed, dispatch)]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         if proc.returncode != 0:
             sys.stderr.write(proc.stderr[-3000:] + "\n")
             raise SystemExit(f"sumo failed (fleet={fleet} seed={seed})")
         metrics = parse_tripinfo(tripinfo, len(requests), fleet)
-    metrics.update({"fleet": fleet, "sumoSeed": seed, "engine": "sumo-taxi-greedyClosest"})
+    metrics.update(
+        {
+            "fleet": fleet,
+            "sumoSeed": seed,
+            "dispatch": dispatch,
+            "engine": f"sumo-taxi-{dispatch}",
+        }
+    )
     return metrics
 
 
-def run_trace(fleet: int, seed: int, trace_path: Path, step: int = 2) -> dict:
+def run_trace(fleet: int, seed: int, trace_path: Path, step: int = 2, dispatch: str = "greedyClosest") -> dict:
     import libsumo
     import sumolib
 
@@ -231,7 +238,7 @@ def run_trace(fleet: int, seed: int, trace_path: Path, step: int = 2) -> dict:
     taxi_routes = Path(tmpdir) / "taxi.rou.xml"
     tripinfo = Path(tmpdir) / "tripinfo.xml"
     build_route_file(fleet, requests, taxi_routes, rng)
-    libsumo.start(["sumo", *sumo_args(taxi_routes, tripinfo, seed)])
+    libsumo.start(["sumo", *sumo_args(taxi_routes, tripinfo, seed, dispatch)])
 
     cab_paths: dict[str, list] = {}
     state_names = {0: "idle", 1: "to_pickup", 2: "occupied", 3: "occupied"}
@@ -258,7 +265,14 @@ def run_trace(fleet: int, seed: int, trace_path: Path, step: int = 2) -> dict:
     libsumo.close()
 
     metrics = parse_tripinfo(tripinfo, len(requests), fleet)
-    metrics.update({"fleet": fleet, "sumoSeed": seed, "engine": "sumo-taxi-greedyClosest"})
+    metrics.update(
+        {
+            "fleet": fleet,
+            "sumoSeed": seed,
+            "dispatch": dispatch,
+            "engine": f"sumo-taxi-{dispatch}",
+        }
+    )
 
     # pickup/dropoff timing per rider from tripinfo for request markers
     riders = []
@@ -307,14 +321,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fleet", type=int, required=True)
     parser.add_argument("--sumo-seed", type=int, default=7)
+    parser.add_argument("--dispatch", type=str, default="greedyClosest")
     parser.add_argument("--trace", type=Path, default=None)
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
 
     if args.trace:
-        metrics = run_trace(args.fleet, args.sumo_seed, args.trace)
+        metrics = run_trace(args.fleet, args.sumo_seed, args.trace, dispatch=args.dispatch)
     else:
-        metrics = run_headless(args.fleet, args.sumo_seed)
+        metrics = run_headless(args.fleet, args.sumo_seed, dispatch=args.dispatch)
 
     print(json.dumps(metrics, indent=2))
     if args.out:

@@ -23,6 +23,7 @@ const CAMERAS: Record<string, CameraSpec> = {
   experiment: { padFactor: 1.12, pitch: 34, bearing: -14, showOrigins: false, showReplay: true },
   service: { padFactor: 1.5, pitch: 20, bearing: -14, showOrigins: false, showReplay: true },
   fare: { padFactor: 1.8, pitch: 10, bearing: 0, showOrigins: false, showReplay: false },
+  business: { padFactor: 1.65, pitch: 18, bearing: -6, showOrigins: false, showReplay: false },
   access: { padFactor: 1.8, pitch: 10, bearing: 0, showOrigins: true, showReplay: false },
   catch: { padFactor: 1.6, pitch: 25, bearing: 8, showOrigins: false, showReplay: false },
   verdict: { padFactor: 1.4, pitch: 30, bearing: -10, showOrigins: false, showReplay: true },

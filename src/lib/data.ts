@@ -97,11 +97,48 @@ export interface ReplayData {
   }[];
 }
 
+export interface EconomicsData {
+  meta: Record<string, unknown>;
+  perFleet: {
+    fleet: number;
+    revenueEur: number;
+    energyCostEur: number;
+    revenuePerCabEur: number;
+    kmPerCab: number;
+  }[];
+  day: {
+    fleet: number;
+    label: string;
+    dayFactor: number;
+    ridesPerCab: number;
+    revenuePerCabEur: number;
+    energyCostPerCabEur: number;
+    overheadAssumptionEur: number;
+    marginPerCabEur: number;
+    paybackYears: number;
+    paybackDays: number;
+    sensitivity: Record<string, { marginPerCabEur: number; paybackYears: number; fleet?: number; fareMultiplier?: number }>;
+  };
+  consumerSurplus: {
+    fleet: number;
+    servedRides: number;
+    medianRideKm: number;
+    cybercabFareEur: number;
+    berlinTaxiFareEur: number;
+    cybercabTotalEur: number;
+    berlinTaxiTotalEur: number;
+    riderSavingsEur: number;
+    riderSavingsShare: number;
+    note: string;
+  };
+}
+
 export interface ReportData {
   demand: DemandData;
   costs: CostsData;
   sweep: SweepData;
   replay: ReplayData;
+  economics: EconomicsData;
   serviceArea: FeatureCollection;
 }
 
@@ -114,14 +151,15 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export async function loadReport(): Promise<ReportData> {
-  const [demand, costs, sweep, replay, serviceArea] = await Promise.all([
+  const [demand, costs, sweep, replay, economics, serviceArea] = await Promise.all([
     get<DemandData>("data/report/demand.json"),
     get<CostsData>("data/report/costs.json"),
     get<SweepData>("data/report/sweep.json"),
     get<ReplayData>("data/report/replay.json"),
+    get<EconomicsData>("data/report/economics.json"),
     get<FeatureCollection>("data/service-area.geojson"),
   ]);
-  return { demand, costs, sweep, replay, serviceArea };
+  return { demand, costs, sweep, replay, economics, serviceArea };
 }
 
 export const MODE_COLOR: Record<string, string> = {

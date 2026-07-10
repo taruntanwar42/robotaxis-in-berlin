@@ -200,6 +200,9 @@ export function Methods({ report }: { report: ReportData }) {
           background traffic
           <br />→ 21 fleet runs (7 sizes × 3 seeds), built-in taxi dispatch
           (greedyClosest), cabs staged at taxi stands
+          <br />→ operator economics: Austin tariff × sweep outputs; the
+          day figures scale the evening hour by the corridor's demand curve
+          (estimate) with €20/cab/day overhead (assumption)
           <br />→ this page (static JSON; no backend, nothing live)
         </p>
       </div>

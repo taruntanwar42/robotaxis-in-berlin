@@ -103,6 +103,24 @@ def test_costs_consistency():
     assert 1.0 <= be["bvgCheaperThanCybercabFromKm"] <= 3.0
 
 
+# ---------- economics.json ----------
+
+def test_economics_consistency():
+    e = load("economics.json")
+    day = e["day"]
+    assert day["paybackYears"] > 0 and day["paybackDays"] < 365 * 20
+    assert math.isclose(day["paybackDays"], day["paybackYears"] * 365, rel_tol=0.02)
+    margin = day["revenuePerCabEur"] - day["energyCostPerCabEur"] - day["overheadAssumptionEur"]
+    assert math.isclose(day["marginPerCabEur"], margin, rel_tol=0.02)
+    # halved fare must never beat the base-case payback
+    assert day["sensitivity"]["fareX05"]["paybackYears"] > day["paybackYears"]
+    cs = e["consumerSurplus"]
+    assert cs["berlinTaxiTotalEur"] > cs["cybercabTotalEur"]
+    assert math.isclose(
+        cs["riderSavingsEur"], cs["berlinTaxiTotalEur"] - cs["cybercabTotalEur"], rel_tol=0.02
+    )
+
+
 # ---------- replay.json ----------
 
 def test_replay_integrity():

@@ -3,6 +3,7 @@ import type { ReportData } from "../lib/data";
 import { fmtClock, fmtInt } from "../lib/format";
 import { replayStore } from "../map/replayStore";
 import { Chip, Section, Stat } from "../ui/primitives";
+import { CabViewer } from "./CabViewer";
 
 export function Vehicle() {
   return (
@@ -16,6 +17,7 @@ export function Vehicle() {
           <Chip href="https://insideevs.com/news/798790/tesla-cybercab-specs/">EPA filings</Chip>
         </p>
       </div>
+      <CabViewer />
       <div className="stat-row">
         <Stat value="2" label="seats" gold />
         <Stat value="~48 kWh" label="battery" />

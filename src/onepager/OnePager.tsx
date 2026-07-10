@@ -228,8 +228,8 @@ export function OnePager({ report }: { report: ReportData }) {
             <p>
               {report.dayMeasured
                 ? lang === "de"
-                  ? `bis sich ein 30.000-$-Cab amortisiert — aus einem komplett simulierten Tag (${report.dayMeasured.served} Fahrten, ${Math.round(report.dayMeasured.kmPerCab)} km/Cab), Annahmen publiziert`
-                  : `for a $30k cab to pay for itself — from one fully simulated day (${report.dayMeasured.served} rides, ${Math.round(report.dayMeasured.kmPerCab)} km/cab), assumptions published`
+                  ? `bis sich ein 30.000-$-Cab amortisiert — ein komplett simulierter Tag, Flotte ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.served} Fahrten, ${report.dayMeasured.waitP50Min} Min. Wartezeit (Annahmen publiziert)`
+                  : `for a $30k cab to pay for itself — one fully simulated day, fleet ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.served} rides at ${report.dayMeasured.waitP50Min} min waits (assumptions published)`
                 : lang === "de"
                   ? "bis sich ein 30.000-$-Cab zu Austin-Tarifen amortisiert — Energie ist ~3% des Umsatzes (Schätzung, Annahmen publiziert)"
                   : "for a $30k cab to pay for itself at Austin fares — energy is ~3% of revenue (estimate, assumptions published)"}
@@ -293,7 +293,7 @@ export function OnePager({ report }: { report: ReportData }) {
         <footer className="op-footer">
           <span>{S.footer1[lang]}</span>
           <span className="op-badges">
-            MATSim Open Berlin · BeST scenario (CC-BY) · SUMO 1.27 · 88 runs ·{" "}
+            MATSim Open Berlin · BeST scenario (CC-BY) · SUMO 1.27 · 68 recorded runs ·{" "}
             <a href="https://github.com/taruntanwar42/robotaxis-in-berlin">GitHub</a> ·{" "}
             <a href="#deep">{S.fullBriefLink[lang]}</a> ·{" "}
             <a

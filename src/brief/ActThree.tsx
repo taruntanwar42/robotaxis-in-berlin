@@ -166,19 +166,29 @@ export function FindingBusiness({ report }: { report: ReportData }) {
       {report.dayMeasured && (
         <div className="prose">
           <p>
-            We then <strong>simulated the entire day</strong> rather than
-            extrapolating: {report.dayMeasured.served} of{" "}
-            {report.dayMeasured.requests} car trips served 04:00–04:00,{" "}
-            {Math.round(report.dayMeasured.kmPerCab)} km per cab,{" "}
-            {report.dayMeasured.ridesPerCab} rides per cab, revenue{" "}
-            {fmtEur(report.dayMeasured.revenuePerCabEur)}/cab — payback{" "}
-            <strong>~{Math.round(report.dayMeasured.paybackDays ?? 0)} days</strong>.
-            The measured day also exposes what the estimate hid:{" "}
-            {Math.round(report.dayMeasured.kmPerCab)} km/cab/day exceeds one
-            48 kWh charge — a real fleet loses mid-day time to charging, which
-            our simulation does not model.{" "}
+            We then <strong>simulated the entire day twice</strong> instead of
+            extrapolating: all {fmtInt(report.dayMeasured.requests)} of the
+            corridor's daily car trips, served once by the evening-knee fleet
+            and once by {report.dayMeasured.meta.fleet} cabs. The result is the
+            operator's dial laid bare: with {report.dayMeasured.meta.fleet}{" "}
+            cabs, riders wait {report.dayMeasured.waitP50Min} minutes at the
+            median and a cab pays back in{" "}
+            <strong>~{Math.round(report.dayMeasured.paybackDays ?? 0)} days</strong>
+            {report.dayMeasuredEveningFleet && (
+              <>
+                ; run lean with {report.dayMeasuredEveningFleet.meta.fleet} and
+                the same demand still gets served — but the median wait balloons
+                to {report.dayMeasuredEveningFleet.waitP50Min} minutes while
+                payback halves to ~
+                {Math.round(report.dayMeasuredEveningFleet.paybackDays ?? 0)}{" "}
+                days
+              </>
+            )}
+            . Service quality is a choice against profit speed — and both
+            measured paybacks are slower than the hourly extrapolation above,
+            because a day is not twelve rush hours.{" "}
             <Chip href="#methods" sim>
-              measured day
+              2 measured days
             </Chip>
           </p>
         </div>

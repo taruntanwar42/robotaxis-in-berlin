@@ -172,6 +172,12 @@ def test_day_measured_if_present():
     assert math.isclose(d["marginPerCabEur"], margin, rel_tol=0.05)
     if d["paybackDays"]:
         assert 5 < d["paybackDays"] < 3650
+    # cab-attrition guard: the first day run decayed to zero throughput by
+    # 14:00 (cabs stranded in weakly-connected pockets). Demand exists all
+    # day, so every daytime hour must show service.
+    by_hour = {h["hour"]: h["rides"] for h in d["hourly"]}
+    for hour in range(8, 23):
+        assert by_hour.get(hour, 0) > 0, f"no rides in hour {hour} — cab attrition?"
 
 
 # ---------- replay.json ----------

@@ -53,6 +53,21 @@ def main() -> None:
     sweep.END_SEC = DAY_END
 
     requests = sweep.load_requests()
+
+    # A 24h shift exposes what 2h runs hide: a cab that drops off inside a
+    # weakly-connected pocket is stranded for the rest of the day (the first
+    # day run decayed to zero throughput by 14:00 from exactly this).
+    # Restrict pickups AND dropoffs to the largest strongly connected
+    # component of the taxi graph, as the Reinickendorf runner does.
+    import run_reinickendorf_sweep as rdf
+    import sumolib
+
+    net = sumolib.net.readNet(str(sweep.NET))
+    scc = rdf.taxi_scc_edges(net)
+    before = len(requests)
+    requests = [r for r in requests if r["pickupEdge"] in scc and r["dropoffEdge"] in scc]
+    print(f"SCC filter: {before} -> {len(requests)} requests "
+          f"({before - len(requests)} dropped as trap-pocket kerbs)")
     rng = random.Random(1000 + args.fleet)
     tmp = Path(tempfile.mkdtemp(prefix="fullday_"))
     taxi_routes = tmp / "taxi.rou.xml"

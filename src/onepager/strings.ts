@@ -27,13 +27,13 @@ export const S = {
     en: [
       { n: "01", t: "Real demand", l: "7,443 daily trips from TU Berlin's synthetic population (MATSim, 1% twin of the city)" },
       { n: "02", t: "Real streets", l: "The district rebuilt in SUMO: every signal, plus the evening's calibrated traffic" },
-      { n: "03", t: "The experiment", l: "Every evening car trip hails a Cybercab — 88 runs: fleets 4–30, 3 seeds, pooled & solo, 2 districts" },
+      { n: "03", t: "The experiment", l: "Every car trip hails a Cybercab — 68 recorded runs: fleets 4–30, pooled & solo, 2 districts, 2 full days" },
       { n: "04", t: "Honest verdict", l: "Every number sourced or simulated — the case against gets equal rigor" },
     ],
     de: [
       { n: "01", t: "Echte Nachfrage", l: "7.443 Tageswege aus der synthetischen Bevölkerung der TU Berlin (MATSim, 1%-Zwilling der Stadt)" },
       { n: "02", t: "Echte Straßen", l: "Der Kiez in SUMO nachgebaut: jede Ampel, plus der kalibrierte Abendverkehr" },
-      { n: "03", t: "Das Experiment", l: "Jede abendliche Autofahrt ruft ein Cybercab — 88 Läufe: Flotten 4–30, 3 Seeds, mit & ohne Pooling, 2 Bezirke" },
+      { n: "03", t: "Das Experiment", l: "Jede Autofahrt ruft ein Cybercab — 68 dokumentierte Läufe: Flotten 4–30, mit & ohne Pooling, 2 Bezirke, 2 ganze Tage" },
       { n: "04", t: "Ehrliches Urteil", l: "Jede Zahl belegt oder simuliert — die Gegenseite bekommt dieselbe Sorgfalt" },
     ],
   },

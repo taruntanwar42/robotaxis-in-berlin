@@ -175,6 +175,7 @@ export interface ReportData {
   replayReinickendorf: ReplayData | null;
   reinickendorfArea: FeatureCollection | null;
   dayMeasured: DayMeasured | null;
+  dayMeasuredEveningFleet: DayMeasured | null;
 }
 
 const base = import.meta.env.BASE_URL;
@@ -201,7 +202,7 @@ export async function loadReport(): Promise<ReportData> {
     "data/report/replay-seed17.json",
   ];
   const replayPick = replayPool[Math.floor(Math.random() * replayPool.length)];
-  const [demand, costs, sweep, replayMaybe, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured] =
+  const [demand, costs, sweep, replayMaybe, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet] =
     await Promise.all([
       get<DemandData>("data/report/demand.json"),
       get<CostsData>("data/report/costs.json"),
@@ -214,9 +215,10 @@ export async function loadReport(): Promise<ReportData> {
       getOptional<ReplayData>("data/report/replay-reinickendorf.json"),
       getOptional<FeatureCollection>("data/reinickendorf-area.geojson"),
       getOptional<DayMeasured>("data/report/economics-day-measured.json"),
+      getOptional<DayMeasured>("data/report/economics-day-measured-f16.json"),
     ]);
   const replay = replayMaybe ?? (await get<ReplayData>("data/report/replay.json"));
-  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured };
+  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet };
 }
 
 export const MODE_COLOR: Record<string, string> = {

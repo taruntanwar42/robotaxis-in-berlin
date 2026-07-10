@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "kind": "measured single-day SUMO run (not an extrapolation)",
+  "fleet": 30,
+  "sumoSeed": 7,
+  "window": "04:00-28:00 requests, one weekday",
+  "demand": "1828 car/ride trips in the corridor (1% twin)",
+  "limitations": [
+   "packaged background traffic covers only 18:00-21:00; the rest of the day runs in light traffic",
+   "one seed, one synthetic weekday; no charging downtime modeled (48 kWh vs ~280 km/cab/day implies mid-day charging)",
+   "overhead 20.0 EUR/cab/day and 0.3 EUR/kWh are assumptions"
+  ]
+ },
+ "requests": 1828,
+ "served": 1827,
+ "servedShare": 0.9995,
+ "waitP50Min": 4.4,
+ "cabTotalKm": 8396.13,
+ "kmPerCab": 279.9,
+ "emptyShare": 0.4118,
+ "kwh": 860.6,
+ "revenueEur": 8992.0,
+ "ridesPerCab": 60.9,
+ "revenuePerCabEur": 300.0,
+ "energyCostPerCabEur": 8.6,
+ "overheadAssumptionEur": 20.0,
+ "marginPerCabEur": 271.0,
+ "paybackDays": 102.0,
+ "hourly": [
+  {
+   "hour": 4,
+   "rides": 2,
+   "km": 6.0
+  },
+  {
+   "hour": 5,
+   "rides": 9,
+   "km": 36.0
+  },
+  {
+   "hour": 6,
+   "rides": 28,
+   "km": 114.8
+  },
+  {
+   "hour": 7,
+   "rides": 74,
+   "km": 238.3
+  },
+  {
+   "hour": 8,
+   "rides": 100,
+   "km": 283.5
+  },
+  {
+   "hour": 9,
+   "rides": 127,
+   "km": 366.9
+  },
+  {
+   "hour": 10,
+   "rides": 107,
+   "km": 291.6
+  },
+  {
+   "hour": 11,
+   "rides": 125,
+   "km": 305.3
+  },
+  {
+   "hour": 12,
+   "rides": 152,
+   "km": 370.2
+  },
+  {
+   "hour": 13,
+   "rides": 124,
+   "km": 297.8
+  },
+  {
+   "hour": 14,
+   "rides": 122,
+   "km": 329.9
+  },
+  {
+   "hour": 15,
+   "rides": 148,
+   "km": 419.8
+  },
+  {
+   "hour": 16,
+   "rides": 146,
+   "km": 403.2
+  },
+  {
+   "hour": 17,
+   "rides": 135,
+   "km": 436.0
+  },
+  {
+   "hour": 18,
+   "rides": 118,
+   "km": 330.7
+  },
+  {
+   "hour": 19,
+   "rides": 99,
+   "km": 289.8
+  },
+  {
+   "hour": 20,
+   "rides": 58,
+   "km": 180.9
+  },
+  {
+   "hour": 21,
+   "rides": 43,
+   "km": 107.0
+  },
+  {
+   "hour": 22,
+   "rides": 23,
+   "km": 72.2
+  },
+  {
+   "hour": 23,
+   "rides": 7,
+   "km": 34.1
+  },
+  {
+   "hour": 24,
+   "rides": 5,
+   "km": 21.2
+  },
+  {
+   "hour": 27,
+   "rides": 75,
+   "km": 0.0
+  }
+ ]
+}

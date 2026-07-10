@@ -5,6 +5,7 @@ import { SweepChart } from "../charts/SweepChart";
 import { FareCurves } from "../charts/FareCurves";
 import { Figure } from "../charts/common";
 import { DayFrontierChart } from "../charts/DayFrontier";
+import { BAR_NEUTRAL, GOLD, SURFACE } from "../lib/palette";
 
 /** The fleet the narrative leans on: smallest that serves ≥95% of requests,
  * else the biggest simulated. */
@@ -46,10 +47,9 @@ export function FindingService({ report }: { report: ReportData }) {
       <SweepChart sweep={report.sweep} />
       <div className="prose">
         <p className="caption">
-          Scale honestly: {knee.fleet} cabs in the 1% twin ≈ {fmtInt(knee.fleet * 100)}
-          {" "}cabs for the real corridor — before pooling, and knowing that
-          denser real fleets dispatch more efficiently than our miniature, so
-          treat it as an upper bound.
+          Scale: {knee.fleet} cabs in the 1% twin ≈ {fmtInt(knee.fleet * 100)}
+          {" "}for the real corridor. Denser real fleets dispatch more
+          efficiently than our miniature, so treat this as an upper bound.
         </p>
       </div>
     </Section>
@@ -83,8 +83,8 @@ export function FindingFare({ report }: { report: ReportData }) {
           single ticket on BVG — Berlin's transit network — is cheaper; and for
           holders of the Deutschlandticket, the €58-a-month flat-rate transit
           pass, every U-Bahn ride is already paid for. A car you already own
-          costs almost nothing extra per trip. One honest point for the
-          Cybercab: its fare covers the vehicle — two people ride for €
+          costs almost nothing extra per trip. One point in the
+          Cybercab's favor: its fare covers the vehicle — two people ride for €
           {median.cybercabEur.toFixed(2)} total, while BVG charges per person.
         </p>
       </div>
@@ -116,7 +116,7 @@ export function FindingFare({ report }: { report: ReportData }) {
         <p className="caption">
           “Own car, full” spreads purchase, insurance and parking over every km
           (€0.40/km); “fuel” is the marginal cost drivers actually feel. The
-          honest comparison for “should I sell my car?” is the full cost — for
+          right comparison for “should I sell my car?” is the full cost; for
           “should I drive tonight?” it's fuel.
         </p>
       </div>
@@ -146,23 +146,30 @@ export function FindingBusiness({ report }: { report: ReportData }) {
           </Chip>
         </p>
         <p>
-          Stretch that evening across a full day — the honest label is
-          <em> estimate</em>: it assumes the fleet stays this busy whenever
-          demand exists — and each cab clears roughly{" "}
-          <strong>{fmtEur(day.marginPerCabEur)} a day</strong>. A $30,000
-          Cybercab would pay for itself in about{" "}
-          <strong>{Math.round(day.paybackDays)} days</strong>. Halve the fare:
-          ~{Math.round(day.sensitivity.fareX05.paybackYears * 365)} days.
-          Overstaff to {day.sensitivity.worstFleet?.fleet ?? 30} cabs: ~
-          {Math.round((day.sensitivity.worstFleet?.paybackYears ?? 0.37) * 365)}{" "}
-          days.
+          A first back-of-envelope stretch of that evening across a full day
+          suggested a {Math.round(day.paybackDays)}-day payback. We did not
+          stop at the estimate.
         </p>
       </div>
       <div className="stat-row">
-        <Stat value={`~${Math.round(day.ridesPerCab)}`} label="rides / cab / day (est.)" />
-        <Stat value={fmtEur(day.revenuePerCabEur)} label="revenue / cab / day" gold />
-        <Stat value={fmtEur(day.energyCostPerCabEur)} label="energy / cab / day" />
-        <Stat value={`~${Math.round(day.paybackDays)} days`} label="cab pays for itself" gold />
+        <Stat
+          value={report.dayMeasured ? Math.round(report.dayMeasured.ridesPerCab) : `~${Math.round(day.ridesPerCab)}`}
+          label="rides / cab / day"
+        />
+        <Stat
+          value={`€${Math.round(report.dayMeasured?.revenuePerCabEur ?? day.revenuePerCabEur)}`}
+          label="revenue / cab / day"
+          gold
+        />
+        <Stat
+          value={`€${Math.round(report.dayMeasured?.energyCostPerCabEur ?? day.energyCostPerCabEur)}`}
+          label="energy / cab / day"
+        />
+        <Stat
+          value={`${Math.round(report.dayMeasured?.paybackDays ?? day.paybackDays)} days`}
+          label="payback, measured day"
+          gold
+        />
       </div>
       {report.dayMeasured && (
         <div className="prose">
@@ -260,7 +267,7 @@ export function FindingAccess({ report }: { report: ReportData }) {
     <Section id="access" eyebrow="Finding 04 · Who gains" title="The passengers a driver's seat excludes">
       <div className="prose">
         <p>
-          A robotaxi's honest unique selling point is not price — it is that{" "}
+          A robotaxi's real unique selling point is not price — it is that{" "}
           <strong>nobody has to drive it</strong>. Of the{" "}
           {fmtInt(p.unique)} corridor residents in the twin (
           {fmtInt(p.unique * 100)} real people),{" "}
@@ -281,12 +288,12 @@ export function FindingAccess({ report }: { report: ReportData }) {
             const highlight = b === "<18" || b === "65-79" || b === "80+";
             return (
               <g key={b} transform={`translate(0, ${i * 29 + 4})`}>
-                <text x={78} y={16} textAnchor="end" className="tick-label" fill="#98a4ba">
+                <text x={78} y={16} textAnchor="end" className="tick-label" fill={SURFACE.inkSecondary}>
                   {b}
                 </text>
                 <rect x={88} y={2} width={Math.max(3, w)} height={19} rx={4}
-                  fill={highlight ? "#f5c518" : "#33415e"} opacity={highlight ? 0.92 : 1} />
-                <text x={94 + w} y={16} className="series-label" fill="#e8ecf4">
+                  fill={highlight ? GOLD : BAR_NEUTRAL} opacity={highlight ? 0.92 : 1} />
+                <text x={94 + w} y={16} className="series-label" fill={SURFACE.ink}>
                   {fmtInt(n)}
                 </text>
               </g>

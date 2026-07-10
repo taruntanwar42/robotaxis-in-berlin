@@ -1,5 +1,6 @@
 import type { DayFrontier } from "../lib/data";
 import { Figure, useTooltip } from "./common";
+import { GOLD, SURFACE } from "../lib/palette";
 
 /** The operator's dial: each point is one complete simulated day.
  * x = days until a cab pays for itself, y = median rider wait. */
@@ -45,7 +46,7 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
         <text x={padL} y={12} className="axis-label">
           median wait ↑
         </text>
-        <polyline points={line} fill="none" stroke="#ba8c0c" strokeWidth={2} opacity={0.5} />
+        <polyline points={line} fill="none" stroke={GOLD} strokeWidth={2} opacity={0.5} />
         {sorted.map((r) => {
           const range = (r as { waitP50MinRange?: [number, number] }).waitP50MinRange;
           return (
@@ -56,7 +57,7 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
                 x2={xOf(r.paybackDays!)}
                 y1={yOf(range[0])}
                 y2={yOf(range[1])}
-                stroke="#ba8c0c"
+                stroke={GOLD}
                 strokeWidth={2}
                 opacity={0.6}
               />
@@ -65,8 +66,8 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
               cx={xOf(r.paybackDays!)}
               cy={yOf(r.waitP50Min)}
               r={7}
-              fill={r.fleet === 30 ? "#f5c518" : "#ba8c0c"}
-              stroke="#0d1220"
+              fill={r.fleet === 30 ? "#c9971c" : GOLD}
+              stroke={SURFACE.page}
               strokeWidth={2}
               onMouseMove={(e) =>
                 show(e, (
@@ -83,7 +84,7 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
               x={xOf(r.paybackDays!) + 11}
               y={yOf(r.waitP50Min) + 4}
               className="series-label"
-              fill="#e8ecf4"
+              fill={SURFACE.ink}
             >
               {r.fleet}
             </text>

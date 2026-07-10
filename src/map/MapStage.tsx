@@ -5,6 +5,7 @@ import type { FeatureCollection, Polygon } from "geojson";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import type { ReplayData } from "../lib/data";
 import { MODE_HEX } from "../lib/data";
+import { MAP } from "../lib/palette";
 
 /** Everything the stage needs to show one district's evening. */
 export interface Scene {
@@ -127,13 +128,13 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
         id: "area-fill",
         type: "fill",
         source: "service-area",
-        paint: { "fill-color": "#f5c518", "fill-opacity": 0.045 },
+        paint: { "fill-color": MAP.corridorFill, "fill-opacity": 0.07 },
       });
       map.addLayer({
         id: "area-line",
         type: "line",
         source: "service-area",
-        paint: { "line-color": "#f5c518", "line-opacity": 0.55, "line-width": 1.6 },
+        paint: { "line-color": MAP.corridorLine, "line-opacity": 0.9, "line-width": 1.4 },
       });
 
       const originsFC: FeatureCollection = {
@@ -154,7 +155,7 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
           "circle-color": [
             "match", ["get", "mode"],
             ...Object.entries(MODE_HEX).flatMap(([m, c]) => [m, c]),
-            "#98a4ba",
+            MAP.traffic,
           ] as unknown as DataDrivenPropertyValueSpecification<string>,
           "circle-opacity": 0.85,
           "circle-stroke-width": 0,
@@ -168,8 +169,8 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
         source: "traffic",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 2.2, 15, 4.5],
-          "circle-color": "#8494ad",
-          "circle-opacity": 0.75,
+          "circle-color": MAP.traffic,
+          "circle-opacity": 0.55,
         },
       });
 
@@ -180,40 +181,29 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
         source: "riders",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["get", "waitedMin"], 0, 3.5, 15, 5],
-          "circle-color": "#0d1220",
-          // the ring heats up as the wait grows: white -> amber -> red
+          "circle-color": MAP.riderFill,
+          // the ring heats up as the wait grows: ink -> amber -> red
           "circle-stroke-color": [
             "interpolate", ["linear"], ["get", "waitedMin"],
-            0, "#e8ecf4",
-            6, "#f5c518",
-            12, "#e04848",
+            0, MAP.riderRingStart,
+            6, MAP.riderRingMid,
+            12, MAP.riderRingEnd,
           ] as unknown as DataDrivenPropertyValueSpecification<string>,
-          "circle-stroke-width": 1.8,
+          "circle-stroke-width": 2,
           "circle-opacity": 0.9,
         },
       });
 
       map.addSource("cabs", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
-        id: "cabs-glow",
-        type: "circle",
-        source: "cabs",
-        paint: {
-          "circle-radius": 11,
-          "circle-color": "#f5c518",
-          "circle-blur": 1,
-          "circle-opacity": 0.45,
-        },
-      });
-      map.addLayer({
         id: "cabs",
         type: "circle",
         source: "cabs",
         paint: {
           "circle-radius": 5,
-          "circle-color": ["match", ["get", "state"], "occupied", "#f5c518", "#c79310"],
-          "circle-stroke-color": "#0d1220",
-          "circle-stroke-width": 1.5,
+          "circle-color": ["match", ["get", "state"], "occupied", MAP.cabOccupied, "#ffffff"],
+          "circle-stroke-color": ["match", ["get", "state"], "occupied", MAP.cabStroke, MAP.cabIdleStroke],
+          "circle-stroke-width": 1.6,
         },
       });
 
@@ -245,7 +235,6 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
     for (const [layer, on] of [
       ["origins", cam.showOrigins],
       ["cabs", cam.showReplay],
-      ["cabs-glow", cam.showReplay],
       ["riders", cam.showReplay],
       ["traffic", cam.showReplay],
     ] as const) {

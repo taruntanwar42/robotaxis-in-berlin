@@ -11,19 +11,19 @@ import { Catch, Methods, Verdict } from "./brief/ActFour";
 import { CompareKiez } from "./brief/CompareKiez";
 
 const STATIONS = [
-  { id: "hero", name: "Frage" },
-  { id: "place", name: "Der Kiez" },
-  { id: "today", name: "Heute" },
-  { id: "vehicle", name: "Das Auto" },
+  { id: "hero", name: "Question" },
+  { id: "place", name: "The place" },
+  { id: "today", name: "Today" },
+  { id: "vehicle", name: "The car" },
   { id: "experiment", name: "Simulation" },
-  { id: "service", name: "Befund 1" },
-  { id: "fare", name: "Befund 2" },
-  { id: "business", name: "Befund 3" },
-  { id: "access", name: "Befund 4" },
-  { id: "catch", name: "Der Haken" },
-  { id: "where", name: "Wohin?" },
-  { id: "verdict", name: "Urteil" },
-  { id: "methods", name: "Methode" },
+  { id: "service", name: "Finding 1" },
+  { id: "fare", name: "Finding 2" },
+  { id: "business", name: "Finding 3" },
+  { id: "access", name: "Finding 4" },
+  { id: "catch", name: "The catch" },
+  { id: "where", name: "Where to?" },
+  { id: "verdict", name: "Verdict" },
+  { id: "methods", name: "Method" },
 ];
 
 function useDeepMode(): boolean {

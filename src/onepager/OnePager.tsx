@@ -26,7 +26,21 @@ function haversineKm(a: [number, number], b: [number, number]): number {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
+function SimHud({
+  replay,
+  lang,
+  hideTicker,
+  district,
+  setDistrict,
+  hasRdf,
+}: {
+  replay: ReplayData;
+  lang: Lang;
+  hideTicker: boolean;
+  district: District;
+  setDistrict: (d: District) => void;
+  hasRdf: boolean;
+}) {
   const { timeSec, playing, follow } = useReplay();
   const served = replay.riders.filter((r) => r.dropoffSec !== null && timeSec >= r.dropoffSec).length;
   const waiting = replay.riders.filter(
@@ -34,7 +48,13 @@ function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
   ).length;
   // latest pickup: the sim narrating itself (straight-line km -> fare floor)
   const latest = replay.riders
-    .filter((r) => r.pickupSec !== null && r.pickupSec <= timeSec && timeSec < (r.dropoffSec ?? Infinity) + 90)
+    .filter(
+      (r) =>
+        r.pickupSec !== null &&
+        r.pickupSec <= timeSec &&
+        timeSec < (r.dropoffSec ?? Infinity) + 90 &&
+        haversineKm(r.o, r.d) >= 0.8,
+    )
     .sort((a, b) => b.pickupSec! - a.pickupSec!)[0];
   const ticker = latest
     ? (() => {
@@ -70,7 +90,34 @@ function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
       <button className="btn" aria-pressed={follow} onClick={() => replayStore.set({ follow: !follow, playing: true })}>
         {follow ? S.overview[lang] : S.ride[lang]}
       </button>
-      {ticker && (
+      {hasRdf && (
+        <span className="op-hud-districts" role="tablist" aria-label="District">
+          <button
+            className="btn"
+            role="tab"
+            aria-selected={district === "moabit"}
+            aria-pressed={district === "moabit"}
+            onClick={() => setDistrict("moabit")}
+          >
+            Moabit
+          </button>
+          <button
+            className="btn"
+            role="tab"
+            aria-selected={district === "reinickendorf"}
+            aria-pressed={district === "reinickendorf"}
+            onClick={() => setDistrict("reinickendorf")}
+          >
+            Reinickendorf
+          </button>
+        </span>
+      )}
+      <span className="op-legend" aria-hidden="true">
+        <i className="sw sw-cab" /> {lang === "de" ? "Cab" : "cab"}
+        <i className="sw sw-wait" /> {lang === "de" ? "wartet" : "waiting"}
+        <i className="sw sw-traffic" /> {lang === "de" ? "Verkehr" : "traffic"}
+      </span>
+      {ticker && !hideTicker && (
         <span className="op-ticker" role="status">
           {ticker}
         </span>
@@ -148,20 +195,24 @@ export function OnePager({ report }: { report: ReportData }) {
   return (
     <div className="op">
       <MapStage scene={scene} section="experiment" />
-      <section className="op-hero">
+      <section className={tourStep >= 0 ? "op-hero touring" : "op-hero"}>
         <div className="op-hero-card">
           <p className="eyebrow">{S.eyebrow[lang]}</p>
           <h1>
-            {S.titlePre[lang]} <span style={{ color: "var(--gold)" }}>{S.titleCity[lang]}</span>
+            {S.titlePre[lang]}{" "}
+            <span style={{ color: "var(--gold-text)" }}>
+              {district === "reinickendorf"
+                ? lang === "de"
+                  ? "Reinickendorf kämen"
+                  : "Reinickendorf"
+                : S.titleCity[lang]}
+            </span>
           </h1>
           <p className="op-lede">{S.lede[lang]}</p>
           <div className="op-chiprow">
-            <button className="op-chip link tour" onClick={tourStep >= 0 ? stopTour : startTour}>
+            <button className="op-chip tour" onClick={tourStep >= 0 ? stopTour : startTour}>
               {tourStep >= 0 ? S.tourStop[lang] : S.tourStart[lang]}
             </button>
-            <span className="op-chip">{S.chipDemand[lang]}</span>
-            <span className="op-chip">{S.chipSumo[lang]}</span>
-            <span className="op-chip">{S.chipTariffs[lang]}</span>
             <a className="op-chip link" href="#deep">
               {S.chipBrief[lang]}
             </a>
@@ -175,43 +226,6 @@ export function OnePager({ report }: { report: ReportData }) {
             </button>
           </div>
         </div>
-        {hasRdf && (
-          <div className="op-district" role="tablist" aria-label="District">
-            <button
-              className="btn"
-              role="tab"
-              aria-selected={district === "moabit"}
-              aria-pressed={district === "moabit"}
-              onClick={() => {
-                stopTour();
-                setDistrict("moabit");
-              }}
-            >
-              Moabit
-            </button>
-            <button
-              className="btn"
-              role="tab"
-              aria-selected={district === "reinickendorf"}
-              aria-pressed={district === "reinickendorf"}
-              onClick={() => {
-                stopTour();
-                setDistrict("reinickendorf");
-              }}
-            >
-              Reinickendorf
-            </button>
-            <span className="caption">
-              {district === "reinickendorf"
-                ? lang === "de"
-                  ? "Außenbezirk · 88 Fahrten 18–21 Uhr · 6 Cabs · 100% bedient"
-                  : "outer district · 88 trips 6–9 pm · 6 cabs · 100% served"
-                : lang === "de"
-                  ? "Innenstadt-Korridor · 125 Fahrten 18–19 Uhr · 16 Cabs"
-                  : "inner corridor · 125 trips 6–7 pm · 16 cabs"}
-            </span>
-          </div>
-        )}
         {tourStep >= 0 && (
           <div className="op-tour-caption" role="status" aria-live="polite" key={tourStep}>
             <span className="op-tour-n">
@@ -220,7 +234,17 @@ export function OnePager({ report }: { report: ReportData }) {
             {beats.current[tourStep][lang]}
           </div>
         )}
-        <SimHud replay={scene.replay} lang={lang} />
+        <SimHud
+          replay={scene.replay}
+          lang={lang}
+          hideTicker={tourStep >= 0}
+          district={district}
+          setDistrict={(d) => {
+            stopTour();
+            setDistrict(d);
+          }}
+          hasRdf={hasRdf}
+        />
       </section>
 
       <section className="op-body">
@@ -235,6 +259,11 @@ export function OnePager({ report }: { report: ReportData }) {
         </div>
 
         <h2 className="op-h2">{S.resultsH[lang]}</h2>
+        <p className="op-key caption">
+          {lang === "de"
+            ? "grau = Ergebnis · rot = Gegenseite · gold = Empfehlung"
+            : "grey = result · red = the case against · gold = where to aim"}
+        </p>
         <div className="op-results">
           <div className="op-card">
             <b>{knee.fleet} {S.cabs[lang]}</b>
@@ -285,11 +314,11 @@ export function OnePager({ report }: { report: ReportData }) {
           </div>
           {rdf && (
             <div className="op-card gold">
-              <b>{lang === "de" ? "Nach außen zielen" : "Aim it outward"}</b>
+              <b>{rdf.fleet} {S.cabs[lang]} · {fmtPct(rdf.servedShare.mean)}</b>
               <p>
                 {lang === "de"
-                  ? `Reinickendorf (ÖPNV-arm): ${rdf.fleet} Cabs bedienen ${fmtPct(rdf.servedShare.mean)} bei ${Math.round(rdf.waitP50Min.mean)} Min. — Robotaxis füllen Lücken, nicht Innenstädte`
-                  : `Reinickendorf (transit-poor): ${rdf.fleet} cabs serve ${fmtPct(rdf.servedShare.mean)} at ${Math.round(rdf.waitP50Min.mean)} min — robotaxis fill gaps, not city centers`}
+                  ? `bedienen das ÖPNV-arme Reinickendorf bei ${Math.round(rdf.waitP50Min.mean)} Min. Wartezeit. Robotaxis gehören in Lücken, nicht in Zentren.`
+                  : `serve transit-poor Reinickendorf at ${Math.round(rdf.waitP50Min.mean)}-minute waits. Aim robotaxis at gaps, not centers.`}
               </p>
             </div>
           )}

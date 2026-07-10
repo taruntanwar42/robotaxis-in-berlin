@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CostsData, DemandData } from "../lib/data";
 import { fmtEur } from "../lib/format";
 import { Figure, niceTicks } from "./common";
+import { ENTITY, SURFACE } from "../lib/palette";
 
 const SERIES: {
   key: keyof CostsData["curvesEur"];
@@ -9,11 +10,11 @@ const SERIES: {
   color: string;
   dash?: string;
 }[] = [
-  { key: "taxi", label: "Berlin taxi", color: "#2e9e8f" },
-  { key: "cybercab", label: "Cybercab", color: "#ba8c0c" },
-  { key: "bvgSingle", label: "BVG single", color: "#0e90d2" },
-  { key: "carFull", label: "Own car, full", color: "#e04848" },
-  { key: "carMarginal", label: "Own car, fuel", color: "#e04848", dash: "5 4" },
+  { key: "taxi", label: "Berlin taxi", color: ENTITY.taxi },
+  { key: "cybercab", label: "Cybercab", color: ENTITY.cybercab },
+  { key: "bvgSingle", label: "BVG single", color: ENTITY.bvg },
+  { key: "carFull", label: "Own car, full", color: ENTITY.car },
+  { key: "carMarginal", label: "Own car, fuel", color: ENTITY.car, dash: "5 4" },
 ];
 
 export function FareCurves({ costs, demand }: { costs: CostsData; demand: DemandData }) {
@@ -69,28 +70,36 @@ export function FareCurves({ costs, demand }: { costs: CostsData; demand: Demand
           </g>
         ))}
         {/* typical-trip band: 0.6–2.6 km (middle half of corridor trips) */}
-        <rect x={xOf(0.6)} y={padT} width={xOf(2.6) - xOf(0.6)} height={plotH} fill="rgba(245,197,24,0.08)" />
-        {SERIES.map((s) => {
-          const pts = grid
-            .map((km, i) => `${xOf(km)},${yOf(costs.curvesEur[s.key][i])}`)
-            .join(" ");
-          const endY = yOf(costs.curvesEur[s.key][grid.length - 1]);
-          return (
-            <g key={s.key}>
-              <polyline
-                points={pts}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={2.2}
-                strokeDasharray={s.dash}
-                strokeLinejoin="round"
-              />
-              <text x={padL + plotW + 8} y={endY + 4} className="series-label" fill={s.color}>
-                {s.label}
-              </text>
-            </g>
-          );
-        })}
+        <rect x={xOf(0.6)} y={padT} width={xOf(2.6) - xOf(0.6)} height={plotH} fill="rgba(169,123,0,0.08)" />
+        {(() => {
+          // dodge right-edge labels to >=14px separation
+          const endYs = SERIES.map((s) => yOf(costs.curvesEur[s.key][grid.length - 1]));
+          const order = endYs.map((y, i) => [y, i] as const).sort((a, b) => a[0] - b[0]);
+          const placed: number[] = [];
+          for (const [y] of order) placed.push(placed.length ? Math.max(y, placed[placed.length - 1] + 14) : y);
+          const labelY: number[] = [];
+          order.forEach(([, idx], k) => (labelY[idx] = placed[k]));
+          return SERIES.map((s, i) => {
+            const pts = grid
+              .map((km, j) => `${xOf(km)},${yOf(costs.curvesEur[s.key][j])}`)
+              .join(" ");
+            return (
+              <g key={s.key}>
+                <polyline
+                  points={pts}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={2.2}
+                  strokeDasharray={s.dash}
+                  strokeLinejoin="round"
+                />
+                <text x={padL + plotW + 8} y={labelY[i] + 4} className="series-label" fill={s.color}>
+                  {s.label}
+                </text>
+              </g>
+            );
+          });
+        })()}
         {hoverIdx !== null && (
           <g pointerEvents="none">
             <line
@@ -98,7 +107,7 @@ export function FareCurves({ costs, demand }: { costs: CostsData; demand: Demand
               x2={xOf(grid[hoverIdx])}
               y1={padT}
               y2={padT + plotH}
-              stroke="#98a4ba"
+              stroke={SURFACE.inkFaint}
               strokeWidth={1}
             />
             {SERIES.map((s) => (
@@ -108,13 +117,13 @@ export function FareCurves({ costs, demand }: { costs: CostsData; demand: Demand
                 cy={yOf(costs.curvesEur[s.key][hoverIdx])}
                 r={4}
                 fill={s.color}
-                stroke="#0d1220"
+                stroke={SURFACE.page}
                 strokeWidth={1.5}
               />
             ))}
             <g transform={`translate(${Math.min(xOf(grid[hoverIdx]) + 10, padL + plotW - 150)}, ${padT + 6})`}>
-              <rect width={150} height={92} rx={8} fill="#1a2338" stroke="rgba(214,226,248,0.22)" />
-              <text x={10} y={17} className="series-label" fill="#e8ecf4">
+              <rect width={150} height={92} rx={8} fill={SURFACE.page} stroke={SURFACE.hairline} />
+              <text x={10} y={17} className="series-label" fill={SURFACE.ink}>
                 {grid[hoverIdx].toFixed(1)} km
               </text>
               {SERIES.map((s, i) => (

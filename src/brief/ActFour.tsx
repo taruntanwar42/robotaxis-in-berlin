@@ -273,9 +273,9 @@ export function Methods({ report }: { report: ReportData }) {
         <p style={{ fontWeight: 600, marginBottom: "0.4rem" }}>Known limits, stated plainly:</p>
         <ul style={{ color: "var(--ink-dim)", lineHeight: 1.8, marginTop: 0 }}>
           <li>
-            1% sample: small counts are noisy; we show seed spreads and round
-            honestly. Scaling ×100 ignores density economies that favor bigger
-            real fleets.
+            1% sample: small counts are noisy; we show seed spreads and avoid
+            invented precision. Scaling ×100 ignores density economies that
+            favor bigger real fleets.
           </li>
           <li>
             Two counting rules coexist: request extraction filters by departure

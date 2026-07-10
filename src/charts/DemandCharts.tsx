@@ -1,6 +1,7 @@
 import { MODE_HEX, MODE_LABEL, MODE_ORDER, type DemandData } from "../lib/data";
 import { fmtInt, fmtPct } from "../lib/format";
 import { Figure, INK_FAINT, niceTicks, useTooltip } from "./common";
+import { BAR_NEUTRAL, GOLD, SURFACE } from "../lib/palette";
 
 /** Mode split as a labeled bar list — identity + magnitude, direct-labeled. */
 export function ModeSplitBars({ demand }: { demand: DemandData }) {
@@ -27,11 +28,11 @@ export function ModeSplitBars({ demand }: { demand: DemandData }) {
           const w = Math.max(4, (r.share / max) * (W - labelW - 165));
           return (
             <g key={r.mode}>
-              <text x={labelW - 10} y={y + 17} textAnchor="end" className="tick-label" fill="#98a4ba">
+              <text x={labelW - 10} y={y + 17} textAnchor="end" className="tick-label" fill={SURFACE.inkSecondary}>
                 {MODE_LABEL[r.mode]}
               </text>
               <rect x={labelW} y={y} width={w} height={22} rx={4} fill={MODE_HEX[r.mode]} />
-              <text x={labelW + w + 8} y={y + 16} className="series-label" fill="#e8ecf4">
+              <text x={labelW + w + 8} y={y + 16} className="series-label" fill={SURFACE.ink}>
                 {fmtPct(r.share)}
                 <tspan fill={INK_FAINT}> · {fmtInt(r.n)} trips</tspan>
               </text>
@@ -84,7 +85,7 @@ export function HourlyCurve({ demand }: { demand: DemandData }) {
           y={padT}
           width={plotW / 27}
           height={plotH}
-          fill="rgba(245,197,24,0.1)"
+          fill="rgba(169,123,0,0.10)"
         />
         {hours.map((h) => {
           const x = padL + (h.hour / 27) * plotW + 1;
@@ -200,7 +201,7 @@ export function DistanceHistogram({ demand }: { demand: DemandData }) {
               width={plotW / bins.length - 2}
               height={yOf(0) - yOf(n)}
               rx={2}
-              fill="#33415e"
+              fill={BAR_NEUTRAL}
               onMouseMove={(e) =>
                 show(e, (
                   <>
@@ -215,8 +216,8 @@ export function DistanceHistogram({ demand }: { demand: DemandData }) {
             />
           );
         })}
-        <line x1={medianX} x2={medianX} y1={padT} y2={yOf(0)} stroke="#f5c518" strokeWidth={2} strokeDasharray="5 4" />
-        <text x={medianX + 7} y={padT + 14} className="series-label" fill="#f5c518">
+        <line x1={medianX} x2={medianX} y1={padT} y2={yOf(0)} stroke={GOLD} strokeWidth={2} strokeDasharray="5 4" />
+        <text x={medianX + 7} y={padT + 14} className="series-label" fill={GOLD}>
           median {demand.medianTripKm} km
         </text>
         {[0, 2, 4, 6, 8, 10].map((km) => (

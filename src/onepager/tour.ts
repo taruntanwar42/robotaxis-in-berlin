@@ -1,4 +1,4 @@
-// The 25-second auto-tour: scripted beats over the live sim.
+// The 30-second auto-tour: scripted beats over the live sim.
 // Each beat sets replay state (speed/follow) and shows one caption.
 
 import { replayStore } from "../map/replayStore";
@@ -51,15 +51,15 @@ export function buildTour(report: ReportData): TourBeat[] {
     },
     {
       ms: 4200,
-      en: `The catch: empty cabs add ${fmtPct(knee.emptyShare.mean / (1 - knee.emptyShare.mean))} vehicle-km. Honesty included.`,
-      de: `Der Haken: Leerfahrten erzeugen ${fmtPct(knee.emptyShare.mean / (1 - knee.emptyShare.mean))} zusätzliche Fahrzeug-km. Ehrlichkeit inklusive.`,
+      en: `The catch: empty cabs add ${fmtPct(knee.emptyShare.mean / (1 - knee.emptyShare.mean))} vehicle-km — the congestion case against.`,
+      de: `Der Haken: Leerfahrten erzeugen ${fmtPct(knee.emptyShare.mean / (1 - knee.emptyShare.mean))} zusätzliche Fahrzeug-km — das Argument dagegen.`,
       follow: false,
       speed: 300,
     },
     {
       ms: 4400,
-      en: "Twelve full days measured: run lean and a cab pays back in 39 days — riders wait 80 minutes. Comfort costs 102.",
-      de: "Zwölf ganze Tage simuliert: Sparflotte amortisiert in 39 Tagen — Fahrgäste warten 80 Minuten. Komfort kostet 102.",
+      en: "Twelve measured days: the comfort fleet pays back in 102 days at 4-minute waits. Lean pays back in 52, but riders wait 21.",
+      de: "Zwölf simulierte Tage: die Komfortflotte amortisiert in 102 Tagen bei 4 Minuten Wartezeit. Spar-Variante: 52 Tage, aber 21 Minuten warten.",
       follow: false,
       speed: 300,
     },

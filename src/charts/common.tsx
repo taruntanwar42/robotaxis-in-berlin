@@ -1,6 +1,8 @@
 import { useCallback, useState, type ReactNode } from "react";
 
-export const INK_FAINT = "#5c6880";
+import { GRID_TEXT } from "../lib/palette";
+
+export const INK_FAINT = GRID_TEXT;
 
 export function niceTicks(max: number, count = 4): number[] {
   const raw = max / count;

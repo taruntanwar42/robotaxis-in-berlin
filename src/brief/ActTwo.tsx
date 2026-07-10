@@ -10,14 +10,17 @@ export function Vehicle() {
     <Section id="vehicle" eyebrow="The machine" title="The Cybercab, as it actually exists">
       <div className="prose">
         <p>
-          Not a rendering: the first production Cybercab left Gigafactory Texas
-          in <strong>February 2026</strong>. It seats two, has no steering wheel
-          or pedals, and is the most efficient car Tesla has built.{" "}
+          In production since <strong>February 2026</strong>: two seats, no
+          steering wheel or pedals, and the most efficient car Tesla has
+          built.{" "}
           <Chip href="https://en.wikipedia.org/wiki/Tesla_Cybercab">Wikipedia</Chip>{" "}
           <Chip href="https://insideevs.com/news/798790/tesla-cybercab-specs/">EPA filings</Chip>
         </p>
       </div>
       <CabViewer />
+      <p className="caption" style={{ marginTop: "0.3rem" }}>
+        3D model, for scale and shape
+      </p>
       <div className="stat-row">
         <Stat value="2" label="seats" gold />
         <Stat value="~48 kWh" label="battery" />

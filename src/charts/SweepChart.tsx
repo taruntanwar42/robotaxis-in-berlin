@@ -2,7 +2,7 @@ import type { SweepData, SweepRow, Agg } from "../lib/data";
 import { fmtPct } from "../lib/format";
 import { Figure, niceTicks, useTooltip } from "./common";
 
-const GOLD = "#ba8c0c";
+import { GOLD, SURFACE } from "../lib/palette";
 
 /** One measure per panel (never dual-axis): a line over fleet size with a
  * min–max band across the traffic seeds. */
@@ -44,7 +44,7 @@ function Panel({
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} style={{ maxWidth: 360 }}>
-      <text x={padL} y={12} className="series-label" fill="#98a4ba">
+      <text x={padL} y={12} className="series-label" fill={SURFACE.inkSecondary}>
         {label}
       </text>
       {ticks.map((t) => (
@@ -62,7 +62,7 @@ function Panel({
             x2={W - 12}
             y1={yOf(refLine.y)}
             y2={yOf(refLine.y)}
-            stroke="#98a4ba"
+            stroke={SURFACE.inkFaint}
             strokeWidth={1.5}
             strokeDasharray="4 4"
           />
@@ -80,7 +80,7 @@ function Panel({
           cy={yOf(pick(r).mean)}
           r={4.5}
           fill={GOLD}
-          stroke="#0d1220"
+          stroke={SURFACE.page}
           strokeWidth={2}
           onMouseMove={(e) =>
             show(e, (

@@ -4,12 +4,12 @@
 export type Lang = "en" | "de";
 
 export const S = {
-  eyebrow: { en: "Eigenprojekt · Berlin · 2026", de: "Eigenprojekt · Berlin · 2026" },
+  eyebrow: { en: "Side project · Berlin · 2026", de: "Eigenprojekt · Berlin · 2026" },
   titlePre: { en: "If Cybercabs came to", de: "Wenn Cybercabs nach" },
   titleCity: { en: "Moabit", de: "Moabit kämen" },
   lede: {
-    en: "One Berlin neighborhood, rebuilt in a traffic simulator and handed a Tesla Cybercab fleet. Live behind this text: one full SUMO evening — gold cabs, rings waiting (they glow red the longer they wait), grey dots real traffic.",
-    de: "Ein Berliner Kiez, im Verkehrssimulator nachgebaut und mit einer Tesla-Cybercab-Flotte ausgestattet. Hinter diesem Text läuft ein kompletter SUMO-Abend — goldene Cabs, wartende Ringe (je länger, desto röter), graue Punkte echter Verkehr.",
+    en: "One Berlin neighborhood, rebuilt in a traffic simulator and handed a Tesla Cybercab fleet. The evening you are watching is one complete SUMO run.",
+    de: "Ein Berliner Kiez, im Verkehrssimulator nachgebaut und mit einer Tesla-Cybercab-Flotte ausgestattet. Der Abend, den Sie sehen, ist ein kompletter SUMO-Lauf.",
   },
   chipDemand: { en: "MATSim demand", de: "MATSim-Nachfrage" },
   chipSumo: { en: "SUMO microsimulation", de: "SUMO-Mikrosimulation" },
@@ -28,13 +28,13 @@ export const S = {
       { n: "01", t: "Real demand", l: "7,443 daily trips from TU Berlin's synthetic population (MATSim, 1% twin of the city)" },
       { n: "02", t: "Real streets", l: "The district rebuilt in SUMO: every signal, plus the evening's calibrated traffic" },
       { n: "03", t: "The experiment", l: "Every car trip hails a Cybercab — 78 recorded runs: fleets 4–40, pooled & solo, 2 districts, 12 full days" },
-      { n: "04", t: "Honest verdict", l: "Every number sourced or simulated — the case against gets equal rigor" },
+      { n: "04", t: "The case against", l: "Deadheading, pooling limits and transit cannibalization measured with the same rigor as the upside" },
     ],
     de: [
       { n: "01", t: "Echte Nachfrage", l: "7.443 Tageswege aus der synthetischen Bevölkerung der TU Berlin (MATSim, 1%-Zwilling der Stadt)" },
       { n: "02", t: "Echte Straßen", l: "Der Kiez in SUMO nachgebaut: jede Ampel, plus der kalibrierte Abendverkehr" },
       { n: "03", t: "Das Experiment", l: "Jede Autofahrt ruft ein Cybercab — 78 dokumentierte Läufe: Flotten 4–40, mit & ohne Pooling, 2 Bezirke, 12 ganze Tage" },
-      { n: "04", t: "Ehrliches Urteil", l: "Jede Zahl belegt oder simuliert — die Gegenseite bekommt dieselbe Sorgfalt" },
+      { n: "04", t: "Die Gegenseite", l: "Leerfahrten, Pooling-Grenzen und OePNV-Kannibalisierung mit derselben Sorgfalt gemessen wie die Vorteile" },
     ],
   },
   resultsH: { en: "What the simulation says", de: "Was die Simulation sagt" },

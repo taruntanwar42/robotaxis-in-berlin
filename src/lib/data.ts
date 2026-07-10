@@ -246,13 +246,9 @@ export const MODE_COLOR: Record<string, string> = {
   ride: "var(--c-ride)",
 };
 
-export const MODE_HEX: Record<string, string> = {
-  walk: "#8b5cf6",
-  bike: "#15a34a",
-  pt: "#0e90d2",
-  car: "#e04848",
-  ride: "#d6409f",
-};
+import { MODE } from "./palette";
+
+export const MODE_HEX: Record<string, string> = MODE;
 
 export const MODE_LABEL: Record<string, string> = {
   walk: "Walk",

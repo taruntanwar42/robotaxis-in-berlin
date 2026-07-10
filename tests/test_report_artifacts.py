@@ -139,6 +139,41 @@ def test_reinickendorf_artifacts():
     assert any(r["servedShare"]["min"] >= 0.99 for r in rows)
 
 
+# ---------- replay traces (all districts, all seeds) ----------
+
+import pytest
+
+REPLAYS = [p.name for p in REPORT.glob("replay*.json")]
+
+
+@pytest.mark.parametrize("name", REPLAYS)
+def test_all_replay_traces(name):
+    r = load(name)
+    meta = r["meta"]
+    assert meta["fleet"] == len(r["cabs"])
+    assert meta["startSec"] < meta["endSec"]
+    served = [x for x in r["riders"] if x["dropoffSec"] is not None]
+    assert len(served) == meta["metrics"]["served"]
+    for rider in served:
+        assert rider["departSec"] <= rider["pickupSec"] <= rider["dropoffSec"]
+    for cab in r["cabs"]:
+        ts = [p[0] for p in cab["path"]]
+        assert ts == sorted(ts)
+
+
+def test_day_measured_if_present():
+    path = REPORT / "economics-day-measured.json"
+    if not path.exists():
+        pytest.skip("day run not recorded yet")
+    d = json.loads(path.read_text(encoding="utf-8"))
+    assert d["served"] <= d["requests"]
+    assert sum(h["rides"] for h in d["hourly"]) == d["served"]
+    margin = d["revenuePerCabEur"] - d["energyCostPerCabEur"] - d["overheadAssumptionEur"]
+    assert math.isclose(d["marginPerCabEur"], margin, rel_tol=0.05)
+    if d["paybackDays"]:
+        assert 5 < d["paybackDays"] < 3650
+
+
 # ---------- replay.json ----------
 
 def test_replay_integrity():

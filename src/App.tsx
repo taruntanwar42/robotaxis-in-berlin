@@ -84,7 +84,7 @@ export default function App() {
           area: report.serviceArea,
           replay: report.replay,
           origins: report.demand.evening.origins,
-          showTraffic: true,
+          trafficUrl: "data/report/traffic.json",
         }}
         section={active}
       />

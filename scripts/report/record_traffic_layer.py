@@ -24,20 +24,25 @@ from pathlib import Path
 import libsumo
 import sumolib
 
-import run_fleet_sweep as sweep
-
 STEP = 4
 SAMPLE = 120
-OUT = sweep.REPO / "public" / "data" / "report" / "traffic.json"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fleet", type=int, default=16)
     parser.add_argument("--sumo-seed", type=int, default=27)
+    parser.add_argument("--district", choices=["corridor", "reinickendorf"], default="corridor")
     args = parser.parse_args()
 
-    requests = sweep.load_requests()
+    if args.district == "reinickendorf":
+        import run_reinickendorf_sweep as sweep
+        requests, _stats = sweep.load_requests()
+        out = sweep.REPO / "public" / "data" / "report" / "traffic-reinickendorf.json"
+    else:
+        import run_fleet_sweep as sweep
+        requests = sweep.load_requests()
+        out = sweep.REPO / "public" / "data" / "report" / "traffic.json"
     rng = random.Random(1000 + args.fleet)
     net = sumolib.net.readNet(str(sweep.NET))
     tmp = Path(tempfile.mkdtemp(prefix="traffic_"))
@@ -93,9 +98,9 @@ def main() -> None:
         },
         "tracks": tracks,
     }
-    OUT.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
-    size_kb = OUT.stat().st_size / 1024
-    print(f"wrote {OUT} — {len(tracks)} tracks, {size_kb:.0f} kB")
+    out.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+    size_kb = out.stat().st_size / 1024
+    print(f"wrote {out} — {len(tracks)} tracks, {size_kb:.0f} kB")
     assert size_kb < 4000, "traffic layer too heavy for a lazy asset"
 
 

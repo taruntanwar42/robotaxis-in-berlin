@@ -57,12 +57,12 @@ export function OnePager({ report }: { report: ReportData }) {
       ? {
           area: report.reinickendorfArea!,
           replay: report.replayReinickendorf!,
-          showTraffic: false,
+          trafficUrl: "data/report/traffic-reinickendorf.json",
         }
       : {
           area: report.serviceArea,
           replay: report.replay,
-          showTraffic: true,
+          trafficUrl: "data/report/traffic.json",
         };
   const [lang, setLang] = useState<Lang>(() =>
     (localStorage.getItem("op-lang") as Lang) ??
@@ -221,11 +221,18 @@ export function OnePager({ report }: { report: ReportData }) {
             </p>
           </div>
           <div className="op-card">
-            <b>~{Math.round(day.paybackDays)} {lang === "de" ? "Tage" : "days"}</b>
+            <b>
+              ~{Math.round(report.dayMeasured?.paybackDays ?? day.paybackDays)}{" "}
+              {lang === "de" ? "Tage" : "days"}
+            </b>
             <p>
-              {lang === "de"
-                ? "bis sich ein 30.000-$-Cab zu Austin-Tarifen amortisiert — Energie ist ~3% des Umsatzes (Schätzung, Annahmen publiziert)"
-                : "for a $30k cab to pay for itself at Austin fares — energy is ~3% of revenue (estimate, assumptions published)"}
+              {report.dayMeasured
+                ? lang === "de"
+                  ? `bis sich ein 30.000-$-Cab amortisiert — aus einem komplett simulierten Tag (${report.dayMeasured.served} Fahrten, ${Math.round(report.dayMeasured.kmPerCab)} km/Cab), Annahmen publiziert`
+                  : `for a $30k cab to pay for itself — from one fully simulated day (${report.dayMeasured.served} rides, ${Math.round(report.dayMeasured.kmPerCab)} km/cab), assumptions published`
+                : lang === "de"
+                  ? "bis sich ein 30.000-$-Cab zu Austin-Tarifen amortisiert — Energie ist ~3% des Umsatzes (Schätzung, Annahmen publiziert)"
+                  : "for a $30k cab to pay for itself at Austin fares — energy is ~3% of revenue (estimate, assumptions published)"}
             </p>
           </div>
           <div className="op-card warn">

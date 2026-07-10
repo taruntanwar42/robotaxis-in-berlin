@@ -11,7 +11,8 @@ export interface Scene {
   area: FeatureCollection;
   replay: ReplayData;
   origins?: [number, number, string][];
-  showTraffic: boolean;
+  /** ambient background-traffic asset for this district, if recorded */
+  trafficUrl?: string;
 }
 import { replayStore } from "./replayStore";
 
@@ -293,24 +294,27 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.area, scene.replay]);
 
-  // ambient traffic: lazy, optional — the replay works without it
-  const trafficRef = useRef<TrafficLayer | null>(null);
+  // ambient traffic: lazy, optional, cached per district asset
+  const trafficCache = useRef<Record<string, TrafficLayer | null>>({});
   useEffect(() => {
+    const url = scene.trafficUrl;
+    if (!url || url in trafficCache.current) return;
+    trafficCache.current[url] = null; // mark in-flight
     let cancelled = false;
     const load = () =>
-      fetch(`${import.meta.env.BASE_URL}data/report/traffic.json`)
+      fetch(`${import.meta.env.BASE_URL}${url}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data: TrafficLayer | null) => {
-          if (!cancelled) trafficRef.current = data;
+          if (!cancelled) trafficCache.current[url] = data;
         })
         .catch(() => undefined);
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-    const handle = idle ? idle(() => void load()) : window.setTimeout(() => void load(), 1500);
+    if (idle) idle(() => void load());
+    else window.setTimeout(() => void load(), 1500);
     return () => {
       cancelled = true;
-      if (!idle) window.clearTimeout(handle as number);
     };
-  }, []);
+  }, [scene.trafficUrl]);
 
   // replay: one rAF loop owned here, advancing the store and painting sources
   useEffect(() => {
@@ -353,7 +357,8 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
           features: riderFeatures,
         });
 
-        const traffic = sceneRef.current.showTraffic ? trafficRef.current : null;
+        const trafficUrl = sceneRef.current.trafficUrl;
+        const traffic = trafficUrl ? trafficCache.current[trafficUrl] : null;
         if (traffic) {
           const trafficFeatures = traffic.tracks.flatMap((tr) => {
             const p = trackAt(tr.path, timeSec);

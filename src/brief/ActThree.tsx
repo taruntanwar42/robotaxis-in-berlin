@@ -163,6 +163,26 @@ export function FindingBusiness({ report }: { report: ReportData }) {
         <Stat value={fmtEur(day.energyCostPerCabEur)} label="energy / cab / day" />
         <Stat value={`~${Math.round(day.paybackDays)} days`} label="cab pays for itself" gold />
       </div>
+      {report.dayMeasured && (
+        <div className="prose">
+          <p>
+            We then <strong>simulated the entire day</strong> rather than
+            extrapolating: {report.dayMeasured.served} of{" "}
+            {report.dayMeasured.requests} car trips served 04:00–04:00,{" "}
+            {Math.round(report.dayMeasured.kmPerCab)} km per cab,{" "}
+            {report.dayMeasured.ridesPerCab} rides per cab, revenue{" "}
+            {fmtEur(report.dayMeasured.revenuePerCabEur)}/cab — payback{" "}
+            <strong>~{Math.round(report.dayMeasured.paybackDays ?? 0)} days</strong>.
+            The measured day also exposes what the estimate hid:{" "}
+            {Math.round(report.dayMeasured.kmPerCab)} km/cab/day exceeds one
+            48 kWh charge — a real fleet loses mid-day time to charging, which
+            our simulation does not model.{" "}
+            <Chip href="#methods" sim>
+              measured day
+            </Chip>
+          </p>
+        </div>
+      )}
       <div className="prose">
         <p>
           The binding constraint is not price — it is <strong>utilization</strong>:

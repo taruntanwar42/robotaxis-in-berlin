@@ -133,6 +133,26 @@ export interface EconomicsData {
   };
 }
 
+export interface DayMeasured {
+  meta: { kind: string; fleet: number; window: string; demand: string; limitations: string[] };
+  requests: number;
+  served: number;
+  servedShare: number;
+  waitP50Min: number;
+  cabTotalKm: number;
+  kmPerCab: number;
+  emptyShare: number;
+  kwh: number;
+  revenueEur: number;
+  ridesPerCab: number;
+  revenuePerCabEur: number;
+  energyCostPerCabEur: number;
+  overheadAssumptionEur: number;
+  marginPerCabEur: number;
+  paybackDays: number | null;
+  hourly: { hour: number; rides: number; km: number }[];
+}
+
 export interface ReinickendorfDemand {
   meta: { areaName: string; window: string; sample: string };
   trips: number;
@@ -154,6 +174,7 @@ export interface ReportData {
   reinickendorfDemand: ReinickendorfDemand | null;
   replayReinickendorf: ReplayData | null;
   reinickendorfArea: FeatureCollection | null;
+  dayMeasured: DayMeasured | null;
 }
 
 const base = import.meta.env.BASE_URL;
@@ -173,20 +194,29 @@ async function getOptional<T>(path: string): Promise<T | null> {
 }
 
 export async function loadReport(): Promise<ReportData> {
-  const [demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea] =
+  // a different recorded evening each visit (all fleet 16, different SUMO seeds)
+  const replayPool = [
+    "data/report/replay.json",
+    "data/report/replay-seed7.json",
+    "data/report/replay-seed17.json",
+  ];
+  const replayPick = replayPool[Math.floor(Math.random() * replayPool.length)];
+  const [demand, costs, sweep, replayMaybe, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured] =
     await Promise.all([
       get<DemandData>("data/report/demand.json"),
       get<CostsData>("data/report/costs.json"),
       get<SweepData>("data/report/sweep.json"),
-      get<ReplayData>("data/report/replay.json"),
+      getOptional<ReplayData>(replayPick),
       get<EconomicsData>("data/report/economics.json"),
       get<FeatureCollection>("data/service-area.geojson"),
       getOptional<SweepData>("data/report/sweep-reinickendorf.json"),
       getOptional<ReinickendorfDemand>("data/report/reinickendorf-demand.json"),
       getOptional<ReplayData>("data/report/replay-reinickendorf.json"),
       getOptional<FeatureCollection>("data/reinickendorf-area.geojson"),
+      getOptional<DayMeasured>("data/report/economics-day-measured.json"),
     ]);
-  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea };
+  const replay = replayMaybe ?? (await get<ReplayData>("data/report/replay.json"));
+  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured };
 }
 
 export const MODE_COLOR: Record<string, string> = {

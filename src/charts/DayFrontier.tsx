@@ -23,7 +23,7 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
     <Figure
       title="The operator's dial, measured"
       sub="each point = one complete simulated day (04:00–04:00) · same 1,828 requests, different fleet size"
-      caption="Down-left is better for riders and slower for the operator. The elbow is where an extra cab stops buying meaningful wait time."
+      caption="Down-left is better for riders, slower for the operator. Caveat on the tempting left end: below ~24 cabs each cab drives more than one 48 kWh battery per day (fleet 12: 513 km vs ~471 km range) — without modeled charging stops, those paybacks are optimistic."
     >
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Median wait versus payback days by fleet size">
         {[0, 15, 30, 60, 90].filter((t) => t <= maxY).map((t) => (

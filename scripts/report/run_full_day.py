@@ -120,9 +120,9 @@ def main() -> None:
             "demand": f"{len(requests)} car/ride trips in the corridor (1% twin)",
             "limitations": [
                 "packaged background traffic covers only 18:00-21:00; the rest of the day runs in light traffic",
-                "one seed, one synthetic weekday; no charging downtime modeled (48 kWh vs ~"
+                "one seed, one synthetic weekday; no charging downtime modeled ("
                 + str(round(metrics["cabTotalKm"] / args.fleet))
-                + " km/cab/day implies mid-day charging)",
+                + " km/cab/day vs ~471 km per 48 kWh charge — binding below ~24 cabs, comfortable above)",
                 f"overhead {OVERHEAD_EUR_PER_CAB_DAY} EUR/cab/day and {ELECTRICITY_EUR_PER_KWH} EUR/kWh are assumptions",
             ],
         },

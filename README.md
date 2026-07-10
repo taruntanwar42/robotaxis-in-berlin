@@ -25,13 +25,15 @@ cited (source chips) or measured in our own simulation pipeline:
   Tesla's real Austin tariff and service record.
 
 Findings, in short: it out-prices the Berlin taxi at every distance, loses to
-BVG beyond ~1.6 km, needs ~16 cabs (twin scale) for Austin-grade service —
-and, unaimed, it *adds* vehicle-kilometers, because deadheading is measured
-at 27–47 % and most of this neighborhood's trips never touched a car to
-begin with. The operator's side is lopsided the other way: at Austin fares a
-$30k cab pays for itself in ~68 days (utilization assumptions labeled), and
-a parallel 21-run pooled sweep shows 2-seat pooling saves ≤5 % of fleet-km —
-it does not rescue the traffic math.
+BVG beyond ~1.6 km, needs ~16 cabs (twin scale) for Austin-grade evening
+service — and, unaimed, it *adds* vehicle-kilometers, because deadheading is
+measured at 27–47 % and most of this neighborhood's trips never touched a
+car to begin with. Six complete simulated days (fleets 12–40) then replace
+the hourly extrapolation with the operator's-dial frontier: waits fall
+92.7 → 3.5 min as payback stretches 39 → 139 days, with the elbow at ~20–24
+cabs — below which each cab also drives more than one 48 kWh battery per
+day. A parallel 21-run pooled sweep shows 2-seat pooling saves ≤5 % of
+fleet-km — it does not rescue the traffic math.
 
 ## Repository layout
 

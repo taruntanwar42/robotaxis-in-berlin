@@ -7,7 +7,7 @@
   "demand": "1828 car/ride trips in the corridor (1% twin)",
   "limitations": [
    "packaged background traffic covers only 18:00-21:00; the rest of the day runs in light traffic",
-   "one seed, one synthetic weekday; no charging downtime modeled (48 kWh vs ~412 km/cab/day implies mid-day charging)",
+   "no charging downtime modeled \u2014 at 412 km/cab/day the fleet exceeds one 48 kWh charge (~471 km real range), so these economics are optimistic",
    "overhead 20.0 EUR/cab/day and 0.3 EUR/kWh are assumptions"
   ]
  },

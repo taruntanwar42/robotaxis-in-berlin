@@ -186,6 +186,12 @@ export function Verdict({ report }: { report: ReportData }) {
         <Stat value={fmtPct(row.emptyShare.mean)} label="empty km" />
         <Stat value={`${row.kwh.mean.toFixed(0)} kWh`} label="fleet energy" />
         <Stat
+          value={`€${Math.round(
+            report.economics.perFleet.find((f) => f.fleet === row.fleet)?.revenuePerCabEur ?? 0,
+          )}`}
+          label="revenue / cab / hour"
+        />
+        <Stat
           value={`${(km.added / km.removed).toFixed(1)}×`}
           label="km driven per car-km replaced"
         />

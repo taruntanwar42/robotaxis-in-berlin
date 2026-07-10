@@ -65,6 +65,26 @@ function cabAt(path: [number, number, number, string][], t: number): [number, nu
   return [a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, a[3]];
 }
 
+interface TrafficLayer {
+  meta: { stepSec: number };
+  tracks: { id: string; path: [number, number, number][] }[];
+}
+
+function trackAt(path: [number, number, number][], t: number): [number, number] | null {
+  if (!path.length || t < path[0][0] || t > path[path.length - 1][0]) return null;
+  let lo = 0, hi = path.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (path[mid][0] <= t) lo = mid; else hi = mid;
+  }
+  const a = path[lo], b = path[hi];
+  const span = b[0] - a[0] || 1;
+  // tracks are sparse (4 s); don't interpolate across gaps (vehicle left net)
+  if (span > 12) return null;
+  const k = (t - a[0]) / span;
+  return [a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+}
+
 export function MapStage({ report, section }: { report: ReportData; section: string }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -124,6 +144,18 @@ export function MapStage({ report, section }: { report: ReportData; section: str
           ] as unknown as DataDrivenPropertyValueSpecification<string>,
           "circle-opacity": 0.85,
           "circle-stroke-width": 0,
+        },
+      });
+
+      map.addSource("traffic", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "traffic",
+        type: "circle",
+        source: "traffic",
+        paint: {
+          "circle-radius": 2.6,
+          "circle-color": "#5c6880",
+          "circle-opacity": 0.6,
         },
       });
 
@@ -195,6 +227,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
       ["cabs", cam.showReplay],
       ["cabs-glow", cam.showReplay],
       ["riders", cam.showReplay],
+      ["traffic", cam.showReplay],
     ] as const) {
       if (map.getLayer(layer)) {
         map.setLayoutProperty(layer, "visibility", on ? "visible" : "none");
@@ -216,6 +249,21 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
+
+  // ambient traffic: lazy, optional — the replay works without it
+  const trafficRef = useRef<TrafficLayer | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}data/report/traffic.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TrafficLayer | null) => {
+        if (!cancelled) trafficRef.current = data;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // replay: one rAF loop owned here, advancing the store and painting sources
   useEffect(() => {
@@ -258,6 +306,24 @@ export function MapStage({ report, section }: { report: ReportData; section: str
           type: "FeatureCollection",
           features: riderFeatures,
         });
+
+        const traffic = trafficRef.current;
+        if (traffic) {
+          const trafficFeatures = traffic.tracks.flatMap((tr) => {
+            const p = trackAt(tr.path, timeSec);
+            return p
+              ? [{
+                  type: "Feature" as const,
+                  geometry: { type: "Point" as const, coordinates: p },
+                  properties: {},
+                }]
+              : [];
+          });
+          (map.getSource("traffic") as maplibregl.GeoJSONSource | undefined)?.setData({
+            type: "FeatureCollection",
+            features: trafficFeatures,
+          });
+        }
 
         // street-level ride-along: stay with a cab while it has a passenger,
         // hand off to the next working cab when it goes idle

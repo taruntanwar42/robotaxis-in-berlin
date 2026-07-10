@@ -86,7 +86,7 @@ export function Experiment({ report }: { report: ReportData }) {
         </p>
         <p className="caption">
           gold dots: cabs (bright = carrying someone) · white rings: people
-          waiting
+          waiting · grey dots: a sample of the evening's other traffic
         </p>
       </div>
       <div className="control-row" role="group" aria-label="Replay controls">

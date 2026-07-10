@@ -1,7 +1,24 @@
 {
  "meta": {
   "kind": "measured full-day runs, one weekday, seed 7, SCC-filtered demand (1,828 requests)",
-  "note": "each point is one complete 04:00-28:00 SUMO simulation; assumptions as in economics-day-measured.json"
+  "note": "each point is one complete 04:00-28:00 SUMO simulation; assumptions as in economics-day-measured.json",
+  "seedVariance": {
+   "note": "fleets 16 and 30 re-run with a second traffic seed: payback identical to the day (52 / 102); median wait 18.1-23.2 min at fleet 16, 4.3-4.4 min at fleet 30 \u2014 economics are seed-stable, lean-fleet waits are not",
+   "fleet16": {
+    "waitP50MinRange": [
+     18.1,
+     23.2
+    ],
+    "paybackDays": 52
+   },
+   "fleet30": {
+    "waitP50MinRange": [
+     4.3,
+     4.4
+    ],
+    "paybackDays": 102
+   }
+  }
  },
  "byFleet": [
   {

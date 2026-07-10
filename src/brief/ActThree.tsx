@@ -4,6 +4,7 @@ import { Chip, Section, Stat } from "../ui/primitives";
 import { SweepChart } from "../charts/SweepChart";
 import { FareCurves } from "../charts/FareCurves";
 import { Figure } from "../charts/common";
+import { DayFrontierChart } from "../charts/DayFrontier";
 
 /** The fleet the narrative leans on: smallest that serves ≥95% of requests,
  * else the biggest simulated. */
@@ -193,6 +194,7 @@ export function FindingBusiness({ report }: { report: ReportData }) {
           </p>
         </div>
       )}
+      {report.dayFrontier && <DayFrontierChart frontier={report.dayFrontier} />}
       {report.dayMeasured && (
         <Figure
           title="The measured day, hour by hour"

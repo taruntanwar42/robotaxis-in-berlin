@@ -44,6 +44,7 @@ def main() -> None:
     parser.add_argument("--fleet", type=int, default=16)
     parser.add_argument("--sumo-seed", type=int, default=7)
     parser.add_argument("--demand", type=Path, required=True)
+    parser.add_argument("--out", type=Path, default=OUT)
     args = parser.parse_args()
 
     # override the sweep module's window + demand (functions read globals)
@@ -145,9 +146,9 @@ def main() -> None:
             for h, v in sorted(hourly.items())
         ],
     }
-    OUT.write_text(json.dumps(payload, indent=1), encoding="utf-8")
+    args.out.write_text(json.dumps(payload, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in payload.items() if k != "hourly"}, indent=1))
-    print(f"wrote {OUT}")
+    print(f"wrote {args.out}")
 
 
 if __name__ == "__main__":

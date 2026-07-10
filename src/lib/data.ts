@@ -153,6 +153,21 @@ export interface DayMeasured {
   hourly: { hour: number; rides: number; km: number }[];
 }
 
+export interface DayFrontier {
+  meta: { kind: string; note: string };
+  byFleet: {
+    fleet: number;
+    servedShare: number;
+    waitP50Min: number;
+    ridesPerCab: number;
+    kmPerCab: number;
+    emptyShare: number;
+    revenuePerCabEur: number;
+    marginPerCabEur: number;
+    paybackDays: number | null;
+  }[];
+}
+
 export interface ReinickendorfDemand {
   meta: { areaName: string; window: string; sample: string };
   trips: number;
@@ -176,6 +191,7 @@ export interface ReportData {
   reinickendorfArea: FeatureCollection | null;
   dayMeasured: DayMeasured | null;
   dayMeasuredEveningFleet: DayMeasured | null;
+  dayFrontier: DayFrontier | null;
 }
 
 const base = import.meta.env.BASE_URL;
@@ -202,7 +218,7 @@ export async function loadReport(): Promise<ReportData> {
     "data/report/replay-seed17.json",
   ];
   const replayPick = replayPool[Math.floor(Math.random() * replayPool.length)];
-  const [demand, costs, sweep, replayMaybe, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet] =
+  const [demand, costs, sweep, replayMaybe, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet, dayFrontier] =
     await Promise.all([
       get<DemandData>("data/report/demand.json"),
       get<CostsData>("data/report/costs.json"),
@@ -216,9 +232,10 @@ export async function loadReport(): Promise<ReportData> {
       getOptional<FeatureCollection>("data/reinickendorf-area.geojson"),
       getOptional<DayMeasured>("data/report/economics-day-measured.json"),
       getOptional<DayMeasured>("data/report/economics-day-measured-f16.json"),
+      getOptional<DayFrontier>("data/report/day-frontier.json"),
     ]);
   const replay = replayMaybe ?? (await get<ReplayData>("data/report/replay.json"));
-  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet };
+  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea, dayMeasured, dayMeasuredEveningFleet, dayFrontier };
 }
 
 export const MODE_COLOR: Record<string, string> = {

@@ -180,6 +180,21 @@ def test_day_measured_if_present():
         assert by_hour.get(hour, 0) > 0, f"no rides in hour {hour} — cab attrition?"
 
 
+def test_day_frontier_if_present():
+    path = REPORT / "day-frontier.json"
+    if not path.exists():
+        pytest.skip("frontier not aggregated yet")
+    f = json.loads(path.read_text(encoding="utf-8"))
+    rows = sorted(f["byFleet"], key=lambda r: r["fleet"])
+    assert len(rows) >= 4
+    waits = [r["waitP50Min"] for r in rows]
+    paybacks = [r["paybackDays"] for r in rows]
+    # more cabs: waits fall (monotone within 10%), payback rises
+    assert all(b <= a * 1.1 for a, b in zip(waits, waits[1:])), waits
+    assert all(b >= a * 0.95 for a, b in zip(paybacks, paybacks[1:])), paybacks
+    assert all(r["servedShare"] > 0.95 for r in rows)
+
+
 # ---------- replay.json ----------
 
 def test_replay_integrity():

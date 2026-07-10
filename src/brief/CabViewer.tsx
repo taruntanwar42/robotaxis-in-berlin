@@ -60,13 +60,14 @@ export function CabViewer() {
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         pivot.rotation.y = -0.7;
 
+        renderer.render(scene, camera); // paint frame 0 even if rAF is throttled
         let raf = 0;
         const tick = () => {
           if (!reduce) pivot.rotation.y += 0.0035;
           renderer.render(scene, camera);
           raf = requestAnimationFrame(tick);
         };
-        tick();
+        raf = requestAnimationFrame(tick);
 
         cleanup = () => {
           cancelAnimationFrame(raf);

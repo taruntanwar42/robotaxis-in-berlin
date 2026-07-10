@@ -133,6 +133,15 @@ export interface EconomicsData {
   };
 }
 
+export interface ReinickendorfDemand {
+  meta: { areaName: string; window: string; sample: string };
+  trips: number;
+  byMode: Record<string, number>;
+  carRideRequests: number;
+  ptShare: number;
+  notes: string[];
+}
+
 export interface ReportData {
   demand: DemandData;
   costs: CostsData;
@@ -140,6 +149,9 @@ export interface ReportData {
   replay: ReplayData;
   economics: EconomicsData;
   serviceArea: FeatureCollection;
+  /** Second-district comparison; null until its pipeline has run. */
+  sweepReinickendorf: SweepData | null;
+  reinickendorfDemand: ReinickendorfDemand | null;
 }
 
 const base = import.meta.env.BASE_URL;
@@ -150,16 +162,27 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function getOptional<T>(path: string): Promise<T | null> {
+  try {
+    return await get<T>(path);
+  } catch {
+    return null;
+  }
+}
+
 export async function loadReport(): Promise<ReportData> {
-  const [demand, costs, sweep, replay, economics, serviceArea] = await Promise.all([
-    get<DemandData>("data/report/demand.json"),
-    get<CostsData>("data/report/costs.json"),
-    get<SweepData>("data/report/sweep.json"),
-    get<ReplayData>("data/report/replay.json"),
-    get<EconomicsData>("data/report/economics.json"),
-    get<FeatureCollection>("data/service-area.geojson"),
-  ]);
-  return { demand, costs, sweep, replay, economics, serviceArea };
+  const [demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand] =
+    await Promise.all([
+      get<DemandData>("data/report/demand.json"),
+      get<CostsData>("data/report/costs.json"),
+      get<SweepData>("data/report/sweep.json"),
+      get<ReplayData>("data/report/replay.json"),
+      get<EconomicsData>("data/report/economics.json"),
+      get<FeatureCollection>("data/service-area.geojson"),
+      getOptional<SweepData>("data/report/sweep-reinickendorf.json"),
+      getOptional<ReinickendorfDemand>("data/report/reinickendorf-demand.json"),
+    ]);
+  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand };
 }
 
 export const MODE_COLOR: Record<string, string> = {

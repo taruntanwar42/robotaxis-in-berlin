@@ -15,7 +15,7 @@ export const S = {
   chipSumo: { en: "SUMO microsimulation", de: "SUMO-Mikrosimulation" },
   chipTariffs: { en: "real 2026 tariffs", de: "echte 2026er-Tarife" },
   chipBrief: { en: "full brief ↓", de: "ausführlicher Bericht ↓" },
-  tourStart: { en: "▶ 25-sec tour", de: "▶ 25-Sek.-Tour" },
+  tourStart: { en: "▶ 30-sec tour", de: "▶ 30-Sek.-Tour" },
   tourStop: { en: "stop tour", de: "Tour beenden" },
   served: { en: "served", de: "bedient" },
   waiting: { en: "waiting", de: "warten" },

@@ -57,6 +57,13 @@ export function buildTour(report: ReportData): TourBeat[] {
       speed: 300,
     },
     {
+      ms: 4400,
+      en: "Twelve full days measured: run lean and a cab pays back in 39 days — riders wait 80 minutes. Comfort costs 102.",
+      de: "Zwölf ganze Tage simuliert: Sparflotte amortisiert in 39 Tagen — Fahrgäste warten 80 Minuten. Komfort kostet 102.",
+      follow: false,
+      speed: 300,
+    },
+    {
       ms: 4200,
       en: rdf
         ? `Aimed at a transit-poor district, ${rdf.fleet} cabs serve 100%. Results below ↓`

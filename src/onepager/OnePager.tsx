@@ -20,7 +20,7 @@ function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
     (r) => timeSec >= r.departSec && (r.pickupSec === null || timeSec < r.pickupSec),
   ).length;
   return (
-    <div className="op-hud">
+    <div className="op-hud" role="group" aria-label="Simulation status">
       <span className="op-hud-clock">{fmtClock(timeSec)}</span>
       <span className="op-hud-stat">
         <b>{served}</b>/{replay.riders.length} {S.served[lang]}
@@ -181,7 +181,7 @@ export function OnePager({ report }: { report: ReportData }) {
           </div>
         )}
         {tourStep >= 0 && (
-          <div className="op-tour-caption" key={tourStep}>
+          <div className="op-tour-caption" role="status" aria-live="polite" key={tourStep}>
             <span className="op-tour-n">
               {tourStep + 1}/{beats.current.length}
             </span>

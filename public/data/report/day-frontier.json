@@ -1,0 +1,74 @@
+{
+ "meta": {
+  "kind": "measured full-day runs, one weekday, seed 7, SCC-filtered demand (1,828 requests)",
+  "note": "each point is one complete 04:00-28:00 SUMO simulation; assumptions as in economics-day-measured.json"
+ },
+ "byFleet": [
+  {
+   "fleet": 12,
+   "servedShare": 0.9995,
+   "waitP50Min": 92.7,
+   "ridesPerCab": 152.2,
+   "kmPerCab": 513.2,
+   "emptyShare": 0.1989,
+   "revenuePerCabEur": 749.0,
+   "marginPerCabEur": 713.0,
+   "paybackDays": 39.0
+  },
+  {
+   "fleet": 16,
+   "servedShare": 0.9995,
+   "waitP50Min": 23.2,
+   "ridesPerCab": 114.2,
+   "kmPerCab": 411.7,
+   "emptyShare": 0.2507,
+   "revenuePerCabEur": 562.0,
+   "marginPerCabEur": 529.0,
+   "paybackDays": 52.0
+  },
+  {
+   "fleet": 20,
+   "servedShare": 1.0,
+   "waitP50Min": 7.8,
+   "ridesPerCab": 91.4,
+   "kmPerCab": 384.9,
+   "emptyShare": 0.3587,
+   "revenuePerCabEur": 450.0,
+   "marginPerCabEur": 418.0,
+   "paybackDays": 66.0
+  },
+  {
+   "fleet": 24,
+   "servedShare": 0.9995,
+   "waitP50Min": 5.9,
+   "ridesPerCab": 76.1,
+   "kmPerCab": 355.2,
+   "emptyShare": 0.4209,
+   "revenuePerCabEur": 375.0,
+   "marginPerCabEur": 344.0,
+   "paybackDays": 80.0
+  },
+  {
+   "fleet": 30,
+   "servedShare": 0.9995,
+   "waitP50Min": 4.4,
+   "ridesPerCab": 60.9,
+   "kmPerCab": 279.9,
+   "emptyShare": 0.4118,
+   "revenuePerCabEur": 300.0,
+   "marginPerCabEur": 271.0,
+   "paybackDays": 102.0
+  },
+  {
+   "fleet": 40,
+   "servedShare": 0.9995,
+   "waitP50Min": 3.5,
+   "ridesPerCab": 45.7,
+   "kmPerCab": 185.6,
+   "emptyShare": 0.3351,
+   "revenuePerCabEur": 225.0,
+   "marginPerCabEur": 199.0,
+   "paybackDays": 139.0
+  }
+ ]
+}

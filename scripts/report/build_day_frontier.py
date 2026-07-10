@@ -40,11 +40,22 @@ def row(d: dict) -> dict:
 
 def main() -> None:
     paths = ALWAYS + [Path(p) for p in sys.argv[1:]]
-    rows = []
+    by_fleet: dict[int, list[dict]] = {}
     for p in paths:
         d = json.loads(p.read_text(encoding="utf-8"))
-        rows.append(row(d))
-    rows.sort(key=lambda r: r["fleet"])
+        by_fleet.setdefault(d["meta"]["fleet"], []).append(row(d))
+    rows = []
+    for fleet, runs in sorted(by_fleet.items()):
+        base = dict(runs[0])
+        if len(runs) > 1:
+            waits = [r["waitP50Min"] for r in runs]
+            pays = [r["paybackDays"] for r in runs]
+            base["seeds"] = len(runs)
+            base["waitP50MinRange"] = [min(waits), max(waits)]
+            base["paybackDaysRange"] = [min(pays), max(pays)]
+            base["waitP50Min"] = round(sum(waits) / len(waits), 1)
+            base["paybackDays"] = round(sum(pays) / len(pays), 0)
+        rows.append(base)
     fleets = [r["fleet"] for r in rows]
     assert len(set(fleets)) == len(fleets), f"duplicate fleets: {fleets}"
 

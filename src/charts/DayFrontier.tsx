@@ -46,8 +46,21 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
           median wait ↑
         </text>
         <polyline points={line} fill="none" stroke="#ba8c0c" strokeWidth={2} opacity={0.5} />
-        {sorted.map((r) => (
+        {sorted.map((r) => {
+          const range = (r as { waitP50MinRange?: [number, number] }).waitP50MinRange;
+          return (
           <g key={r.fleet}>
+            {range && (
+              <line
+                x1={xOf(r.paybackDays!)}
+                x2={xOf(r.paybackDays!)}
+                y1={yOf(range[0])}
+                y2={yOf(range[1])}
+                stroke="#ba8c0c"
+                strokeWidth={2}
+                opacity={0.6}
+              />
+            )}
             <circle
               cx={xOf(r.paybackDays!)}
               cy={yOf(r.waitP50Min)}
@@ -75,7 +88,8 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
               {r.fleet}
             </text>
           </g>
-        ))}
+          );
+        })}
       </svg>
       {node}
     </Figure>

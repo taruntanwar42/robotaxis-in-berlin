@@ -1,80 +1,108 @@
 {
  "meta": {
-  "kind": "measured full-day runs, one weekday, seed 7, SCC-filtered demand (1,828 requests)",
-  "note": "each point is one complete 04:00-28:00 SUMO simulation; assumptions as in economics-day-measured.json",
-  "seedVariance": {
-   "note": "fleets 16 and 30 re-run with a second traffic seed: payback identical to the day (52 / 102); median wait 18.1-23.2 min at fleet 16, 4.3-4.4 min at fleet 30 \u2014 economics are seed-stable, lean-fleet waits are not",
-   "fleet16": {
-    "waitP50MinRange": [
-     18.1,
-     23.2
-    ],
-    "paybackDays": 52
-   },
-   "fleet30": {
-    "waitP50MinRange": [
-     4.3,
-     4.4
-    ],
-    "paybackDays": 102
-   }
-  }
+  "kind": "measured full-day runs, one weekday, 2 traffic seeds per fleet, SCC-filtered demand (1,828 requests)",
+  "note": "each fleet size = two complete 04:00-28:00 SUMO simulations (seeds 7, 17); point = mean, whisker = range; assumptions as in economics-day-measured.json"
  },
  "byFleet": [
   {
    "fleet": 12,
    "servedShare": 0.9995,
-   "waitP50Min": 92.7,
+   "waitP50Min": 81.5,
    "ridesPerCab": 152.2,
    "kmPerCab": 513.2,
    "emptyShare": 0.1989,
    "revenuePerCabEur": 749.0,
    "marginPerCabEur": 713.0,
-   "paybackDays": 39.0
+   "paybackDays": 39.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    70.3,
+    92.7
+   ],
+   "paybackDaysRange": [
+    39.0,
+    39.0
+   ]
   },
   {
    "fleet": 16,
    "servedShare": 0.9995,
-   "waitP50Min": 23.2,
+   "waitP50Min": 20.6,
    "ridesPerCab": 114.2,
    "kmPerCab": 411.7,
    "emptyShare": 0.2507,
    "revenuePerCabEur": 562.0,
    "marginPerCabEur": 529.0,
-   "paybackDays": 52.0
+   "paybackDays": 52.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    18.1,
+    23.2
+   ],
+   "paybackDaysRange": [
+    52.0,
+    52.0
+   ]
   },
   {
    "fleet": 20,
    "servedShare": 1.0,
-   "waitP50Min": 7.8,
+   "waitP50Min": 8.0,
    "ridesPerCab": 91.4,
    "kmPerCab": 384.9,
    "emptyShare": 0.3587,
    "revenuePerCabEur": 450.0,
    "marginPerCabEur": 418.0,
-   "paybackDays": 66.0
+   "paybackDays": 66.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    7.8,
+    8.2
+   ],
+   "paybackDaysRange": [
+    66.0,
+    66.0
+   ]
   },
   {
    "fleet": 24,
    "servedShare": 0.9995,
-   "waitP50Min": 5.9,
+   "waitP50Min": 5.8,
    "ridesPerCab": 76.1,
    "kmPerCab": 355.2,
    "emptyShare": 0.4209,
    "revenuePerCabEur": 375.0,
    "marginPerCabEur": 344.0,
-   "paybackDays": 80.0
+   "paybackDays": 80.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    5.7,
+    5.9
+   ],
+   "paybackDaysRange": [
+    80.0,
+    80.0
+   ]
   },
   {
    "fleet": 30,
    "servedShare": 0.9995,
-   "waitP50Min": 4.4,
+   "waitP50Min": 4.3,
    "ridesPerCab": 60.9,
    "kmPerCab": 279.9,
    "emptyShare": 0.4118,
    "revenuePerCabEur": 300.0,
    "marginPerCabEur": 271.0,
-   "paybackDays": 102.0
+   "paybackDays": 102.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    4.3,
+    4.4
+   ],
+   "paybackDaysRange": [
+    102.0,
+    102.0
+   ]
   },
   {
    "fleet": 40,
@@ -85,7 +113,16 @@
    "emptyShare": 0.3351,
    "revenuePerCabEur": 225.0,
    "marginPerCabEur": 199.0,
-   "paybackDays": 139.0
+   "paybackDays": 139.0,
+   "seeds": 2,
+   "waitP50MinRange": [
+    3.5,
+    3.5
+   ],
+   "paybackDaysRange": [
+    139.0,
+    139.0
+   ]
   }
  ]
 }

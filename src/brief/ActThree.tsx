@@ -193,6 +193,50 @@ export function FindingBusiness({ report }: { report: ReportData }) {
           </p>
         </div>
       )}
+      {report.dayMeasured && (
+        <Figure
+          title="The measured day, hour by hour"
+          sub={`rides served per hour · fleet ${report.dayMeasured.meta.fleet} · one simulated weekday (sim)`}
+        >
+          <svg viewBox="0 0 720 190" role="img" aria-label="Rides served per hour across the measured day">
+            {(() => {
+              const hours = report.dayMeasured!.hourly.filter((h) => h.hour <= 27);
+              const max = Math.max(...hours.map((h) => h.rides));
+              const padL = 40;
+              const plotW = 668;
+              const plotH = 140;
+              return (
+                <>
+                  {[0, Math.round(max / 2), max].map((t) => (
+                    <g key={t}>
+                      <line x1={padL} x2={708} y1={150 - (t / max) * plotH} y2={150 - (t / max) * plotH} className="gridline" />
+                      <text x={padL - 6} y={154 - (t / max) * plotH} textAnchor="end" className="tick-label">
+                        {t}
+                      </text>
+                    </g>
+                  ))}
+                  {hours.map((h) => (
+                    <rect
+                      key={h.hour}
+                      x={padL + ((h.hour - 4) / 24) * plotW + 1}
+                      y={150 - (h.rides / max) * plotH}
+                      width={plotW / 24 - 2}
+                      height={(h.rides / max) * plotH}
+                      rx={2}
+                      fill={h.hour >= 18 && h.hour < 19 ? "#f5c518" : "#33415e"}
+                    />
+                  ))}
+                  {[4, 8, 12, 16, 20, 24].map((hr) => (
+                    <text key={hr} x={padL + ((hr - 4) / 24) * plotW} y={182} textAnchor="middle" className="tick-label">
+                      {String(hr % 24).padStart(2, "0")}:00
+                    </text>
+                  ))}
+                </>
+              );
+            })()}
+          </svg>
+        </Figure>
+      )}
       <div className="prose">
         <p>
           The binding constraint is not price — it is <strong>utilization</strong>:

@@ -52,15 +52,23 @@ def load_requests() -> list[dict]:
     return trips
 
 
-def fleet_spawn_edges(n: int, rng: random.Random) -> list[str]:
-    edges = [
-        line.strip()
-        for line in SERVICE_EDGES.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    ]
-    # deterministic spread: shuffle once, take n distinct edges
+def fleet_spawn_edges(n: int, rng: random.Random, requests: list[dict]) -> list[str]:
+    # Stage cabs at the packaged taxi stands: those edges were validated for
+    # cab idling by the corridor scenario build (demand pickup edges are not
+    # all strongly connected as route *starts*).
+    # '-4609230#0' is a stand edge SUMO cannot route out of to parts of the
+    # corridor (verified: every failed sweep run named it) — skip it.
+    unroutable = {"-4609230#0"}
+    tree = ET.parse(STANDS)
+    edges = []
+    for pa in tree.getroot().iter("parkingArea"):
+        lane = pa.get("lane", "")
+        edge = lane.rsplit("_", 1)[0]
+        if edge and edge not in unroutable:
+            edges.append(edge)
+    edges = sorted(set(edges))
     rng.shuffle(edges)
-    return edges[:n]
+    return [edges[i % len(edges)] for i in range(n)]
 
 
 def build_route_file(fleet: int, requests: list[dict], out_path: Path, rng: random.Random) -> None:
@@ -82,7 +90,7 @@ def build_route_file(fleet: int, requests: list[dict], out_path: Path, rng: rand
     ET.SubElement(vtype, "param", key="device.taxi.parking", value="true")
     ET.SubElement(vtype, "param", key="parking.ignoreDest", value="1")
 
-    for index, edge in enumerate(fleet_spawn_edges(fleet, rng)):
+    for index, edge in enumerate(fleet_spawn_edges(fleet, rng, requests)):
         vid = f"cybercab_{index + 1:02d}"
         ET.SubElement(root, "route", id=f"r_{vid}", edges=edge)
         ET.SubElement(
@@ -123,6 +131,10 @@ def sumo_args(taxi_routes: Path, tripinfo: Path, seed: int) -> list[str]:
         "--seed", str(seed),
         "--device.taxi.dispatch-algorithm", "greedyClosest",
         "--device.taxi.idle-algorithm", "stop",
+        # The corridor cut has weakly-connected pockets; a cab that drops off
+        # inside one can't route to some next pickup. Without this flag SUMO
+        # quits the whole run on the first such dispatch.
+        "--ignore-route-errors", "true",
         "--tripinfo-output", str(tripinfo),
         "--tripinfo-output.write-unfinished", "true",
         "--no-internal-links", "false",

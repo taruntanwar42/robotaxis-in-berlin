@@ -1,0 +1,187 @@
+{
+ "meta": {
+  "engine": "SUMO 1.27 built-in taxi device, greedyClosest dispatch, cabs staged at corridor taxi stands",
+  "window": "requests 18:00-19:00; cabs may finish until 20:00",
+  "demand": "125 car & car-passenger trips in the corridor hour (1% twin)",
+  "seedsPerFleet": 3
+ },
+ "byFleet": [
+  {
+   "fleet": 4,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 31.3333,
+    "min": 31,
+    "max": 32
+   },
+   "servedShare": {
+    "mean": 0.2507,
+    "min": 0.248,
+    "max": 0.256
+   },
+   "waitP50Min": {
+    "mean": 18.5111,
+    "min": 17.4833,
+    "max": 19.8
+   },
+   "waitP90Min": {
+    "mean": 65.6667,
+    "min": 62.9167,
+    "max": 70.15
+   },
+   "waitOver10MinShare": {
+    "mean": 0.6273,
+    "min": 0.6129,
+    "max": 0.6562
+   },
+   "emptyShare": {
+    "mean": 0.2692,
+    "min": 0.2676,
+    "max": 0.2711
+   },
+   "cabTotalKm": {
+    "mean": 103.3767,
+    "min": 101.7,
+    "max": 104.76
+   },
+   "kwh": {
+    "mean": 10.5967,
+    "min": 10.42,
+    "max": 10.74
+   },
+   "rideKmP50": {
+    "mean": 1.9531,
+    "min": 1.863,
+    "max": 2.1331
+   },
+   "rideP50Min": {
+    "mean": 5.15,
+    "min": 5.0833,
+    "max": 5.2
+   }
+  },
+  {
+   "fleet": 6,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 57.3333,
+    "min": 57,
+    "max": 58
+   },
+   "servedShare": {
+    "mean": 0.4587,
+    "min": 0.456,
+    "max": 0.464
+   },
+   "waitP50Min": {
+    "mean": 19.6111,
+    "min": 18.2,
+    "max": 21.4667
+   },
+   "waitP90Min": {
+    "mean": 72.1556,
+    "min": 64.7333,
+    "max": 81.6
+   },
+   "waitOver10MinShare": {
+    "mean": 0.7153,
+    "min": 0.6897,
+    "max": 0.7368
+   },
+   "emptyShare": {
+    "mean": 0.2684,
+    "min": 0.2557,
+    "max": 0.2815
+   },
+   "cabTotalKm": {
+    "mean": 198.4433,
+    "min": 183.67,
+    "max": 206.43
+   },
+   "kwh": {
+    "mean": 20.3433,
+    "min": 18.83,
+    "max": 21.16
+   },
+   "rideKmP50": {
+    "mean": 2.0566,
+    "min": 1.9689,
+    "max": 2.1331
+   },
+   "rideP50Min": {
+    "mean": 4.8778,
+    "min": 4.6667,
+    "max": 5.0667
+   }
+  },
+  {
+   "fleet": 8,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 79.3333,
+    "min": 76,
+    "max": 82
+   },
+   "servedShare": {
+    "mean": 0.6347,
+    "min": 0.608,
+    "max": 0.656
+   },
+   "waitP50Min": {
+    "mean": 18.9667,
+    "min": 18.4167,
+    "max": 19.4833
+   },
+   "waitP90Min": {
+    "mean": 78.7111,
+    "min": 74.0,
+    "max": 84.1667
+   },
+   "waitOver10MinShare": {
+    "mean": 0.6465,
+    "min": 0.6184,
+    "max": 0.6625
+   },
+   "emptyShare": {
+    "mean": 0.2937,
+    "min": 0.2834,
+    "max": 0.3029
+   },
+   "cabTotalKm": {
+    "mean": 286.73,
+    "min": 283.0,
+    "max": 291.48
+   },
+   "kwh": {
+    "mean": 29.3933,
+    "min": 29.01,
+    "max": 29.88
+   },
+   "rideKmP50": {
+    "mean": 2.1826,
+    "min": 2.0677,
+    "max": 2.3737
+   },
+   "rideP50Min": {
+    "mean": 5.1944,
+    "min": 4.8833,
+    "max": 5.5833
+   }
+  }
+ ]
+}

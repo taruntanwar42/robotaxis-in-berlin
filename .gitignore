@@ -26,8 +26,6 @@ hf-space/app/sumo/berlin/output/
 # Local data pipeline (rebuild via scripts/build_*.py)
 /data/
 
-# Tooling scaffolding, not project docs
-docs/superpowers/
 
 # Asset exploration output (regenerable)
 public/assets/fonts/

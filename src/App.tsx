@@ -7,6 +7,7 @@ import { Hero, Place, Today } from "./brief/ActOne";
 import { Experiment, Vehicle } from "./brief/ActTwo";
 import { FindingAccess, FindingBusiness, FindingFare, FindingService } from "./brief/ActThree";
 import { Catch, Methods, Verdict } from "./brief/ActFour";
+import { CompareKiez } from "./brief/CompareKiez";
 
 const STATIONS = [
   { id: "hero", name: "Frage" },
@@ -19,6 +20,7 @@ const STATIONS = [
   { id: "business", name: "Befund 3" },
   { id: "access", name: "Befund 4" },
   { id: "catch", name: "Der Haken" },
+  { id: "where", name: "Wohin?" },
   { id: "verdict", name: "Urteil" },
   { id: "methods", name: "Methode" },
 ];
@@ -70,6 +72,7 @@ export default function App() {
         <FindingBusiness report={report} />
         <FindingAccess report={report} />
         <Catch report={report} />
+        <CompareKiez report={report} />
         <Verdict report={report} />
         <Methods report={report} />
       </main>

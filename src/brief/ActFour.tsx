@@ -144,7 +144,8 @@ export function Verdict({ report }: { report: ReportData }) {
             Deadheading adds {fmtPct(netKm(knee, 1).netShare)} vehicle-km with
             our baseline dispatcher (a smarter one deadheads less); realistic
             adoption multiplies it. The win condition is replacing car{" "}
-            <em>ownership</em>, not bus rides.
+            <em>ownership</em>, not bus rides — which is why the
+            Reinickendorf counter-test above matters.
           </p>
         </div>
       </div>
@@ -221,6 +222,9 @@ export function Methods({ report }: { report: ReportData }) {
           <br />→ operator economics: Austin tariff × sweep outputs; the
           day figures scale the evening hour by the corridor's demand curve
           (estimate) with €20/cab/day overhead (assumption)
+          <br />→ counter-test: the same experiment on a second SUMO network
+          (Reinickendorf cutout, 18 runs, 88 edge-matched requests over
+          18:00–21:00)
           <br />→ this page (static JSON; no backend, nothing live)
         </p>
       </div>

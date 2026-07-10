@@ -121,6 +121,24 @@ def test_economics_consistency():
     )
 
 
+# ---------- second-district artifacts ----------
+
+def test_reinickendorf_artifacts():
+    s = load("sweep-reinickendorf.json")
+    d = load("reinickendorf-demand.json")
+    rows = s["byFleet"]
+    assert [r["fleet"] for r in rows] == sorted(r["fleet"] for r in rows)
+    for r in rows:
+        assert r["requests"] == d["carRideRequests"]
+        assert r["served"]["max"] <= r["requests"]
+        assert r["waitP90Min"]["mean"] >= r["waitP50Min"]["mean"]
+        assert math.isclose(r["kwh"]["mean"], r["cabTotalKm"]["mean"] * 0.1025, rel_tol=0.02)
+    assert d["trips"] == sum(d["byMode"].values())
+    assert math.isclose(d["ptShare"], d["byMode"]["pt"] / d["trips"], rel_tol=0.02)
+    # the district's headline: full service is reachable with a small fleet
+    assert any(r["servedShare"]["min"] >= 0.99 for r in rows)
+
+
 # ---------- replay.json ----------
 
 def test_replay_integrity():

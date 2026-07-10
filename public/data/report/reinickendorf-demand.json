@@ -1,0 +1,25 @@
+{
+ "meta": {
+  "areaName": "Reinickendorf",
+  "window": "18:00-21:00",
+  "sample": "1pct"
+ },
+ "trips": 298,
+ "byMode": {
+  "walk": 141,
+  "car": 78,
+  "bike": 45,
+  "pt": 21,
+  "ride": 10,
+  "truck": 3
+ },
+ "carRideRequests": 88,
+ "ptShare": 0.0705,
+ "notes": [
+  "Computed from reinickendorf_person_trips_1pct_180000_210000_all_modes.json (298 person trips departing 18:00-21:00, 1% MATSim twin).",
+  "carRideRequests = trips with primaryMode car or ride; these form the robotaxi demand for sweep-reinickendorf.json.",
+  "PT share of evening trips is ~7.0% vs 17.7% in the Charlottenburg-Moabit-Tiergarten corridor: the outer district leans on walking (141 trips) and cars, not transit.",
+  "3 trips have primaryMode 'truck' (delivery tours sampled with the population); they are excluded from robotaxi demand.",
+  "Demand file ships without pickup/dropoff edges; the sweep runner nearest-edge matches all 88 car/ride trips onto the SUMO net (0 unmatched, max radius 250 m)."
+ ]
+}

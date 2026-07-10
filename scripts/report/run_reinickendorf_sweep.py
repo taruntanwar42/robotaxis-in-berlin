@@ -9,8 +9,13 @@ corridor's single 18:00-19:00 hour (125 trips).
 
 The packaged demand file has no pickupEdge/dropoffEdge, so requests are
 nearest-edge matched with sumolib (convertLonLat2XY + getNeighboringEdges,
-radius 60/120/250 m, taxi+passenger edges only, closest wins). Cabs stage
-at the TXL/ADAC Cybercab depot edge from the packaged additional file.
+radius 60/120/250 m, taxi+passenger edges only, closest wins). Matching is
+restricted to the largest strongly connected component of the taxi-permitted
+lane-connection graph: the strict-contained cutout has trap edges (e.g.
+'4706735#1', '1327638389') a cab can enter but never leave -- a dropoff
+there deadlocks the taxi device for the rest of the evening (verified: the
+fleet-2 runs flatlined at 19 served before this filter). Cabs stage at the
+TXL/ADAC Cybercab depot edge from the packaged additional file.
 
 Usage:
   python scripts/report/run_reinickendorf_sweep.py --fleet 4 --sumo-seed 7
@@ -61,14 +66,88 @@ def load_net():
     return sumolib.net.readNet(str(NET))
 
 
-def nearest_taxi_edge(net, lon: float, lat: float) -> str | None:
-    """Closest edge that allows both taxi (cab) and passenger, <=250 m away."""
+def taxi_scc_edges(net) -> set[str]:
+    """Edge IDs in the largest SCC of the taxi lane-connection graph.
+
+    Edge-level getOutgoing() is not enough: some connections are only
+    permitted for other vClasses, leaving lane-level trap edges that look
+    connected on paper. Tarjan (iterative) over ~1.8k edges, <1s.
+    """
+    edges = [e for e in net.getEdges() if e.allows("taxi")]
+    ids = {e.getID() for e in edges}
+
+    def succs(e) -> list[str]:
+        out = []
+        for nxt, conns in e.getOutgoing().items():
+            if nxt.getID() not in ids:
+                continue
+            for c in conns:
+                try:
+                    if c.getFromLane().allows("taxi") and c.getToLane().allows("taxi"):
+                        out.append(nxt.getID())
+                        break
+                except Exception:
+                    out.append(nxt.getID())
+                    break
+        return out
+
+    graph = {e.getID(): succs(e) for e in edges}
+    index: dict[str, int] = {}
+    low: dict[str, int] = {}
+    on_stack: set[str] = set()
+    stack: list[str] = []
+    sccs: list[list[str]] = []
+    counter = 0
+    for root in graph:
+        if root in index:
+            continue
+        index[root] = low[root] = counter
+        counter += 1
+        stack.append(root)
+        on_stack.add(root)
+        work = [(root, iter(graph[root]))]
+        while work:
+            v, it = work[-1]
+            advanced = False
+            for w in it:
+                if w not in index:
+                    index[w] = low[w] = counter
+                    counter += 1
+                    stack.append(w)
+                    on_stack.add(w)
+                    work.append((w, iter(graph[w])))
+                    advanced = True
+                    break
+                if w in on_stack:
+                    low[v] = min(low[v], index[w])
+            if advanced:
+                continue
+            work.pop()
+            if work:
+                parent = work[-1][0]
+                low[parent] = min(low[parent], low[v])
+            if low[v] == index[v]:
+                comp = []
+                while True:
+                    w = stack.pop()
+                    on_stack.discard(w)
+                    comp.append(w)
+                    if w == v:
+                        break
+                sccs.append(comp)
+    return set(max(sccs, key=len))
+
+
+def nearest_taxi_edge(net, lon: float, lat: float, allowed: set[str]) -> str | None:
+    """Closest strongly-connected edge allowing taxi+passenger, <=250 m away."""
     x, y = net.convertLonLat2XY(lon, lat)
     for radius in MATCH_RADII_M:
         candidates = [
             (dist, edge)
             for edge, dist in net.getNeighboringEdges(x, y, radius)
-            if edge.allows("taxi") and edge.allows("passenger")
+            if edge.getID() in allowed
+            and edge.allows("taxi")
+            and edge.allows("passenger")
         ]
         if candidates:
             candidates.sort(key=lambda c: c[0])
@@ -83,6 +162,7 @@ def load_requests(net=None) -> tuple[list[dict], dict]:
     """
     if net is None:
         net = load_net()
+    allowed = taxi_scc_edges(net)
     data = json.loads(DEMAND.read_text(encoding="utf-8"))
     trips = [
         t
@@ -96,8 +176,8 @@ def load_requests(net=None) -> tuple[list[dict], dict]:
     unmatched = 0
     same_edge = 0
     for t in trips:
-        pickup = nearest_taxi_edge(net, t["originLon"], t["originLat"])
-        dropoff = nearest_taxi_edge(net, t["destinationLon"], t["destinationLat"])
+        pickup = nearest_taxi_edge(net, t["originLon"], t["originLat"], allowed)
+        dropoff = nearest_taxi_edge(net, t["destinationLon"], t["destinationLat"], allowed)
         if not pickup or not dropoff:
             unmatched += 1
             continue

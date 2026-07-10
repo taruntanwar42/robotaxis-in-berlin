@@ -43,3 +43,6 @@ public/assets/cybertruck.zip
 *.njsproj
 *.sln
 *.sw?
+
+# headless QA scratch scripts
+.qa_*.mjs

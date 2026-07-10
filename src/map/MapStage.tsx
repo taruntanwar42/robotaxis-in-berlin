@@ -26,6 +26,7 @@ const CAMERAS: Record<string, CameraSpec> = {
   business: { padFactor: 1.65, pitch: 18, bearing: -6, showOrigins: false, showReplay: false },
   access: { padFactor: 1.8, pitch: 10, bearing: 0, showOrigins: true, showReplay: false },
   catch: { padFactor: 1.6, pitch: 25, bearing: 8, showOrigins: false, showReplay: false },
+  where: { padFactor: 5.5, pitch: 30, bearing: -20, showOrigins: false, showReplay: false },
   verdict: { padFactor: 1.4, pitch: 30, bearing: -10, showOrigins: false, showReplay: true },
   methods: { padFactor: 2.2, pitch: 0, bearing: 0, showOrigins: false, showReplay: false },
 };
@@ -108,6 +109,8 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     mapRef.current = map;
 
     map.on("load", () => {
+      // debug handle for headless QA probes; harmless in production
+      (window as unknown as Record<string, unknown>).__map = map;
       map.addSource("service-area", { type: "geojson", data: report.serviceArea });
       map.addLayer({
         id: "area-fill",
@@ -153,9 +156,9 @@ export function MapStage({ report, section }: { report: ReportData; section: str
         type: "circle",
         source: "traffic",
         paint: {
-          "circle-radius": 2.6,
-          "circle-color": "#5c6880",
-          "circle-opacity": 0.6,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 2.2, 15, 4.5],
+          "circle-color": "#8494ad",
+          "circle-opacity": 0.75,
         },
       });
 

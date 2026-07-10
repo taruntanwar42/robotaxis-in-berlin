@@ -1,0 +1,366 @@
+{
+ "meta": {
+  "district": "Reinickendorf (outer district, BeST strict-contained cutout with TXL/ADAC depot connector)",
+  "engine": "SUMO 1.27 built-in taxi device, greedyClosest dispatch, cabs staged at the TXL/ADAC Cybercab depot edge",
+  "window": "requests 18:00-21:00 (3h; district demand is thin); cabs may finish until 22:00",
+  "demand": "88 car & car-passenger trips in the district evening (1% twin), 18:00-21:00",
+  "edgeMatching": "no packaged pickup/dropoff edges; nearest-edge matched with sumolib (convertLonLat2XY + getNeighboringEdges, radius 60/120/250 m, taxi+passenger edges, closest wins), restricted to the largest strongly connected component of the taxi lane-connection graph (1656 of 1780 edges) to avoid trap-edge dropoffs; 88/88 trips matched",
+  "seedsPerFleet": 3
+ },
+ "byFleet": [
+  {
+   "fleet": 2,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 68.6667,
+    "min": 68,
+    "max": 70
+   },
+   "servedShare": {
+    "mean": 0.7803,
+    "min": 0.7727,
+    "max": 0.7955
+   },
+   "waitP50Min": {
+    "mean": 38.9,
+    "min": 35.6667,
+    "max": 43.6167
+   },
+   "waitP90Min": {
+    "mean": 138.9944,
+    "min": 116.25,
+    "max": 153.5333
+   },
+   "waitOver10MinShare": {
+    "mean": 0.8497,
+    "min": 0.8286,
+    "max": 0.8676
+   },
+   "emptyShare": {
+    "mean": 0.2765,
+    "min": 0.2757,
+    "max": 0.2771
+   },
+   "cabTotalKm": {
+    "mean": 200.25,
+    "min": 194.79,
+    "max": 203.85
+   },
+   "kwh": {
+    "mean": 20.5267,
+    "min": 19.97,
+    "max": 20.89
+   },
+   "rideKmP50": {
+    "mean": 1.8471,
+    "min": 1.8471,
+    "max": 1.8472
+   },
+   "rideP50Min": {
+    "mean": 4.0778,
+    "min": 3.8833,
+    "max": 4.3167
+   }
+  },
+  {
+   "fleet": 3,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 88.0,
+    "min": 88,
+    "max": 88
+   },
+   "servedShare": {
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+   },
+   "waitP50Min": {
+    "mean": 33.3167,
+    "min": 31.7833,
+    "max": 36.1
+   },
+   "waitP90Min": {
+    "mean": 94.8445,
+    "min": 83.9,
+    "max": 109.7167
+   },
+   "waitOver10MinShare": {
+    "mean": 0.8333,
+    "min": 0.7841,
+    "max": 0.8636
+   },
+   "emptyShare": {
+    "mean": 0.3311,
+    "min": 0.3244,
+    "max": 0.3436
+   },
+   "cabTotalKm": {
+    "mean": 273.82,
+    "min": 270.6,
+    "max": 278.75
+   },
+   "kwh": {
+    "mean": 28.0667,
+    "min": 27.74,
+    "max": 28.57
+   },
+   "rideKmP50": {
+    "mean": 1.9046,
+    "min": 1.9045,
+    "max": 1.9046
+   },
+   "rideP50Min": {
+    "mean": 4.1944,
+    "min": 4.1333,
+    "max": 4.2333
+   }
+  },
+  {
+   "fleet": 4,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 88.0,
+    "min": 88,
+    "max": 88
+   },
+   "servedShare": {
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+   },
+   "waitP50Min": {
+    "mean": 15.5944,
+    "min": 14.6333,
+    "max": 16.7
+   },
+   "waitP90Min": {
+    "mean": 42.1333,
+    "min": 39.8,
+    "max": 44.45
+   },
+   "waitOver10MinShare": {
+    "mean": 0.697,
+    "min": 0.6705,
+    "max": 0.7159
+   },
+   "emptyShare": {
+    "mean": 0.3836,
+    "min": 0.3679,
+    "max": 0.3945
+   },
+   "cabTotalKm": {
+    "mean": 297.2967,
+    "min": 290.01,
+    "max": 301.94
+   },
+   "kwh": {
+    "mean": 30.4733,
+    "min": 29.73,
+    "max": 30.95
+   },
+   "rideKmP50": {
+    "mean": 1.9045,
+    "min": 1.9045,
+    "max": 1.9046
+   },
+   "rideP50Min": {
+    "mean": 4.1222,
+    "min": 4.1,
+    "max": 4.1333
+   }
+  },
+  {
+   "fleet": 6,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 88.0,
+    "min": 88,
+    "max": 88
+   },
+   "servedShare": {
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+   },
+   "waitP50Min": {
+    "mean": 6.0722,
+    "min": 5.6,
+    "max": 6.45
+   },
+   "waitP90Min": {
+    "mean": 14.0556,
+    "min": 12.9167,
+    "max": 15.1333
+   },
+   "waitOver10MinShare": {
+    "mean": 0.2386,
+    "min": 0.2045,
+    "max": 0.2727
+   },
+   "emptyShare": {
+    "mean": 0.4657,
+    "min": 0.4623,
+    "max": 0.4691
+   },
+   "cabTotalKm": {
+    "mean": 342.4433,
+    "min": 340.75,
+    "max": 344.34
+   },
+   "kwh": {
+    "mean": 35.1,
+    "min": 34.93,
+    "max": 35.29
+   },
+   "rideKmP50": {
+    "mean": 1.9046,
+    "min": 1.9045,
+    "max": 1.9046
+   },
+   "rideP50Min": {
+    "mean": 4.2333,
+    "min": 4.1333,
+    "max": 4.35
+   }
+  },
+  {
+   "fleet": 8,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 88.0,
+    "min": 88,
+    "max": 88
+   },
+   "servedShare": {
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+   },
+   "waitP50Min": {
+    "mean": 4.2389,
+    "min": 4.0667,
+    "max": 4.4333
+   },
+   "waitP90Min": {
+    "mean": 9.9445,
+    "min": 9.4667,
+    "max": 10.2
+   },
+   "waitOver10MinShare": {
+    "mean": 0.1022,
+    "min": 0.0795,
+    "max": 0.1136
+   },
+   "emptyShare": {
+    "mean": 0.4774,
+    "min": 0.4758,
+    "max": 0.4792
+   },
+   "cabTotalKm": {
+    "mean": 350.2033,
+    "min": 349.05,
+    "max": 351.05
+   },
+   "kwh": {
+    "mean": 35.8967,
+    "min": 35.78,
+    "max": 35.98
+   },
+   "rideKmP50": {
+    "mean": 1.9046,
+    "min": 1.9045,
+    "max": 1.9046
+   },
+   "rideP50Min": {
+    "mean": 4.2445,
+    "min": 4.1667,
+    "max": 4.35
+   }
+  },
+  {
+   "fleet": 12,
+   "requests": 88,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 88.0,
+    "min": 88,
+    "max": 88
+   },
+   "servedShare": {
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+   },
+   "waitP50Min": {
+    "mean": 3.3333,
+    "min": 3.3167,
+    "max": 3.35
+   },
+   "waitP90Min": {
+    "mean": 9.3,
+    "min": 9.2333,
+    "max": 9.4167
+   },
+   "waitOver10MinShare": {
+    "mean": 0.0871,
+    "min": 0.0795,
+    "max": 0.0909
+   },
+   "emptyShare": {
+    "mean": 0.4656,
+    "min": 0.4639,
+    "max": 0.4668
+   },
+   "cabTotalKm": {
+    "mean": 342.4233,
+    "min": 341.31,
+    "max": 343.2
+   },
+   "kwh": {
+    "mean": 35.0967,
+    "min": 34.98,
+    "max": 35.18
+   },
+   "rideKmP50": {
+    "mean": 1.9046,
+    "min": 1.9045,
+    "max": 1.9046
+   },
+   "rideP50Min": {
+    "mean": 4.3333,
+    "min": 4.2833,
+    "max": 4.3667
+   }
+  }
+ ]
+}

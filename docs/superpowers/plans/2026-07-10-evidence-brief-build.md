@@ -180,3 +180,22 @@ with a 1-2 minute budget. Format red-team → the front door became a
   hidden-window Chrome extension for verification
 
 Attention ladder: 25 s (tour) → 90 s (one-pager) → 8 min (#deep) → print.
+
+## Wave 5-7 record (2026-07-10 late evening)
+
+- Wave 5: measured full days replaced the payback extrapolation.
+  run_full_day.py (04:00-28:00, 1,828 SCC-filtered requests). First run
+  decayed to zero throughput by 14:00 — cab attrition in weakly-connected
+  pockets; fixed with SCC-filtered demand + an every-hour-has-service
+  regression test. Also: replay seed pool, per-district traffic assets,
+  run counts audited to 68.
+- Wave 6: the operator's-dial frontier — six measured days (fleets
+  12/16/20/24/30/40): waits 92.7->3.5 min vs payback 39->139 days, elbow
+  ~20-24 cabs. Connected-scatter chart in Finding 03 (day-frontier.json).
+- Wave 7: charging-reality audit — fleet 12 drives 513 km/cab/day vs
+  ~471 km per 48 kWh charge; the frontier's lean end is optimistic
+  without charging stops (>=24 cabs fits one charge). Caveats corrected
+  in artifacts, chart caption, script template, README. Second-seed day
+  runs (16, 30 @ seed 17) queued for variance.
+
+Total recorded runs at this point: 68 (+2 variance runs pending).

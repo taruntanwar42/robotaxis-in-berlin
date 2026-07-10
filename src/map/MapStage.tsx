@@ -204,6 +204,13 @@ export function MapStage({ report, section }: { report: ReportData; section: str
   // camera per section
   useEffect(() => {
     applySection(section, true);
+    // arriving at the experiment starts the show once
+    if (section === "experiment") {
+      const s = replayStore.get();
+      if (!s.playing && s.timeSec <= report.replay.meta.startSec + 1) {
+        replayStore.set({ playing: true });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
@@ -256,5 +263,10 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     return () => cancelAnimationFrame(raf);
   }, [report]);
 
-  return <div ref={container} className="map-stage" aria-hidden="true" />;
+  // outer div holds the fixed positioning; maplibre owns the inner one
+  return (
+    <div className="map-stage" aria-hidden="true">
+      <div ref={container} style={{ position: "absolute", inset: 0 }} />
+    </div>
+  );
 }

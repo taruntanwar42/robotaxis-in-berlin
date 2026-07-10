@@ -182,6 +182,242 @@
     "min": 4.8833,
     "max": 5.5833
    }
+  },
+  {
+   "fleet": 12,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 114.6667,
+    "min": 110,
+    "max": 119
+   },
+   "servedShare": {
+    "mean": 0.9173,
+    "min": 0.88,
+    "max": 0.952
+   },
+   "waitP50Min": {
+    "mean": 14.7444,
+    "min": 14.5667,
+    "max": 15.05
+   },
+   "waitP90Min": {
+    "mean": 62.3611,
+    "min": 59.7833,
+    "max": 66.2167
+   },
+   "waitOver10MinShare": {
+    "mean": 0.6432,
+    "min": 0.6174,
+    "max": 0.6818
+   },
+   "emptyShare": {
+    "mean": 0.368,
+    "min": 0.3654,
+    "max": 0.3708
+   },
+   "cabTotalKm": {
+    "mean": 481.1667,
+    "min": 453.09,
+    "max": 500.46
+   },
+   "kwh": {
+    "mean": 49.32,
+    "min": 46.44,
+    "max": 51.3
+   },
+   "rideKmP50": {
+    "mean": 2.1737,
+    "min": 2.1064,
+    "max": 2.2816
+   },
+   "rideP50Min": {
+    "mean": 5.2611,
+    "min": 5.1333,
+    "max": 5.3333
+   }
+  },
+  {
+   "fleet": 16,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 122,
+    "min": 122,
+    "max": 122
+   },
+   "servedShare": {
+    "mean": 0.976,
+    "min": 0.976,
+    "max": 0.976
+   },
+   "waitP50Min": {
+    "mean": 8.75,
+    "min": 8.4,
+    "max": 9.0333
+   },
+   "waitP90Min": {
+    "mean": 38.0444,
+    "min": 36.4833,
+    "max": 39.2667
+   },
+   "waitOver10MinShare": {
+    "mean": 0.4399,
+    "min": 0.418,
+    "max": 0.459
+   },
+   "emptyShare": {
+    "mean": 0.3875,
+    "min": 0.3844,
+    "max": 0.3918
+   },
+   "cabTotalKm": {
+    "mean": 533.7333,
+    "min": 531.5,
+    "max": 537.16
+   },
+   "kwh": {
+    "mean": 54.71,
+    "min": 54.48,
+    "max": 55.06
+   },
+   "rideKmP50": {
+    "mean": 2.2836,
+    "min": 2.2816,
+    "max": 2.2875
+   },
+   "rideP50Min": {
+    "mean": 5.3778,
+    "min": 5.2667,
+    "max": 5.55
+   }
+  },
+  {
+   "fleet": 22,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 122,
+    "min": 122,
+    "max": 122
+   },
+   "servedShare": {
+    "mean": 0.976,
+    "min": 0.976,
+    "max": 0.976
+   },
+   "waitP50Min": {
+    "mean": 6.3056,
+    "min": 6.1167,
+    "max": 6.6167
+   },
+   "waitP90Min": {
+    "mean": 14.9611,
+    "min": 14.25,
+    "max": 16.0167
+   },
+   "waitOver10MinShare": {
+    "mean": 0.224,
+    "min": 0.2131,
+    "max": 0.2377
+   },
+   "emptyShare": {
+    "mean": 0.4236,
+    "min": 0.42,
+    "max": 0.4306
+   },
+   "cabTotalKm": {
+    "mean": 568.0667,
+    "min": 564.51,
+    "max": 574.67
+   },
+   "kwh": {
+    "mean": 58.2233,
+    "min": 57.86,
+    "max": 58.9
+   },
+   "rideKmP50": {
+    "mean": 2.2816,
+    "min": 2.2816,
+    "max": 2.2817
+   },
+   "rideP50Min": {
+    "mean": 5.3167,
+    "min": 5.2,
+    "max": 5.3833
+   }
+  },
+  {
+   "fleet": 30,
+   "requests": 125,
+   "seeds": [
+    7,
+    17,
+    27
+   ],
+   "served": {
+    "mean": 122,
+    "min": 122,
+    "max": 122
+   },
+   "servedShare": {
+    "mean": 0.976,
+    "min": 0.976,
+    "max": 0.976
+   },
+   "waitP50Min": {
+    "mean": 4.8833,
+    "min": 4.8333,
+    "max": 4.9167
+   },
+   "waitP90Min": {
+    "mean": 9.0667,
+    "min": 8.5333,
+    "max": 9.3833
+   },
+   "waitOver10MinShare": {
+    "mean": 0.0656,
+    "min": 0.0492,
+    "max": 0.082
+   },
+   "emptyShare": {
+    "mean": 0.4711,
+    "min": 0.4654,
+    "max": 0.4749
+   },
+   "cabTotalKm": {
+    "mean": 618.55,
+    "min": 612.02,
+    "max": 623.33
+   },
+   "kwh": {
+    "mean": 63.4,
+    "min": 62.73,
+    "max": 63.89
+   },
+   "rideKmP50": {
+    "mean": 2.2875,
+    "min": 2.2875,
+    "max": 2.2875
+   },
+   "rideP50Min": {
+    "mean": 5.3722,
+    "min": 5.3167,
+    "max": 5.4667
+   }
   }
  ]
 }

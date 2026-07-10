@@ -30,15 +30,17 @@ export function Section({
   title,
   children,
   panel = true,
+  stage = false,
 }: {
   id: string;
   eyebrow?: string;
   title?: string;
   children: ReactNode;
   panel?: boolean;
+  stage?: boolean;
 }) {
   return (
-    <section className="section" id={id}>
+    <section className={stage ? "section stage" : "section"} id={id}>
       <div className="section-inner">
         <div className={panel ? "panel" : undefined}>
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}

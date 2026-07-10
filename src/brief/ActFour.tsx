@@ -41,7 +41,7 @@ export function Catch({ report }: { report: ReportData }) {
           <h3>Story A — “only drivers switch”</h3>
           <p>
             The fleet drives {fmtInt(a.added)} km to replace {fmtInt(a.removed)}{" "}
-            km of private driving. Net:{" "}
+            km of private driving:{" "}
             <strong style={{ color: "var(--ink)" }}>
               +{fmtPct(a.netShare)} vehicle-km
             </strong>{" "}
@@ -53,9 +53,10 @@ export function Catch({ report }: { report: ReportData }) {
           <p>
             If adoption mirrors how this neighborhood actually moves, only{" "}
             {fmtPct(carShare)} of riders give up a car trip; the rest step out
-            of a bus, off a bike, off the sidewalk. Net:{" "}
+            of a bus, off a bike, off the sidewalk. Then{" "}
             <strong style={{ color: "var(--c-car)" }}>
-              +{fmtPct(b.netShare)} vehicle-km
+              every km of driving removed costs {(b.added / b.removed).toFixed(1)} km
+              of new traffic
             </strong>
             . Austin's experience suggests B is the realistic story.
           </p>
@@ -175,8 +176,8 @@ export function Verdict({ report }: { report: ReportData }) {
         <Stat value={fmtPct(row.emptyShare.mean)} label="empty km" />
         <Stat value={`${row.kwh.mean.toFixed(0)} kWh`} label="fleet energy" />
         <Stat
-          value={`${km.netShare >= 0 ? "+" : ""}${fmtPct(km.netShare)}`}
-          label="net vehicle-km"
+          value={`${(km.added / km.removed).toFixed(1)}×`}
+          label="km driven per car-km replaced"
         />
       </div>
       <p className="caption">

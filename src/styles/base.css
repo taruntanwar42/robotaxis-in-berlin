@@ -105,6 +105,27 @@ a:hover {
   max-width: var(--measure-wide);
 }
 
+/* stage sections keep the map watchable: content hugs the left edge */
+.section.stage {
+  justify-content: flex-start;
+}
+
+.section.stage .section-inner {
+  max-width: 27rem;
+  margin-left: clamp(0rem, 4vw, 5rem);
+}
+
+.section.stage .panel {
+  background: color-mix(in srgb, var(--dusk-900) 82%, transparent);
+  padding: clamp(1.3rem, 2.5vw, 2rem);
+}
+
+@media (max-width: 900px) {
+  .section.stage .section-inner {
+    margin-left: 0;
+  }
+}
+
 .panel {
   background: color-mix(in srgb, var(--dusk-900) 88%, transparent);
   backdrop-filter: blur(14px);

@@ -10,10 +10,10 @@ const SERIES: {
   dash?: string;
 }[] = [
   { key: "taxi", label: "Berlin taxi", color: "#2e9e8f" },
-  { key: "cybercab", label: "Cybercab (Austin tariff)", color: "#ba8c0c" },
-  { key: "bvgSingle", label: "BVG single ticket", color: "#0e90d2" },
-  { key: "carFull", label: "Own car, full cost", color: "#e04848" },
-  { key: "carMarginal", label: "Own car, fuel only", color: "#e04848", dash: "5 4" },
+  { key: "cybercab", label: "Cybercab", color: "#ba8c0c" },
+  { key: "bvgSingle", label: "BVG single", color: "#0e90d2" },
+  { key: "carFull", label: "Own car, full", color: "#e04848" },
+  { key: "carMarginal", label: "Own car, fuel", color: "#e04848", dash: "5 4" },
 ];
 
 export function FareCurves({ costs, demand }: { costs: CostsData; demand: DemandData }) {

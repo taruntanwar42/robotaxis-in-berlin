@@ -28,7 +28,8 @@ export const replayStore = {
   },
   tick(dtSec: number, endSec: number) {
     if (!state.playing) return;
-    const next = state.timeSec + dtSec * state.speed;
+    // browsers pause rAF in hidden tabs; don't let the backlog leap the clock
+    const next = state.timeSec + Math.min(dtSec, 0.1) * state.speed;
     if (next >= endSec) {
       state = { ...state, timeSec: endSec, playing: false };
     } else {

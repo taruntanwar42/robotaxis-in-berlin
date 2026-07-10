@@ -26,7 +26,7 @@ export default function App() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = useMemo(() => STATIONS.map((s) => s.id), []);
-  const active = useActiveSection(ids);
+  const active = useActiveSection(ids, report !== null);
 
   useEffect(() => {
     loadReport().then(setReport).catch((e: Error) => setError(e.message));

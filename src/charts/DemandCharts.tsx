@@ -24,7 +24,7 @@ export function ModeSplitBars({ demand }: { demand: DemandData }) {
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Mode split of daily trips">
         {rows.map((r, i) => {
           const y = i * rowH + 4;
-          const w = Math.max(4, (r.share / max) * (W - labelW - 120));
+          const w = Math.max(4, (r.share / max) * (W - labelW - 165));
           return (
             <g key={r.mode}>
               <text x={labelW - 10} y={y + 17} textAnchor="end" className="tick-label" fill="#98a4ba">

@@ -69,24 +69,22 @@ export function Experiment({ report }: { report: ReportData }) {
       id="experiment"
       eyebrow="The experiment"
       title="One evening, rerun with a fleet"
+      stage
     >
       <div className="prose">
         <p>
-          We rebuilt the corridor inside{" "}
-          <a href="https://eclipse.dev/sumo/">SUMO</a>, a microscopic traffic
-          simulator: every street, every signal, and the evening's background
-          traffic calibrated from the{" "}
-          <a href="https://github.com/mosaic-addons/best-scenario">BeST Berlin scenario</a>.
-          Then we asked every private-car trip of the 18:00 hour to hail a
-          Cybercab instead, and let SUMO's own taxi dispatcher serve them with{" "}
-          <strong>{replay.meta.fleet} cabs</strong>.{" "}
+          The corridor, rebuilt inside <a href="https://eclipse.dev/sumo/">SUMO</a>:
+          every street, every signal, the evening's traffic from the{" "}
+          <a href="https://github.com/mosaic-addons/best-scenario">BeST scenario</a>.
+          Every private-car trip of the 18:00 hour hails a Cybercab instead;{" "}
+          <strong>{replay.meta.fleet} cabs</strong> serve them.{" "}
           <Chip href="#methods" sim>
             method
           </Chip>
         </p>
-        <p>
-          This is a recording of that run — gold dots are cabs (bright when
-          carrying someone), white rings are people waiting.
+        <p className="caption">
+          gold dots: cabs (bright = carrying someone) · white rings: people
+          waiting
         </p>
       </div>
       <div className="control-row" role="group" aria-label="Replay controls">
@@ -128,8 +126,8 @@ export function Experiment({ report }: { report: ReportData }) {
         <Stat value={`${fmtInt(served)} / ${fmtInt(replay.riders.length)}`} label="served" />
       </div>
       <p className="caption" style={{ marginTop: "1rem" }}>
-        Recorded from one full SUMO run (fleet {replay.meta.fleet}, traffic seed{" "}
-        {replay.meta.sumoSeed}); the parameter sweep below covers fleets of 4 to 30.
+        One full SUMO run, recorded (fleet {replay.meta.fleet}, seed{" "}
+        {replay.meta.sumoSeed}); the sweep below covers fleets of 4-30.
       </p>
     </Section>
   );

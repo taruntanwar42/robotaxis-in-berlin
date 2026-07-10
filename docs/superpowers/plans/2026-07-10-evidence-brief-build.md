@@ -161,3 +161,22 @@ All 14 tasks done; deployed at commit `9ae750b`
 - Not done: 3D GLB hero (cut deliberately), fresh og.png (needs a visible
   browser window), mobile visual QA (CSS is responsive by construction;
   verify when a visible window is available).
+
+## Wave 3-4 record (2026-07-10 evening, post-pivot)
+
+Audience clarified by the maintainer: a Tesla duales-Studium recruiter
+with a 1-2 minute budget. Format red-team → the front door became a
+90-second one-pager; the long brief moved behind `#deep`. Shipped on top:
+
+- 25-sec auto-tour (six scripted beats over the live sim, EN/DE captions)
+- Full German mode (auto-detect + toggle, persisted)
+- Print-to-PDF stylesheet (white A4, URLs expanded)
+- District toggle on the hero: Moabit (125 req/1h, traffic layer) vs
+  Reinickendorf (88 req/3h, 6 cabs, 100% served, 5.4 min median) —
+  second replay trace via `--trace` on run_reinickendorf_sweep.py;
+  MapStage refactored to a Scene prop (area/replay/origins/traffic)
+- Preload hints + aria-live on tour captions / labeled HUD
+- Headless Playwright QA loop (swiftshader flags) replaced the
+  hidden-window Chrome extension for verification
+
+Attention ladder: 25 s (tour) → 90 s (one-pager) → 8 min (#deep) → print.

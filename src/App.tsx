@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OnePager } from "./onepager/OnePager";
 import { loadReport, type ReportData } from "./lib/data";
 import { useActiveSection } from "./lib/scroll";
 import { LineRail } from "./ui/primitives";
@@ -25,11 +26,26 @@ const STATIONS = [
   { id: "methods", name: "Methode" },
 ];
 
+function useDeepMode(): boolean {
+  const [deep, setDeep] = useState(() => window.location.hash === "#deep");
+  useEffect(() => {
+    const onHash = () => {
+      const isDeep = window.location.hash === "#deep";
+      setDeep(isDeep);
+      if (isDeep) window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  return deep;
+}
+
 export default function App() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const deep = useDeepMode();
   const ids = useMemo(() => STATIONS.map((s) => s.id), []);
-  const active = useActiveSection(ids, report !== null);
+  const active = useActiveSection(ids, report !== null && deep);
 
   useEffect(() => {
     loadReport().then(setReport).catch((e: Error) => setError(e.message));
@@ -57,10 +73,27 @@ export default function App() {
     );
   }
 
+  if (!deep) {
+    return (
+      <>
+        <MapStage report={report} section="experiment" />
+        <OnePager report={report} />
+      </>
+    );
+  }
+
   return (
     <>
       <MapStage report={report} section={active} />
       <LineRail stations={STATIONS} active={active} />
+      <a
+        className="op-chip link"
+        href="#"
+        onClick={() => window.scrollTo(0, 0)}
+        style={{ position: "fixed", top: "1rem", right: "1rem", zIndex: 30, textDecoration: "none" }}
+      >
+        ← 1-minute version
+      </a>
       <main className="brief">
         <Hero />
         <Place report={report} />

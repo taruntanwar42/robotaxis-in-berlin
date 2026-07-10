@@ -480,3 +480,225 @@ table.data td.best {
   color: var(--gold);
   font-weight: 600;
 }
+
+/* ---------- one-pager (default view) ---------- */
+
+.op {
+  position: relative;
+  z-index: 1;
+}
+
+.op-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1rem, 4vw, 3rem);
+  pointer-events: none;
+}
+
+.op-hero-card {
+  max-width: 34rem;
+  pointer-events: auto;
+}
+
+.op-hero h1 {
+  font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.op-lede {
+  color: var(--ink-dim);
+  font-size: clamp(0.95rem, 1.6vw, 1.08rem);
+  max-width: 30rem;
+  margin-top: 0.9rem;
+}
+
+.op-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.op-chip {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.4em 0.8em;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  background: color-mix(in srgb, var(--dusk-900) 75%, transparent);
+}
+
+.op-chip.link {
+  color: var(--gold);
+  border-color: var(--gold);
+  text-decoration: none;
+}
+
+.op-hud {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--dusk-900) 82%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  width: fit-content;
+  font-family: var(--font-mono);
+}
+
+.op-hud-clock {
+  color: var(--gold);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.op-hud-stat {
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
+.op-hud-stat b {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.op-body {
+  background: linear-gradient(180deg, transparent, var(--dusk-950) 6rem);
+  padding: 4rem clamp(1rem, 5vw, 4rem) 2.5rem;
+}
+
+.op-ansatz {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.op-step {
+  border-top: 2px solid var(--gold);
+  padding-top: 0.7rem;
+}
+
+.op-step-n {
+  font-family: var(--font-mono);
+  color: var(--gold);
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+}
+
+.op-step b {
+  font-size: 0.95rem;
+}
+
+.op-step p {
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  margin: 0.3rem 0 0;
+  line-height: 1.5;
+}
+
+.op-h2 {
+  max-width: 72rem;
+  margin: 3rem auto 1.2rem;
+  font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+}
+
+.op-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.op-card {
+  background: var(--dusk-800);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--c-bike);
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+}
+
+.op-card.warn {
+  border-left-color: var(--c-car);
+}
+
+.op-card.gold {
+  border-left-color: var(--gold);
+}
+
+.op-card b {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.op-card p {
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+  margin: 0.4rem 0 0;
+  line-height: 1.5;
+}
+
+.op-explorer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  max-width: 72rem;
+  margin: 2rem auto 0;
+  background: var(--dusk-800);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.2rem;
+  font-family: var(--font-mono);
+}
+
+.op-explorer input {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.op-exp-val {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.op-exp-stat {
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.op-footer {
+  max-width: 72rem;
+  margin: 3rem auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--line);
+  padding-top: 1.2rem;
+}
+
+.op-badges a {
+  color: var(--ink-dim);
+}
+
+@media (max-width: 700px) {
+  .op-hero {
+    justify-content: flex-end;
+    gap: 1rem;
+  }
+}

@@ -834,3 +834,12 @@ table.data td.best {
     display: none !important;
   }
 }
+
+/* live pickup ticker in the sim HUD */
+.op-ticker {
+  flex-basis: 100%;
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  padding-top: 0.45rem;
+}

@@ -13,12 +13,39 @@ function useReplay() {
 
 import type { ReplayData } from "../lib/data";
 
+const FARE_BASE_EUR = 3.0 * 0.92;
+const FARE_PER_KM_EUR = (1.4 / 1.60934) * 0.92;
+
+function haversineKm(a: [number, number], b: [number, number]): number {
+  const R = 6371;
+  const dLat = ((b[1] - a[1]) * Math.PI) / 180;
+  const dLon = ((b[0] - a[0]) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a[1] * Math.PI) / 180) * Math.cos((b[1] * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
   const { timeSec, playing, follow } = useReplay();
   const served = replay.riders.filter((r) => r.dropoffSec !== null && timeSec >= r.dropoffSec).length;
   const waiting = replay.riders.filter(
     (r) => timeSec >= r.departSec && (r.pickupSec === null || timeSec < r.pickupSec),
   ).length;
+  // latest pickup: the sim narrating itself (straight-line km -> fare floor)
+  const latest = replay.riders
+    .filter((r) => r.pickupSec !== null && r.pickupSec <= timeSec && timeSec < (r.dropoffSec ?? Infinity) + 90)
+    .sort((a, b) => b.pickupSec! - a.pickupSec!)[0];
+  const ticker = latest
+    ? (() => {
+        const waitMin = Math.max(0, Math.round((latest.pickupSec! - latest.departSec) / 60));
+        const km = haversineKm(latest.o, latest.d);
+        const fare = FARE_BASE_EUR + FARE_PER_KM_EUR * km;
+        return lang === "de"
+          ? `${fmtClock(latest.pickupSec!)} · abgeholt nach ${waitMin} Min · ~${km.toFixed(1)} km · ~€${fare.toFixed(2)}`
+          : `${fmtClock(latest.pickupSec!)} · picked up after ${waitMin} min · ~${km.toFixed(1)} km · ~€${fare.toFixed(2)}`;
+      })()
+    : null;
   return (
     <div className="op-hud" role="group" aria-label="Simulation status">
       <span className="op-hud-clock">{fmtClock(timeSec)}</span>
@@ -43,6 +70,11 @@ function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
       <button className="btn" aria-pressed={follow} onClick={() => replayStore.set({ follow: !follow, playing: true })}>
         {follow ? S.overview[lang] : S.ride[lang]}
       </button>
+      {ticker && (
+        <span className="op-ticker" role="status">
+          {ticker}
+        </span>
+      )}
     </div>
   );
 }
@@ -228,8 +260,8 @@ export function OnePager({ report }: { report: ReportData }) {
             <p>
               {report.dayMeasured
                 ? lang === "de"
-                  ? `bis sich ein 30.000-$-Cab amortisiert — ein komplett simulierter Tag, Flotte ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.served} Fahrten, ${report.dayMeasured.waitP50Min} Min. Wartezeit (Annahmen publiziert)`
-                  : `for a $30k cab to pay for itself — one fully simulated day, fleet ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.served} rides at ${report.dayMeasured.waitP50Min} min waits (assumptions published)`
+                  ? `bis sich ein 30.000-$-Cab amortisiert — ein komplett simulierter Tag, Flotte ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.waitP50Min} Min. Wartezeit. Kleinere Flotte: halbe Zeit — auf Kosten der Fahrgäste`
+                  : `for a $30k cab to pay for itself — a fully simulated day, fleet ${report.dayMeasured.meta.fleet}: ${report.dayMeasured.waitP50Min} min waits. Run leaner and payback halves — at the riders’ expense`
                 : lang === "de"
                   ? "bis sich ein 30.000-$-Cab zu Austin-Tarifen amortisiert — Energie ist ~3% des Umsatzes (Schätzung, Annahmen publiziert)"
                   : "for a $30k cab to pay for itself at Austin fares — energy is ~3% of revenue (estimate, assumptions published)"}

@@ -26,7 +26,7 @@ export function DayFrontierChart({ frontier }: { frontier: DayFrontier }) {
       caption="Down-left is better for riders and slower for the operator. The elbow is where an extra cab stops buying meaningful wait time."
     >
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Median wait versus payback days by fleet size">
-        {[0, 10, 20, 30].filter((t) => t <= maxY).map((t) => (
+        {[0, 15, 30, 60, 90].filter((t) => t <= maxY).map((t) => (
           <g key={`y${t}`}>
             <line x1={padL} x2={W - padR} y1={yOf(t)} y2={yOf(t)} className="gridline" />
             <text x={padL - 6} y={yOf(t) + 4} textAnchor="end" className="tick-label">

@@ -52,7 +52,7 @@ function useReplay() {
 
 export function Experiment({ report }: { report: ReportData }) {
   const { replay } = report;
-  const { timeSec, playing, speed } = useReplay();
+  const { timeSec, playing, speed, follow } = useReplay();
   const { startSec } = replay.meta;
   const endSec = replay.meta.endSec;
 
@@ -107,6 +107,13 @@ export function Experiment({ report }: { report: ReportData }) {
             {s / 60}×min/s
           </button>
         ))}
+        <button
+          className="btn"
+          aria-pressed={follow}
+          onClick={() => replayStore.set({ follow: !follow, playing: true })}
+        >
+          {follow ? "Overview" : "Ride along"}
+        </button>
         <input
           type="range"
           min={startSec}

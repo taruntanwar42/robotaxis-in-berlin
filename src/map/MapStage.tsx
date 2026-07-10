@@ -210,6 +210,8 @@ export function MapStage({ report, section }: { report: ReportData; section: str
       if (!s.playing && s.timeSec <= report.replay.meta.startSec + 1) {
         replayStore.set({ playing: true });
       }
+    } else if (replayStore.get().follow) {
+      replayStore.set({ follow: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
@@ -218,12 +220,14 @@ export function MapStage({ report, section }: { report: ReportData; section: str
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    let followTarget: string | null = null;
+    let wasFollowing = false;
     const { replay } = report;
     const endSec = replay.meta.endSec;
 
     const paint = () => {
       const map = mapRef.current;
-      const { timeSec } = replayStore.get();
+      const { timeSec, follow } = replayStore.get();
       if (map && readyRef.current && (CAMERAS[sectionRef.current] ?? CAMERAS.hero).showReplay) {
         const cabFeatures = replay.cabs.flatMap((cab) => {
           const p = cabAt(cab.path, timeSec);
@@ -253,6 +257,36 @@ export function MapStage({ report, section }: { report: ReportData; section: str
           type: "FeatureCollection",
           features: riderFeatures,
         });
+
+        // street-level ride-along: stay with a cab while it has a passenger,
+        // hand off to the next working cab when it goes idle
+        if (follow && sectionRef.current === "experiment") {
+          const positions = new Map(
+            cabFeatures.map((f) => [
+              String(f.properties.id),
+              { lonlat: f.geometry.coordinates as [number, number], state: String(f.properties.state) },
+            ]),
+          );
+          const current = followTarget ? positions.get(followTarget) : undefined;
+          if (!current || (current.state === "idle" && [...positions.values()].some((p) => p.state !== "idle"))) {
+            const next =
+              [...positions.entries()].find(([, p]) => p.state === "occupied") ??
+              [...positions.entries()].find(([, p]) => p.state !== "idle") ??
+              [...positions.entries()][0];
+            followTarget = next ? next[0] : null;
+          }
+          const target = followTarget ? positions.get(followTarget) : undefined;
+          if (target) {
+            map.jumpTo({ center: target.lonlat, zoom: 15.6, pitch: 55, bearing: -14 });
+          }
+          wasFollowing = true;
+        } else {
+          followTarget = null;
+          if (wasFollowing) {
+            wasFollowing = false;
+            applySection(sectionRef.current, true);
+          }
+        }
       }
       const now = performance.now();
       replayStore.tick((now - last) / 1000, endSec);

@@ -5,11 +5,12 @@ export interface ReplayState {
   timeSec: number;
   playing: boolean;
   speed: number; // sim seconds per wall second
+  follow: boolean; // street-level camera riding with a working cab
 }
 
 type Listener = () => void;
 
-let state: ReplayState = { timeSec: 64_800, playing: false, speed: 60 };
+let state: ReplayState = { timeSec: 64_800, playing: false, speed: 60, follow: false };
 const listeners = new Set<Listener>();
 
 function emit() {

@@ -325,7 +325,7 @@ export function OnePager({ report }: { report: ReportData }) {
         <footer className="op-footer">
           <span>{S.footer1[lang]}</span>
           <span className="op-badges">
-            MATSim Open Berlin · BeST scenario (CC-BY) · SUMO 1.27 · 68 recorded runs ·{" "}
+            MATSim Open Berlin · BeST scenario (CC-BY) · SUMO 1.27 · 78 recorded runs ·{" "}
             <a href="https://github.com/taruntanwar42/robotaxis-in-berlin">GitHub</a> ·{" "}
             <a href="#deep">{S.fullBriefLink[lang]}</a> ·{" "}
             <a

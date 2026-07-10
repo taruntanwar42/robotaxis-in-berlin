@@ -8,8 +8,8 @@ export const S = {
   titlePre: { en: "If Cybercabs came to", de: "Wenn Cybercabs nach" },
   titleCity: { en: "Moabit", de: "Moabit kämen" },
   lede: {
-    en: "One Berlin neighborhood, rebuilt in a traffic simulator and handed a Tesla Cybercab fleet. Live behind this text: one full SUMO evening — gold cabs, white rings waiting, grey dots real traffic.",
-    de: "Ein Berliner Kiez, im Verkehrssimulator nachgebaut und mit einer Tesla-Cybercab-Flotte ausgestattet. Hinter diesem Text läuft ein kompletter SUMO-Abend — goldene Cabs, weiße Ringe warten, graue Punkte echter Verkehr.",
+    en: "One Berlin neighborhood, rebuilt in a traffic simulator and handed a Tesla Cybercab fleet. Live behind this text: one full SUMO evening — gold cabs, rings waiting (they glow red the longer they wait), grey dots real traffic.",
+    de: "Ein Berliner Kiez, im Verkehrssimulator nachgebaut und mit einer Tesla-Cybercab-Flotte ausgestattet. Hinter diesem Text läuft ein kompletter SUMO-Abend — goldene Cabs, wartende Ringe (je länger, desto röter), graue Punkte echter Verkehr.",
   },
   chipDemand: { en: "MATSim demand", de: "MATSim-Nachfrage" },
   chipSumo: { en: "SUMO microsimulation", de: "SUMO-Mikrosimulation" },

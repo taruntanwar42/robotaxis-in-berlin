@@ -178,10 +178,16 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
         type: "circle",
         source: "riders",
         paint: {
-          "circle-radius": 4,
+          "circle-radius": ["interpolate", ["linear"], ["get", "waitedMin"], 0, 3.5, 15, 5],
           "circle-color": "#0d1220",
-          "circle-stroke-color": "#e8ecf4",
-          "circle-stroke-width": 1.6,
+          // the ring heats up as the wait grows: white -> amber -> red
+          "circle-stroke-color": [
+            "interpolate", ["linear"], ["get", "waitedMin"],
+            0, "#e8ecf4",
+            6, "#f5c518",
+            12, "#e04848",
+          ] as unknown as DataDrivenPropertyValueSpecification<string>,
+          "circle-stroke-width": 1.8,
           "circle-opacity": 0.9,
         },
       });
@@ -291,14 +297,18 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
   const trafficRef = useRef<TrafficLayer | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch(`${import.meta.env.BASE_URL}data/report/traffic.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: TrafficLayer | null) => {
-        if (!cancelled) trafficRef.current = data;
-      })
-      .catch(() => undefined);
+    const load = () =>
+      fetch(`${import.meta.env.BASE_URL}data/report/traffic.json`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: TrafficLayer | null) => {
+          if (!cancelled) trafficRef.current = data;
+        })
+        .catch(() => undefined);
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const handle = idle ? idle(() => void load()) : window.setTimeout(() => void load(), 1500);
     return () => {
       cancelled = true;
+      if (!idle) window.clearTimeout(handle as number);
     };
   }, []);
 
@@ -334,7 +344,7 @@ export function MapStage({ scene, section }: { scene: Scene; section: string }) 
             ? [{
                 type: "Feature" as const,
                 geometry: { type: "Point" as const, coordinates: r.o },
-                properties: {},
+                properties: { waitedMin: (timeSec - r.departSec) / 60 },
               }]
             : [];
         });

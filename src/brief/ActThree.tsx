@@ -19,23 +19,27 @@ export function FindingService({ report }: { report: ReportData }) {
     <Section id="service" eyebrow="Finding 01 · Service" title="Waits are the price of a small fleet">
       <div className="prose">
         <p>
-          The corridor's evening hour generates{" "}
-          <strong>{fmtInt(rows[0].requests)} requests</strong> in the twin
-          (≈ {fmtInt(rows[0].requests * 100)} real). We reran the same evening
-          with seven fleet sizes and three traffic conditions each.{" "}
+          Of the hour's 452 trips, only the{" "}
+          <strong>{fmtInt(rows[0].requests)} made by car or as a car
+          passenger</strong> become Cybercab requests — walks, bikes and BVG
+          rides stay as they are (≈ {fmtInt(rows[0].requests * 100)} real
+          requests). We reran the same evening with seven fleet sizes and
+          three traffic conditions each.{" "}
           <Chip href="#methods" sim>
             21 SUMO runs
           </Chip>
         </p>
         <p>
-          A fleet of {smallest.fleet} drowns: median waits of{" "}
+          A fleet of {smallest.fleet} is overwhelmed: median waits of{" "}
           {Math.round(smallest.waitP50Min.mean)} minutes and{" "}
           {fmtPct(1 - smallest.servedShare.mean)} of riders never picked up. It
           takes <strong>{knee.fleet} cabs</strong> — one per{" "}
           {Math.round(knee.requests / knee.fleet)} requests — before waits reach{" "}
-          <strong>{Math.round(knee.waitP50Min.mean)} minutes</strong> and{" "}
-          {fmtPct(knee.servedShare.mean)} of the hour is served. That is the same
-          league as Tesla's real Austin service today.
+          <strong>{Math.round(knee.waitP50Min.mean)} minutes at the median</strong>{" "}
+          ({Math.round(knee.waitP90Min.mean)} at the 90th percentile) and{" "}
+          {fmtPct(knee.servedShare.mean)} of requests are served. That is the
+          same league as Tesla's real Austin service today — for better and
+          worse.
         </p>
       </div>
       <SweepChart sweep={report.sweep} />
@@ -58,13 +62,13 @@ export function FindingFare({ report }: { report: ReportData }) {
     <Section
       id="fare"
       eyebrow="Finding 02 · Price"
-      title="Cheaper than any taxi. Not cheaper than the U-Bahn."
+      title="Cheaper than any taxi. Past 1.6 km, the U-Bahn wins."
     >
       <div className="prose">
         <p>
           Apply Tesla's real Austin tariff to Berlin distances and the taxi
-          trade dies on this chart: a Cybercab undercuts the regulated Berlin
-          taxi at <strong>every distance</strong> — the typical{" "}
+          trade cannot compete anywhere on this chart: a Cybercab undercuts the
+          regulated Berlin taxi at <strong>every distance</strong> — the typical{" "}
           {demand.medianTripKm} km neighborhood trip costs{" "}
           <strong>{fmtEur(median.cybercabEur)}</strong> against the taxi's{" "}
           {fmtEur(median.taxiEur)}.{" "}
@@ -75,9 +79,12 @@ export function FindingFare({ report }: { report: ReportData }) {
         <p>
           But Berlin is not Austin. Past{" "}
           <strong>{costs.breakEvens.bvgCheaperThanCybercabFromKm} km</strong>, a
-          single BVG ticket is cheaper — and for the half of Berliners holding a
-          Deutschlandticket, every U-Bahn ride is already paid for. And a car
-          you already own costs almost nothing extra per trip.
+          single ticket on BVG — Berlin's transit network — is cheaper; and for
+          holders of the Deutschlandticket, the €58-a-month flat-rate transit
+          pass, every U-Bahn ride is already paid for. A car you already own
+          costs almost nothing extra per trip. One honest point for the
+          Cybercab: its fare covers the vehicle — two people ride for €
+          {median.cybercabEur.toFixed(2)} total, while BVG charges per person.
         </p>
       </div>
       <FareCurves costs={costs} demand={demand} />
@@ -96,7 +103,7 @@ export function FindingFare({ report }: { report: ReportData }) {
         </thead>
         <tbody>
           <tr>
-            <td className="best">{fmtEur(median.cybercabEur)}</td>
+            <td>{fmtEur(median.cybercabEur)}</td>
             <td>{fmtEur(median.taxiEur)}</td>
             <td>{fmtEur(median.bvgEur)}</td>
             <td>{fmtEur(median.carFullEur)}</td>

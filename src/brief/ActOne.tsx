@@ -53,8 +53,10 @@ export function Place({ report }: { report: ReportData }) {
           </a>
           : a synthetic population that is statistically faithful to how
           Berliners live and move, built by TU Berlin because real trip data is —
-          rightly — private. We work with its 1-in-100 sample and say so wherever
-          a number depends on it.{" "}
+          rightly — private. We work with its 1-in-100 sample — a{" "}
+          <strong>“1% twin”</strong> of the city: every count you see here
+          stands for about 100 real ones — and say so wherever a number
+          depends on it.{" "}
           <Chip href="https://github.com/matsim-scenarios/matsim-berlin">
             MATSim Berlin v6.4
           </Chip>
@@ -100,7 +102,7 @@ export function Today({ report }: { report: ReportData }) {
         <Stat value={scaled(total)} label="real trips / day" />
         <Stat value={fmtPct(carShare)} label="by private car" />
         <Stat value={`${demand.medianTripKm} km`} label="median trip" gold />
-        <Stat value={fmtInt(demand.persons.unique * 100)} label="people modeled" />
+        <Stat value={fmtInt(demand.persons.unique * 100)} label="people represented" />
       </div>
       <ModeSplitBars demand={demand} />
       <HourlyCurve demand={demand} />

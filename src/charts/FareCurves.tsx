@@ -43,8 +43,9 @@ export function FareCurves({ costs, demand }: { costs: CostsData; demand: Demand
       sub="one person, one trip, 2026 tariffs · lower is cheaper"
       caption={
         <>
-          Gold band: the middle half of this neighborhood's trips (median{" "}
-          {demand.medianTripKm} km). Deutschlandticket holders pay ~€0 marginal on BVG.
+          Gold band: the neighborhood's typical trip range around its{" "}
+          {demand.medianTripKm} km median. Deutschlandticket holders pay ~€0
+          marginal on BVG. Fares are per vehicle (2 seats); BVG is per person.
         </>
       }
     >

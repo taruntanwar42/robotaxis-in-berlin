@@ -55,10 +55,13 @@ export function Catch({ report }: { report: ReportData }) {
             {fmtPct(carShare)} of riders give up a car trip; the rest step out
             of a bus, off a bike, off the sidewalk. Then{" "}
             <strong style={{ color: "var(--c-car)" }}>
-              every km of driving removed costs {(b.added / b.removed).toFixed(1)} km
-              of new traffic
-            </strong>
-            . Austin's experience suggests B is the realistic story.
+              the fleet drives {(b.added / b.removed).toFixed(1)} km for every
+              1 km of private driving it removes
+            </strong>{" "}
+            — a net +{(b.added / b.removed - 1).toFixed(1)} km of traffic per
+            car-km replaced. Illustrative, not measured: the simulated trips
+            are car-length; walkers would ride shorter, BVG riders longer. We
+            treat B as the realistic story; A is the industry's own best case.
           </p>
         </div>
       </div>
@@ -77,8 +80,8 @@ export function Catch({ report }: { report: ReportData }) {
           </li>
           <li>
             <strong style={{ color: "var(--ink)" }}>BVG's fare box</strong> —
-            every won rider is revenue taken from the system that moves the
-            other 83%.
+            every won rider is revenue taken from the system that, together
+            with walking and cycling, moves 80% of this neighborhood's trips.
           </li>
           <li>
             <strong style={{ color: "var(--ink)" }}>Kerb chaos, night hours,
@@ -125,16 +128,18 @@ export function Verdict({ report }: { report: ReportData }) {
           <h3>Service is a numbers game</h3>
           <p>
             {knee.fleet} cabs (twin scale) serve {fmtPct(knee.servedShare.mean)}{" "}
-            of the evening hour at ~{Math.round(knee.waitP50Min.mean)} min median
-            wait — Austin-grade service, simulated on Berlin streets.
+            of requests at ~{Math.round(knee.waitP50Min.mean)} min median wait —
+            though one rider in ten still waits {Math.round(knee.waitP90Min.mean)}+
+            minutes. Austin-grade, for better and worse.
           </p>
         </div>
         <div className="verdict-card warn">
           <h3>Unaimed, it adds traffic</h3>
           <p>
-            Deadheading alone adds {fmtPct(netKm(knee, 1).netShare)} vehicle-km;
-            realistic adoption multiplies it. The win condition is replacing
-            car <em>ownership</em>, not bus rides.
+            Deadheading adds {fmtPct(netKm(knee, 1).netShare)} vehicle-km with
+            our baseline dispatcher (a smarter one deadheads less); realistic
+            adoption multiplies it. The win condition is replacing car{" "}
+            <em>ownership</em>, not bus rides.
           </p>
         </div>
       </div>
@@ -183,6 +188,8 @@ export function Verdict({ report }: { report: ReportData }) {
       <p className="caption">
         1% twin: multiply fleet and rider counts by 100 to picture the real
         corridor. Spread across 3 traffic seeds shown in the charts above.
+        Three of the 125 requests sit on kerbs the road-network cut cannot
+        reach — no fleet size serves them, which is why served tops out at 98%.
       </p>
     </Section>
   );
@@ -243,7 +250,7 @@ export function Methods({ report }: { report: ReportData }) {
           <tr>
             <td>Austin service reality</td>
             <td>10–15 min waits; 27% unavailable</td>
-            <td><a href="https://gvwire.com/2026/05/13/teslas-robotaxi-rollout-features-texas-sized-wait-times/">Reuters audit, Apr–May 2026</a></td>
+            <td><a href="https://gvwire.com/2026/05/13/teslas-robotaxi-rollout-features-texas-sized-wait-times/">Reuters audit, Apr 2026 (via GVWire)</a></td>
           </tr>
         </tbody>
       </table>
@@ -256,6 +263,12 @@ export function Methods({ report }: { report: ReportData }) {
             real fleets.
           </li>
           <li>
+            Two counting rules coexist: request extraction filters by departure
+            second and kerb reachability (125 requests), the demand table by
+            origin hour (120 evening car trips). We kept both pipelines as
+            built rather than quietly reconciling them.
+          </li>
+          <li>
             The MATSim attribute for car availability is uninformative in this
             plans file (every adult has one), so no claim here uses it.
           </li>
@@ -264,8 +277,8 @@ export function Methods({ report }: { report: ReportData }) {
             optimized commercial dispatcher. No pooling (Cybercab ships none).
           </li>
           <li>
-            One fair-weather Tuesday evening; no nights, no rain, no U-Bahn
-            strikes.
+            One fair-weather synthetic weekday evening; no nights, no rain, no
+            U-Bahn strikes.
           </li>
         </ul>
         <p className="caption" style={{ marginTop: "1.6rem" }}>
@@ -273,7 +286,9 @@ export function Methods({ report }: { report: ReportData }) {
           <a href="https://github.com/mosaic-addons/best-scenario">BeST scenario</a> (CC-BY 4.0 —
           Schrab et al. 2023) · Berlin ALKIS district boundaries ·{" "}
           <a href="https://github.com/taruntanwar42/robotaxis-in-berlin">code &amp; pipeline on GitHub</a>.
-          Simulated {fmtInt(report.demand.meta.personsRead)} synthetic Berliners. No cookies, no tracking.
+          Scanned {fmtInt(report.demand.meta.personsRead)} synthetic Berliners
+          in the MATSim plans; 2,926 live in the corridor; their 125 evening
+          car trips were simulated as requests. No cookies, no tracking.
         </p>
       </div>
     </Section>

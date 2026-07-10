@@ -36,7 +36,7 @@ export function Vehicle() {
             fares 03/2026
           </Chip>{" "}
           <Chip href="https://gvwire.com/2026/05/13/teslas-robotaxi-rollout-features-texas-sized-wait-times/">
-            Reuters audit
+            Reuters audit, Apr 2026 (via GVWire)
           </Chip>
         </p>
         <p>

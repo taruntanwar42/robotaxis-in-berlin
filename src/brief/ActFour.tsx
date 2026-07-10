@@ -69,9 +69,14 @@ export function Catch({ report }: { report: ReportData }) {
         <p>What the simulation cannot see, listed rather than hidden:</p>
         <ul style={{ color: "var(--ink-dim)", lineHeight: 1.8 }}>
           <li>
-            <strong style={{ color: "var(--ink)" }}>Two seats</strong> — no
-            families, no groups, no pooling in this analysis. Pooling could cut
-            the deadhead penalty; Tesla hasn't shipped it.
+            <strong style={{ color: "var(--ink)" }}>Two seats — and we tested
+            pooling</strong>: rerunning the whole sweep with SUMO's shared
+            dispatch matched ~30% of riders into pairs, yet saved at most ~5%
+            of fleet-km, and only with cabs to spare. Two-kilometre trips
+            barely overlap; pooling does not rescue the numbers above.{" "}
+            <Chip href="#methods" sim>
+              21 pooled runs
+            </Chip>
           </li>
           <li>
             <strong style={{ color: "var(--ink)" }}>Induced demand</strong> — a
@@ -274,7 +279,11 @@ export function Methods({ report }: { report: ReportData }) {
           </li>
           <li>
             Dispatch is SUMO's greedyClosest — a competent baseline, not an
-            optimized commercial dispatcher. No pooling (Cybercab ships none).
+            optimized commercial dispatcher. A parallel 21-run pooled sweep
+            (greedyShared, published as sweep-pooled.json) paired ~30% of
+            riders but saved ≤5% fleet-km; note SUMO couples shared dispatch
+            to FIFO assignment, so its worse waits confound the comparison —
+            we cite only the km result, which is robust.
           </li>
           <li>
             One fair-weather synthetic weekday evening; no nights, no rain, no

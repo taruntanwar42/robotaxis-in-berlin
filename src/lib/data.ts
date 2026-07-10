@@ -152,6 +152,8 @@ export interface ReportData {
   /** Second-district comparison; null until its pipeline has run. */
   sweepReinickendorf: SweepData | null;
   reinickendorfDemand: ReinickendorfDemand | null;
+  replayReinickendorf: ReplayData | null;
+  reinickendorfArea: FeatureCollection | null;
 }
 
 const base = import.meta.env.BASE_URL;
@@ -171,7 +173,7 @@ async function getOptional<T>(path: string): Promise<T | null> {
 }
 
 export async function loadReport(): Promise<ReportData> {
-  const [demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand] =
+  const [demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea] =
     await Promise.all([
       get<DemandData>("data/report/demand.json"),
       get<CostsData>("data/report/costs.json"),
@@ -181,8 +183,10 @@ export async function loadReport(): Promise<ReportData> {
       get<FeatureCollection>("data/service-area.geojson"),
       getOptional<SweepData>("data/report/sweep-reinickendorf.json"),
       getOptional<ReinickendorfDemand>("data/report/reinickendorf-demand.json"),
+      getOptional<ReplayData>("data/report/replay-reinickendorf.json"),
+      getOptional<FeatureCollection>("data/reinickendorf-area.geojson"),
     ]);
-  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand };
+  return { demand, costs, sweep, replay, economics, serviceArea, sweepReinickendorf, reinickendorfDemand, replayReinickendorf, reinickendorfArea };
 }
 
 export const MODE_COLOR: Record<string, string> = {

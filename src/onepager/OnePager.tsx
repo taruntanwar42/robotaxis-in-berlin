@@ -5,14 +5,16 @@ import { replayStore } from "../map/replayStore";
 import { storyFleet } from "../brief/ActThree";
 import { applyBeat, buildTour } from "./tour";
 import { S, type Lang } from "./strings";
+import { MapStage, type Scene } from "../map/MapStage";
 
 function useReplay() {
   return useSyncExternalStore(replayStore.subscribe, replayStore.get);
 }
 
-function SimHud({ report, lang }: { report: ReportData; lang: Lang }) {
+import type { ReplayData } from "../lib/data";
+
+function SimHud({ replay, lang }: { replay: ReplayData; lang: Lang }) {
   const { timeSec, playing, follow } = useReplay();
-  const { replay } = report;
   const served = replay.riders.filter((r) => r.dropoffSec !== null && timeSec >= r.dropoffSec).length;
   const waiting = replay.riders.filter(
     (r) => timeSec >= r.departSec && (r.pickupSec === null || timeSec < r.pickupSec),
@@ -45,7 +47,23 @@ function SimHud({ report, lang }: { report: ReportData; lang: Lang }) {
   );
 }
 
+type District = "moabit" | "reinickendorf";
+
 export function OnePager({ report }: { report: ReportData }) {
+  const [district, setDistrict] = useState<District>("moabit");
+  const hasRdf = report.replayReinickendorf !== null && report.reinickendorfArea !== null;
+  const scene: Scene =
+    district === "reinickendorf" && hasRdf
+      ? {
+          area: report.reinickendorfArea!,
+          replay: report.replayReinickendorf!,
+          showTraffic: false,
+        }
+      : {
+          area: report.serviceArea,
+          replay: report.replay,
+          showTraffic: true,
+        };
   const [lang, setLang] = useState<Lang>(() =>
     (localStorage.getItem("op-lang") as Lang) ??
     (navigator.language.startsWith("de") ? "de" : "en"),
@@ -87,6 +105,7 @@ export function OnePager({ report }: { report: ReportData }) {
   };
 
   const startTour = () => {
+    setDistrict("moabit"); // the tour is scripted over the corridor evening
     replayStore.set({ timeSec: report.replay.meta.startSec + 240, playing: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
     runBeat(0);
@@ -96,6 +115,7 @@ export function OnePager({ report }: { report: ReportData }) {
 
   return (
     <div className="op">
+      <MapStage scene={scene} section="experiment" />
       <section className="op-hero">
         <div className="op-hero-card">
           <p className="eyebrow">{S.eyebrow[lang]}</p>
@@ -123,6 +143,43 @@ export function OnePager({ report }: { report: ReportData }) {
             </button>
           </div>
         </div>
+        {hasRdf && (
+          <div className="op-district" role="tablist" aria-label="District">
+            <button
+              className="btn"
+              role="tab"
+              aria-selected={district === "moabit"}
+              aria-pressed={district === "moabit"}
+              onClick={() => {
+                stopTour();
+                setDistrict("moabit");
+              }}
+            >
+              Moabit
+            </button>
+            <button
+              className="btn"
+              role="tab"
+              aria-selected={district === "reinickendorf"}
+              aria-pressed={district === "reinickendorf"}
+              onClick={() => {
+                stopTour();
+                setDistrict("reinickendorf");
+              }}
+            >
+              Reinickendorf
+            </button>
+            <span className="caption">
+              {district === "reinickendorf"
+                ? lang === "de"
+                  ? "Außenbezirk · 88 Fahrten 18–21 Uhr · 6 Cabs · 100% bedient"
+                  : "outer district · 88 trips 6–9 pm · 6 cabs · 100% served"
+                : lang === "de"
+                  ? "Innenstadt-Korridor · 125 Fahrten 18–19 Uhr · 16 Cabs"
+                  : "inner corridor · 125 trips 6–7 pm · 16 cabs"}
+            </span>
+          </div>
+        )}
         {tourStep >= 0 && (
           <div className="op-tour-caption" key={tourStep}>
             <span className="op-tour-n">
@@ -131,7 +188,7 @@ export function OnePager({ report }: { report: ReportData }) {
             {beats.current[tourStep][lang]}
           </div>
         )}
-        <SimHud report={report} lang={lang} />
+        <SimHud replay={scene.replay} lang={lang} />
       </section>
 
       <section className="op-body">

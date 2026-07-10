@@ -3,8 +3,16 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FeatureCollection, Polygon } from "geojson";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
-import type { ReportData } from "../lib/data";
+import type { ReplayData } from "../lib/data";
 import { MODE_HEX } from "../lib/data";
+
+/** Everything the stage needs to show one district's evening. */
+export interface Scene {
+  area: FeatureCollection;
+  replay: ReplayData;
+  origins?: [number, number, string][];
+  showTraffic: boolean;
+}
 import { replayStore } from "./replayStore";
 
 type CameraSpec = {
@@ -86,12 +94,14 @@ function trackAt(path: [number, number, number][], t: number): [number, number] 
   return [a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 }
 
-export function MapStage({ report, section }: { report: ReportData; section: string }) {
+export function MapStage({ scene, section }: { scene: Scene; section: string }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
   const sectionRef = useRef(section);
   sectionRef.current = section;
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
 
   // create once
   useEffect(() => {
@@ -111,7 +121,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     map.on("load", () => {
       // debug handle for headless QA probes; harmless in production
       (window as unknown as Record<string, unknown>).__map = map;
-      map.addSource("service-area", { type: "geojson", data: report.serviceArea });
+      map.addSource("service-area", { type: "geojson", data: sceneRef.current.area });
       map.addLayer({
         id: "area-fill",
         type: "fill",
@@ -127,7 +137,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
 
       const originsFC: FeatureCollection = {
         type: "FeatureCollection",
-        features: report.demand.evening.origins.map(([lon, lat, mode]) => ({
+        features: (sceneRef.current.origins ?? []).map(([lon, lat, mode]) => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [lon, lat] },
           properties: { mode },
@@ -216,7 +226,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
     const cam = CAMERAS[id] ?? CAMERAS.hero;
-    const bounds = inflate(bboxOf(report.serviceArea), cam.padFactor);
+    const bounds = inflate(bboxOf(sceneRef.current.area), cam.padFactor);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     map.fitBounds(bounds, {
       pitch: cam.pitch,
@@ -244,7 +254,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     // arriving at the experiment starts the show once
     if (section === "experiment") {
       const s = replayStore.get();
-      if (!s.playing && s.timeSec <= report.replay.meta.startSec + 1) {
+      if (!s.playing && s.timeSec <= sceneRef.current.replay.meta.startSec + 1) {
         replayStore.set({ playing: true });
       }
     } else if (replayStore.get().follow) {
@@ -252,6 +262,30 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
+
+  // scene switch: swap area/origins, reset the clock, refit the camera
+  useEffect(() => {
+    const map = mapRef.current;
+    replayStore.set({
+      timeSec: scene.replay.meta.startSec,
+      // deep-mode readers get the clock started on arrival at the
+      // experiment section instead (the arrival-autoplay effect)
+      playing: sectionRef.current === "experiment",
+      follow: false,
+    });
+    if (!map || !readyRef.current) return;
+    (map.getSource("service-area") as maplibregl.GeoJSONSource | undefined)?.setData(scene.area);
+    (map.getSource("origins") as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: (scene.origins ?? []).map(([lon, lat, mode]) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lon, lat] },
+        properties: { mode },
+      })),
+    });
+    applySection(sectionRef.current, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.area, scene.replay]);
 
   // ambient traffic: lazy, optional — the replay works without it
   const trafficRef = useRef<TrafficLayer | null>(null);
@@ -274,11 +308,10 @@ export function MapStage({ report, section }: { report: ReportData; section: str
     let last = performance.now();
     let followTarget: string | null = null;
     let wasFollowing = false;
-    const { replay } = report;
-    const endSec = replay.meta.endSec;
 
     const paint = () => {
       const map = mapRef.current;
+      const replay = sceneRef.current.replay;
       const { timeSec, follow } = replayStore.get();
       if (map && readyRef.current && (CAMERAS[sectionRef.current] ?? CAMERAS.hero).showReplay) {
         const cabFeatures = replay.cabs.flatMap((cab) => {
@@ -310,7 +343,7 @@ export function MapStage({ report, section }: { report: ReportData; section: str
           features: riderFeatures,
         });
 
-        const traffic = trafficRef.current;
+        const traffic = sceneRef.current.showTraffic ? trafficRef.current : null;
         if (traffic) {
           const trafficFeatures = traffic.tracks.flatMap((tr) => {
             const p = trackAt(tr.path, timeSec);
@@ -325,6 +358,11 @@ export function MapStage({ report, section }: { report: ReportData; section: str
           (map.getSource("traffic") as maplibregl.GeoJSONSource | undefined)?.setData({
             type: "FeatureCollection",
             features: trafficFeatures,
+          });
+        } else {
+          (map.getSource("traffic") as maplibregl.GeoJSONSource | undefined)?.setData({
+            type: "FeatureCollection",
+            features: [],
           });
         }
 
@@ -359,13 +397,13 @@ export function MapStage({ report, section }: { report: ReportData; section: str
         }
       }
       const now = performance.now();
-      replayStore.tick((now - last) / 1000, endSec);
+      replayStore.tick((now - last) / 1000, sceneRef.current.replay.meta.endSec);
       last = now;
       raf = requestAnimationFrame(paint);
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [report]);
+  }, []);
 
   // outer div holds the fixed positioning; maplibre owns the inner one
   return (

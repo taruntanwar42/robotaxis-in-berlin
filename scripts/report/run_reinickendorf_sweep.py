@@ -364,15 +364,102 @@ def run_headless(fleet: int, seed: int, dispatch: str = "greedyClosest") -> dict
     return metrics
 
 
+def run_trace(fleet: int, seed: int, trace_path: Path, step: int = 2, dispatch: str = "greedyClosest") -> dict:
+    """Record per-2s cab positions for the map replay (same format as the
+    corridor replay.json)."""
+    import libsumo
+
+    net = load_net()
+    requests, _match_stats = load_requests(net)
+    rng = random.Random(1000 + fleet)
+    tmpdir = Path(tempfile.mkdtemp(prefix="trace_rdf_"))
+    taxi_routes = tmpdir / "taxi.rou.xml"
+    tripinfo = tmpdir / "tripinfo.xml"
+    build_route_file(fleet, requests, taxi_routes, rng)
+    libsumo.start(["sumo", *sumo_args(taxi_routes, tripinfo, seed, dispatch)])
+
+    cab_paths: dict[str, list] = {}
+    state_names = {0: "idle", 1: "to_pickup", 2: "occupied", 3: "occupied"}
+    now = BEGIN_SEC
+    while now < END_SEC:
+        libsumo.simulationStep()
+        now = int(libsumo.simulation.getTime())
+        if libsumo.simulation.getMinExpectedNumber() == 0 and now > REQUEST_END_SEC:
+            break
+        if now % step:
+            continue
+        for vid in libsumo.vehicle.getIDList():
+            if not vid.startswith("cybercab_"):
+                continue
+            x, y = libsumo.vehicle.getPosition(vid)
+            lon, lat = net.convertXY2LonLat(x, y)
+            try:
+                raw_state = int(libsumo.vehicle.getParameter(vid, "device.taxi.state"))
+            except Exception:
+                raw_state = 0
+            cab_paths.setdefault(vid, []).append(
+                [now, round(lon, 5), round(lat, 5), state_names.get(raw_state, "idle")]
+            )
+    libsumo.close()
+
+    metrics = parse_tripinfo(tripinfo, len(requests), fleet)
+    metrics.update({"fleet": fleet, "sumoSeed": seed, "dispatch": dispatch, "engine": f"sumo-taxi-{dispatch}"})
+
+    riders = []
+    tree = ET.parse(tripinfo)
+    by_id = {pi.get("id"): pi for pi in tree.getroot().iter("personinfo")}
+    for i, req in enumerate(requests):
+        pid = f"rider_{i + 1:04d}"
+        pi = by_id.get(pid)
+        depart = float(req["departureSec"])
+        pickup = dropoff = None
+        if pi is not None:
+            ride = next(iter(pi.iter("ride")), None)
+            if ride is not None and float(ride.get("arrival", "-1")) >= 0:
+                pickup = depart + float(ride.get("waitingTime", "0"))
+                dropoff = float(ride.get("arrival"))
+        riders.append(
+            {
+                "id": f"r{i + 1}",
+                "o": [round(req["originLon"], 5), round(req["originLat"], 5)],
+                "d": [round(req["destinationLon"], 5), round(req["destinationLat"], 5)],
+                "departSec": depart,
+                "pickupSec": pickup,
+                "dropoffSec": dropoff,
+            }
+        )
+
+    trace = {
+        "meta": {
+            "fleet": fleet,
+            "sumoSeed": seed,
+            "startSec": BEGIN_SEC,
+            "endSec": now,
+            "stepSec": step,
+            "district": "reinickendorf",
+            "metrics": metrics,
+        },
+        "cabs": [{"id": vid, "path": path} for vid, path in sorted(cab_paths.items())],
+        "riders": riders,
+    }
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    trace_path.write_text(json.dumps(trace, separators=(",", ":")), encoding="utf-8")
+    return metrics
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fleet", type=int, required=True)
     parser.add_argument("--sumo-seed", type=int, default=7)
     parser.add_argument("--dispatch", type=str, default="greedyClosest")
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--trace", type=Path, default=None)
     args = parser.parse_args()
 
-    metrics = run_headless(args.fleet, args.sumo_seed, dispatch=args.dispatch)
+    if args.trace:
+        metrics = run_trace(args.fleet, args.sumo_seed, args.trace, dispatch=args.dispatch)
+    else:
+        metrics = run_headless(args.fleet, args.sumo_seed, dispatch=args.dispatch)
 
     print(json.dumps(metrics, indent=2))
     if args.out:

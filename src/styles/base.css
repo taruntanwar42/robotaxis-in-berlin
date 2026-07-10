@@ -488,6 +488,12 @@ table.data td.best {
   z-index: 1;
 }
 
+/* the map stage renders inside .op now; keep content above the canvas */
+.op > section {
+  position: relative;
+  z-index: 1;
+}
+
 .op-hero {
   min-height: 100vh;
   display: flex;
@@ -810,5 +816,21 @@ table.data td.best {
   .op-footer a::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
+  }
+}
+
+/* district toggle on the hero */
+.op-district {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  pointer-events: auto;
+  margin-bottom: 0.6rem;
+}
+
+@media print {
+  .op-district {
+    display: none !important;
   }
 }

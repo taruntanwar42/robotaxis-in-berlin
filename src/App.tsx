@@ -74,17 +74,20 @@ export default function App() {
   }
 
   if (!deep) {
-    return (
-      <>
-        <MapStage report={report} section="experiment" />
-        <OnePager report={report} />
-      </>
-    );
+    return <OnePager report={report} />;
   }
 
   return (
     <>
-      <MapStage report={report} section={active} />
+      <MapStage
+        scene={{
+          area: report.serviceArea,
+          replay: report.replay,
+          origins: report.demand.evening.origins,
+          showTraffic: true,
+        }}
+        section={active}
+      />
       <LineRail stations={STATIONS} active={active} />
       <a
         className="op-chip link"
